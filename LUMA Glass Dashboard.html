@@ -4422,7 +4422,7 @@
       docEl('calPrev').onclick = () => calMove(-1); docEl('calNext').onclick = () => calMove(1);
       docEl('calToday').onclick = () => { cDate = mytDayKey(Date.now()); paintCalendar(); };
       docEl('calCreate').onclick = () => openCalModal(null, cView === 'month' || cView === 'year' ? mytDayKey(Date.now()) : cDate);
-      docEl('calViews').onclick = e => { const sp = e.target.closest('span[data-v]'); if (sp) { cView = sp.dataset.v; paintCalendar(); } };
+      docEl('calViews').onclick = e => { const sp = e.target.closest('span[data-v]'); if (sp) { cView = sp.dataset.v; cDate = mytDayKey(Date.now()); paintCalendar(); } }; // each tab opens on today
       docEl('calViewAll').onclick = e => { e.preventDefault(); openCalList(); };
       docEl('calCats').onclick = e => { const c = e.target.closest('[data-cat]'); if (!c) return; cHidden.has(c.dataset.cat) ? cHidden.delete(c.dataset.cat) : cHidden.add(c.dataset.cat); paintCalendar(); };
       docEl('calUpcoming').onclick = e => { const u = e.target.closest('.upcoming-item'); if (u) calOpenItem(u.dataset.type, u.dataset.id, u.dataset.d); };
