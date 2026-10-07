@@ -2131,6 +2131,7 @@
           <div class="pem-field"><label>Other yearly tax reliefs (RM)</label><input id="mIncRelief" type="text" inputmode="decimal" placeholder="0" autocomplete="off"></div>
         </div>
       </div>
+      <div class="pem-field" id="mIncPcbWrap"><label>PCB on your payslip (RM) <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="mIncPcb" type="text" inputmode="decimal" placeholder="Leave blank to estimate — enter 0 if none is deducted" autocomplete="off"></div>
       <div class="pem-field"><label>Pay day (day of the month)</label><input id="mIncPayDay" type="text" inputmode="numeric" placeholder="25" autocomplete="off"></div>
       <div class="m-break" id="mIncBreak"></div>
       <div class="pem-actions"><button class="confirm-btn save" id="mIncSave" style="flex:1">Save income</button></div>
@@ -3973,17 +3974,18 @@
       return tax;
     }
     function myPayroll(gross, o = {}) {
-      const r2 = x => Math.round(x * 100) / 100, r5 = x => Math.round(x / 0.05) * 0.05, CAP = 6000;
+      const r2 = x => Math.round(x * 100) / 100, r5 = x => Math.round(Math.round(x * 100) / 5) * 5 / 100, CAP = 6000; // r5: nearest 5 sen
       const w = Math.min(Math.max(gross, 0), CAP), mid = w > 0 ? Math.ceil(w / 100) * 100 - 50 : 0;
       const epf = Math.ceil(Math.max(gross, 0) * (o.epfRate == null ? 11 : o.epfRate) / 100);
-      const socso = r2(r5(mid * 0.005)), eis = r2(r5(mid * 0.002)), lindung = r2(w * 0.0075);
+      const socso = r5(mid * 5 / 1000), eis = r5(mid * 2 / 1000), lindung = r5(mid * 75 / 10000); // all worked out on the midpoint of the RM100 wage band, to the nearest 5 sen
       // income tax on a year of this salary (no bonus)
       const annual = gross * 12, epfRelief = Math.min(4000, epf * 12), socsoRelief = Math.min(350, (socso + eis + lindung) * 12);
       const reliefs = 9000 + epfRelief + socsoRelief + (o.married ? 4000 : 0) + (o.children || 0) * 2000 + (o.otherRelief || 0);
       const chargeable = Math.max(0, annual - reliefs);
       let tax = myIncomeTax(chargeable); if (chargeable <= 35000) tax = Math.max(0, tax - 400); // RM400 rebate
-      let pcb = r2(r5(tax / 12)); if (pcb < 10) pcb = 0; // PCB under RM10 is not deducted
-      return { gross, epf, socso, eis, lindung, pcb, annualTax: r2(tax), chargeable: r2(chargeable), net: r2(gross - epf - socso - eis - lindung - pcb) };
+      let pcb = r5(tax / 12); if (pcb < 10) pcb = 0; // PCB under RM10 is not deducted
+      if (o.pcbOverride != null) pcb = Math.max(0, o.pcbOverride); // the amount on your own payslip wins over the estimate
+      return { gross, epf, socso, eis, lindung, pcb, annualTax: r2(tax), chargeable: r2(chargeable), net: r2(gross - epf - socso - eis - lindung - pcb), pcbFromPayslip: o.pcbOverride != null };
     }
 
     const M_CATS = [['Housing', 'fa-house', '#60a5fa'], ['Food & dining', 'fa-utensils', '#a78bfa'], ['Groceries', 'fa-basket-shopping', '#4ade80'], ['Transport', 'fa-car', '#34d399'], ['Bills & utilities', 'fa-bolt', '#fbbf24'], ['Subscriptions', 'fa-repeat', '#f472b6'],
@@ -3996,7 +3998,7 @@
     const mCatInfo = (name, kind) => (kind === 'income' ? [...M_INCOME_CATS, ['Salary', 'fa-arrow-trend-up', '#4ade80']] : M_CATS).find(c => c[0] === name) || (kind === 'income' ? M_INCOME_CATS[M_INCOME_CATS.length - 1] : M_CATS[M_CATS.length - 1]);
     const mIsMY = () => lumaCountry() === 'Malaysia';
     // take-home pay: Malaysia works out the deductions, other countries use the income as entered
-    const mPay = () => mIsMY() ? myPayroll(MSET.gross_salary, { epfRate: MSET.epf_rate, married: MSET.marital === 'married', children: MSET.children, otherRelief: MSET.other_relief }) : { gross: MSET.gross_salary, net: MSET.gross_salary };
+    const mPay = () => mIsMY() ? myPayroll(MSET.gross_salary, { epfRate: MSET.epf_rate, married: MSET.marital === 'married', children: MSET.children, otherRelief: MSET.other_relief, pcbOverride: MSET.pcb_override == null ? null : Number(MSET.pcb_override) }) : { gross: MSET.gross_salary, net: MSET.gross_salary };
 
     // everything that happened in the month starting `mFirst`: logged entries, bills/subscriptions you marked paid, and the monthly salary
     function mTxns(mFirst) {
@@ -4106,20 +4108,20 @@
     const mIncErr = m => { docEl('mIncError').textContent = m; docEl('mIncError').style.display = m ? 'flex' : 'none'; };
     function paintIncomeForm() {
       const my = docEl('mIncCountry').value === 'Malaysia', gross = gNum(docEl('mIncGross').value) || 0;
-      docEl('mIncMy').style.display = my ? '' : 'none';
+      docEl('mIncMy').style.display = my ? '' : 'none'; docEl('mIncPcbWrap').style.display = my ? '' : 'none';
       docEl('mIncGrossLbl').textContent = my ? 'Gross monthly salary (RM) — before deductions' : 'Monthly income (RM) — what you receive';
       docEl('mIncEpf').innerHTML = [[11, '11% (standard)'], [9, '9% (reduced)'], [0, '0% (none)']].map(([v, l]) => `<button type="button" data-e="${v}" class="${v === mInc.epf ? 'on' : ''}">${l}</button>`).join('');
       docEl('mIncMarital').innerHTML = [['single', 'Single'], ['married', 'Married (spouse not working)']].map(([v, l]) => `<button type="button" data-m="${v}" class="${v === mInc.marital ? 'on' : ''}">${l}</button>`).join('');
       const box = docEl('mIncBreak'), f = x => bRM(x);
       if (!my) { box.innerHTML = `<div class="row total"><span>Monthly income counted</span><b>${f(gross)}</b></div><div class="note">Salary deductions (EPF, SOCSO, EIS, tax) are only worked out for Malaysia. Enter what you take home each month.</div>`; return; }
       if (!(gross > 0)) { box.innerHTML = '<div class="note" style="margin:0">Enter your gross salary to see your take-home pay.</div>'; return; }
-      const p = myPayroll(gross, { epfRate: mInc.epf, married: mInc.marital === 'married', children: Math.round(gNum(docEl('mIncChildren').value)) || 0, otherRelief: gNum(docEl('mIncRelief').value) || 0 });
+      const p = myPayroll(gross, { epfRate: mInc.epf, married: mInc.marital === 'married', children: Math.round(gNum(docEl('mIncChildren').value)) || 0, otherRelief: gNum(docEl('mIncRelief').value) || 0, pcbOverride: docEl('mIncPcb').value.trim() === '' ? null : gNum(docEl('mIncPcb').value) });
       box.innerHTML = `<div class="row"><span>Gross salary</span><b>${f(p.gross)}</b></div>
         <div class="row minus"><span>EPF (${mInc.epf}%)</span><b>−${f(p.epf)}</b></div>
         <div class="row minus"><span>SOCSO (0.5%)</span><b>−${f(p.socso)}</b></div>
         <div class="row minus"><span>EIS (0.2%)</span><b>−${f(p.eis)}</b></div>
         <div class="row minus"><span>LINDUNG 24 Jam (0.75%) <span class="m-tag">New · Jun 2026</span></span><b>−${f(p.lindung)}</b></div>
-        <div class="row minus"><span>PCB — income tax (estimate)</span><b>−${f(p.pcb)}</b></div>
+        <div class="row minus"><span>PCB — income tax ${p.pcbFromPayslip ? '(from your payslip)' : '(estimate)'}</span><b>−${f(p.pcb)}</b></div>
         <div class="row total"><span>Take-home pay</span><b>${f(p.net)}</b></div>
         <div class="note">Estimate for a Malaysian tax resident. SOCSO, EIS and LINDUNG 24 Jam apply to wages up to RM6,000. Tax is worked out on 12 months of this salary with the standard reliefs (self RM9,000, EPF up to RM4,000, SOCSO/EIS up to RM350${mInc.marital === 'married' ? ', spouse RM4,000' : ''}${p.chargeable ? '' : ''}). Estimated yearly tax ${f(p.annualTax)}. Your payslip may differ — bonuses and extra reliefs aren't included.</div>`;
     }
@@ -4128,7 +4130,7 @@
       const c = lumaCountry(); docEl('mIncCountry').innerHTML = '<option value="">Select country</option>' + LumaAuth.COUNTRIES.map(x => `<option value="${x}">${x}</option>`).join('');
       docEl('mIncCountry').value = c; if (docEl('mIncCountry').selectedIndex < 0) docEl('mIncCountry').value = ''; skinSelect(docEl('mIncCountry'));
       mInc.epf = Number(MSET.epf_rate); mInc.marital = MSET.marital;
-      docEl('mIncGross').value = MSET.gross_salary || ''; docEl('mIncChildren').value = MSET.children || ''; docEl('mIncRelief').value = MSET.other_relief || ''; docEl('mIncPayDay').value = MSET.pay_day || 25;
+      docEl('mIncGross').value = MSET.gross_salary || ''; docEl('mIncChildren').value = MSET.children || ''; docEl('mIncRelief').value = MSET.other_relief || ''; docEl('mIncPayDay').value = MSET.pay_day || 25; docEl('mIncPcb').value = MSET.pcb_override == null ? '' : MSET.pcb_override;
       paintIncomeForm(); docEl('moneyIncomeOverlay').classList.add('open');
     }
     const closeIncomeModal = () => docEl('moneyIncomeOverlay').classList.remove('open');
@@ -4137,7 +4139,7 @@
     docEl('mIncCountry').addEventListener('change', paintIncomeForm);
     docEl('mIncEpf').onclick = e => { const b = e.target.closest('button'); if (b) { mInc.epf = +b.dataset.e; paintIncomeForm(); } };
     docEl('mIncMarital').onclick = e => { const b = e.target.closest('button'); if (b) { mInc.marital = b.dataset.m; paintIncomeForm(); } };
-    ['mIncGross', 'mIncRelief'].forEach(id => docEl(id).addEventListener('input', () => { const c = cleanDecimal(docEl(id).value); if (c !== docEl(id).value) docEl(id).value = c; paintIncomeForm(); }));
+    ['mIncGross', 'mIncRelief', 'mIncPcb'].forEach(id => docEl(id).addEventListener('input', () => { const c = cleanDecimal(docEl(id).value); if (c !== docEl(id).value) docEl(id).value = c; paintIncomeForm(); }));
     ['mIncChildren', 'mIncPayDay'].forEach(id => docEl(id).addEventListener('input', () => { const c = docEl(id).value.replace(/\D/g, ''); if (c !== docEl(id).value) docEl(id).value = c; paintIncomeForm(); }));
     docEl('mIncSave').onclick = async () => {
       const gross = gNum(docEl('mIncGross').value || '0'), pay = Math.round(gNum(docEl('mIncPayDay').value || '25')), kids = Math.round(gNum(docEl('mIncChildren').value || '0')), rel = gNum(docEl('mIncRelief').value || '0');
@@ -4149,7 +4151,7 @@
         const r = await LumaAuth.updateProfile({ country }); if (!r.error) LUMA_PROFILE = r.data;
         else if (LUMA_PROFILE) LUMA_PROFILE = { ...LUMA_PROFILE, country }; // column missing: still use it this session
       }
-      const { data, error } = await LumaMoney.saveSettings({ gross_salary: gross, epf_rate: mInc.epf, marital: mInc.marital, children: kids, other_relief: rel || 0, pay_day: pay });
+      const { data, error } = await LumaMoney.saveSettings({ gross_salary: gross, epf_rate: mInc.epf, marital: mInc.marital, children: kids, other_relief: rel || 0, pay_day: pay, pcb_override: docEl('mIncPcb').value.trim() === '' ? null : gNum(docEl('mIncPcb').value) });
       btn.disabled = false; btn.textContent = 'Save income';
       if (error) return mIncErr(/money_settings|schema cache|does not exist/i.test(error.message) ? 'Money isn\'t set up yet — run supabase/migrations/023_money_country.sql in the SQL Editor.' : error.message);
       MSET = { ...MSET, ...data }; closeIncomeModal(); paintMoney();
