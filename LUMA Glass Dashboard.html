@@ -921,6 +921,38 @@
       #page-calendar .cal-head { flex-wrap:wrap; }
     }
 
+
+    /* calendar week: Monday–Friday time grid */
+    .cal-tg { position:relative; }
+    .tg-top { position:sticky; top:0; z-index:4; background:rgba(26,32,50,0.94); backdrop-filter:blur(14px); border-bottom:1px solid rgba(255,255,255,0.1); }
+    .tg-row { display:grid; grid-template-columns:62px repeat(5, minmax(0,1fr)); }
+    .tg-corner { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:0.62rem; color:rgba(255,255,255,0.55); padding:6px 0; }
+    .tg-corner span { color:#fbbf24; }
+    .tg-dh { display:flex; align-items:center; gap:9px; padding:12px 14px; border-left:1px solid rgba(255,255,255,0.08); }
+    .tg-dh .dn { font-size:1.3rem; font-weight:500; color:#fff; line-height:1; min-width:30px; text-align:center; }
+    .tg-dh .dw { font-size:0.78rem; color:rgba(255,255,255,0.6); }
+    .tg-dh.today .dn { background:#3b82f6; border-radius:50%; width:34px; height:34px; display:grid; place-items:center; }
+    .tg-dh.today .dw { color:#bfdbfe; font-weight:600; }
+    .tg-adrow { border-top:1px solid rgba(255,255,255,0.08); }
+    .tg-ad { min-height:30px; padding:4px 6px; border-left:1px solid rgba(255,255,255,0.08); cursor:pointer; }
+    .tg-ad .cchip { margin:2px 0 0; padding:1px 4px; display:flex; align-items:center; gap:6px; border-radius:6px; font-size:0.68rem; line-height:1.5; white-space:nowrap; overflow:hidden; background:rgba(255,255,255,0.06); cursor:pointer; color:rgba(255,255,255,0.85); }
+    .tg-ad .cchip .dot { width:7px; height:7px; border-radius:50%; flex:none; }
+    .tg-ad .cchip .tt { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+    .tg-ad .cchip.done .tt { text-decoration:line-through; opacity:.6; }
+    .tg-body { position:relative; }
+    .tg-hours { position:relative; }
+    .tg-hl { position:absolute; right:10px; transform:translateY(-50%); font-size:0.66rem; color:rgba(255,255,255,0.55); white-space:nowrap; }
+    .tg-col { position:relative; border-left:1px solid rgba(255,255,255,0.08); cursor:pointer;
+      background-image:repeating-linear-gradient(to bottom, transparent 0, transparent 51px, rgba(255,255,255,0.09) 51px, rgba(255,255,255,0.09) 52px); }
+    .tg-ev { position:absolute; box-sizing:border-box; overflow:hidden; padding:4px 7px; border-radius:8px; border-left:3px solid var(--ic,#3b82f6); background:color-mix(in srgb, var(--ic,#3b82f6) 30%, rgba(26,32,50,0.95)); cursor:pointer; z-index:1; }
+    .tg-ev:hover { z-index:2; filter:brightness(1.2); }
+    .tg-ev .t { font-size:0.74rem; font-weight:600; color:#fff; line-height:1.3; overflow:hidden; text-overflow:ellipsis; }
+    .tg-ev .m { font-size:0.64rem; color:rgba(255,255,255,0.75); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .tg-ev.tiny { display:flex; align-items:center; gap:6px; padding:0 7px; }
+    .tg-ev.tiny .t { white-space:nowrap; } .tg-ev.tiny .m { margin:0; flex:none; }
+    .tg-now { position:absolute; left:0; right:0; height:2px; background:#f87171; z-index:3; pointer-events:none; }
+    .tg-now::before { content:""; position:absolute; left:-4px; top:-3px; width:8px; height:8px; border-radius:50%; background:#f87171; }
+
     /* calendar: header fixed, the calendar body and the side column scroll on their own */
     .main-content.fit #page-calendar .cal-layout { flex:1 1 auto; min-height:0; align-items:stretch; padding-bottom:0; } /* the calendar card ends exactly where the sidebar ends */
     .main-content.fit #page-calendar .calendar-card { display:flex; flex-direction:column; min-height:0; }
@@ -4096,6 +4128,7 @@
     // Your own events (with category, time and repeats) plus — read-only — tasks that are due and bills that are due.
     const C_CATS = [['Work', '#3b82f6'], ['Meeting', '#8b5cf6'], ['Personal', '#22c55e'], ['Health', '#f59e0b'], ['Social', '#ec4899'], ['Other', '#14b8a6']];
     const C_EXTRA = [['Tasks', '#38bdf8'], ['Bills', '#fb923c']];
+    const C_HOUR_H = 52; // pixels per hour in the week view
     const C_UP_DAYS = 14; // the upcoming list only looks 2 weeks ahead
     const C_REPEAT = [['none', 'Never'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
     let CEV = [], CTASKS = [], CERR = null, cView = 'month', cDate = null, cBound = false, cAllUp = false;
@@ -4133,6 +4166,7 @@
       document.querySelectorAll('#calViews span').forEach(sp => sp.classList.toggle('active', sp.dataset.v === cView));
       docEl('calWd').style.display = cView === 'month' ? '' : 'none'; body.classList.remove('cal-nosc');
       if (CERR) { docEl('calTitle').textContent = 'Calendar'; body.innerHTML = '<div class="cal-empty">Could not load events — has <b>supabase/migrations/027_events.sql</b> been run in the Supabase SQL Editor?</div>'; paintCalSide(); return; }
+      const keepScroll = body.dataset.v === 'week' && cView === 'week' ? body.scrollTop : null; // stay where you were when changing week
       let title = '', html = '';
       if (cView === 'month') {
         const first = bFirst(cDate), lead = cDow(first), n = cLast(first), weeks = Math.ceil((lead + n) / 7), start = bAddDays(first, -lead);
@@ -4145,12 +4179,28 @@
         }).join('') + '</div>';
         body.classList.add('cal-nosc');
       } else if (cView === 'week') {
-        const start = bAddDays(cDate, -cDow(cDate)), end = bAddDays(start, 6);
-        title = `${cFmt(start, { day: 'numeric', month: 'short' })} – ${cFmt(end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
-        html = '<div class="cal-week">' + Array.from({ length: 7 }, (_, i) => {
-          const k = bAddDays(start, i), items = cItemsOn(k);
-          return `<div class="cal-wcol ${k === today ? 'today' : ''}" data-d="${k}"><div class="wh">${cFmt(k, { weekday: 'short' })}</div><div class="wn">${+k.slice(8)}</div>${items.map(it => cRow(it, k)).join('')}</div>`;
-        }).join('') + '</div>';
+        // Monday–Friday time grid: hours down the side, each timed item placed at its time and sized by its length
+        const mon = bAddDays(cDate, -((cDow(cDate) + 6) % 7)), ds = Array.from({ length: 5 }, (_, i) => bAddDays(mon, i)), nowMin = (() => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; })();
+        title = `${cFmt(mon, { day: 'numeric' })} – ${cFmt(ds[4], { day: 'numeric', month: 'short', year: 'numeric' })}`;
+        const toMin = t => +t.slice(0, 2) * 60 + +t.slice(3, 5), hr12 = h => h === 0 ? '12 am' : h < 12 ? h + ' am' : h === 12 ? '12 pm' : (h - 12) + ' pm';
+        const cols = ds.map(k => {
+          const items = cItemsOn(k), timed = items.filter(it => it.time), loose = items.filter(it => !it.time);
+          // side-by-side lanes for overlapping items
+          const evs = timed.map(it => { const sMin = toMin(it.time); return { it, s: sMin, e: Math.min(1440, Math.max(sMin + 25, it.end ? toMin(it.end) : sMin + 60)) }; }).sort((a, c) => a.s - c.s || c.e - a.e);
+          let cluster = [], clusterEnd = 0; const laid = [];
+          const flush = () => { const lanes = []; cluster.forEach(ev => { let l = lanes.findIndex(end => end <= ev.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = ev.e; ev.lane = l; }); cluster.forEach(ev => { ev.lanes = lanes.length; laid.push(ev); }); cluster = []; };
+          evs.forEach(ev => { if (cluster.length && ev.s >= clusterEnd) { flush(); clusterEnd = 0; } cluster.push(ev); clusterEnd = Math.max(clusterEnd, ev.e); }); if (cluster.length) flush();
+          return { k, loose, laid };
+        });
+        const hourH = C_HOUR_H, headCells = ds.map(k => `<div class="tg-dh ${k === today ? 'today' : ''}"><span class="dn">${+k.slice(8)}</span><span class="dw">${cFmt(k, { weekday: 'short' })}</span></div>`).join('');
+        const adCells = cols.map(c => `<div class="tg-ad" data-d="${c.k}">${c.loose.slice(0, 3).map(it => cChip(it, c.k)).join('')}${c.loose.length > 3 ? `<div class="cal-more" data-d="${c.k}">+${c.loose.length - 3} more</div>` : ''}</div>`).join('');
+        const dayCols = cols.map(c => `<div class="tg-col" data-d="${c.k}">${c.laid.map(ev => {
+          const top = ev.s / 60 * hourH, h = Math.max(20, (ev.e - ev.s) / 60 * hourH - 2), w = 100 / ev.lanes, it = ev.it;
+          return `<div class="tg-ev ${h < 36 ? 'tiny' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${c.k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}" style="top:${top}px;height:${h}px;left:calc(${ev.lane * w}% + 2px);width:calc(${w}% - 4px);--ic:${it.color}"><div class="t">${escapeHtml(it.title)}</div><div class="m">${t12(it.time)}${it.end ? ' – ' + t12(it.end) : ''}</div></div>`;
+        }).join('')}${c.k === today ? `<div class="tg-now" style="top:${nowMin / 60 * hourH}px"></div>` : ''}</div>`).join('');
+        const labels = Array.from({ length: 24 }, (_, h) => h ? `<div class="tg-hl" style="top:${h * hourH}px">${hr12(h)}</div>` : '').join('');
+        html = `<div class="cal-tg"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>+08:00</span></div>${headCells}</div><div class="tg-row tg-adrow"><div class="tg-corner"><span>all-day</span></div>${adCells}</div></div>`
+          + `<div class="tg-row tg-body" style="height:${24 * hourH}px"><div class="tg-hours">${labels}</div>${dayCols}</div></div>`;
       } else if (cView === 'day') {
         const items = cItemsOn(cDate);
         title = cFmt(cDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -4163,7 +4213,9 @@
           return `<div class="cal-ym"><div class="mn" data-m="${first}">${cFmt(first, { month: 'long' })}</div><div class="g">${'SMTWTFS'.split('').map(w => `<b>${w}</b>`).join('')}${cells}</div></div>`;
         }).join('') + '</div>';
       }
-      docEl('calTitle').textContent = title; body.innerHTML = html; paintCalSide();
+      docEl('calTitle').textContent = title; body.innerHTML = html; body.dataset.v = cView;
+      if (cView === 'week') body.scrollTop = keepScroll != null ? keepScroll : 7 * C_HOUR_H; // first look starts around 7 am
+      paintCalSide();
     }
 
     // right column: what's coming up + category toggles
@@ -4193,12 +4245,12 @@
       docEl('calEvRepeat').innerHTML = C_REPEAT.map(([v, l]) => `<button type="button" data-r="${v}" class="${v === cForm.repeats ? 'on' : ''}">${l}</button>`).join('');
       docEl('calEvTimes').style.display = cForm.allDay ? 'none' : '';
     }
-    function openCalModal(e, dateKey) {
+    function openCalModal(e, dateKey, startTime) {
       cForm.id = e ? e.id : null; cForm.category = e ? e.category : 'Work'; cForm.allDay = e ? e.all_day : false; cForm.repeats = e ? e.repeats : 'none';
       docEl('calModalTitle').textContent = e ? 'Edit event' : 'New event';
       docEl('calEvTitle').value = e ? e.title : ''; docEl('calEvNote').value = e ? e.note || '' : '';
       docEl('calEvDate').value = e ? e.event_date : dateKey || cDate || mytDayKey(Date.now()); docEl('calEvDate')._luDateRefresh();
-      docEl('calEvStart').value = e && e.start_time ? e.start_time : ''; docEl('calEvStart')._luTimeRefresh();
+      docEl('calEvStart').value = e && e.start_time ? e.start_time : !e && startTime ? startTime : ''; docEl('calEvStart')._luTimeRefresh();
       docEl('calEvEnd').value = e && e.end_time ? e.end_time : ''; docEl('calEvEnd')._luTimeRefresh();
       docEl('calEvDelete').style.display = e ? '' : 'none'; docEl('calEvRepeatHint').style.display = e && e.repeats !== 'none' ? '' : 'none';
       cErr(''); paintCalForm(); docEl('calEventOverlay').classList.add('open'); setTimeout(() => docEl('calEvTitle').focus(), 50);
@@ -4342,6 +4394,7 @@
         const more = e.target.closest('.cal-more'); if (more) return calDayPopup(more.dataset.d, more.closest('.cal-cell') || more);
         const it = e.target.closest('[data-type]'); if (it) return calOpenItem(it.dataset.type, it.dataset.id, it.dataset.d);
         const yd = e.target.closest('.cal-ym span[data-d]'); if (yd) { cDate = yd.dataset.d; cView = 'day'; return paintCalendar(); }
+        const slot = e.target.closest('.tg-col'); if (slot) { const hh = Math.max(0, Math.min(23, Math.floor((e.clientY - slot.getBoundingClientRect().top) / C_HOUR_H))); return openCalModal(null, slot.dataset.d, String(hh).padStart(2, '0') + ':00'); } // click an empty hour: new event at that hour
         const cell = e.target.closest('[data-d]'); if (cell) openCalModal(null, cell.dataset.d); // empty space in a day: create an event on that day
       };
     }
