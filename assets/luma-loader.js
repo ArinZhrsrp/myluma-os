@@ -23,8 +23,14 @@
     "#lumaLoader .ll-side{width:210px;flex:none;display:flex;flex-direction:column;gap:12px}" +
     "#lumaLoader .ll-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}" +
     "@media(max-width:768px){#lumaLoader .ll-side{display:none}}" +
-    ".ll-layer{position:absolute;left:0;right:0;bottom:0;z-index:20;overflow:hidden;padding:2px 6px 0 0;border-radius:18px;background:rgba(15,23,42,.5);-webkit-backdrop-filter:blur(26px);backdrop-filter:blur(26px);display:flex;flex-direction:column;gap:14px;transition:opacity .3s ease}" +
+    ".ll-layer{position:absolute;left:0;right:0;bottom:0;z-index:20;overflow:hidden;display:flex;flex-direction:column;gap:14px;transition:opacity .3s ease;pointer-events:auto}" +
     ".ll-layer.out{opacity:0;pointer-events:none}" +
+    ".ll-busy>*:not(.ll-layer):not(.page-head){visibility:hidden!important}" +
+    ".ll-skin{display:contents}" +
+    ".ll-skin *{color:transparent!important;text-shadow:none!important;caret-color:transparent!important;pointer-events:none!important;animation:none!important;transition:none!important}" +
+    ".ll-skin img,.ll-skin canvas,.ll-skin video{opacity:0!important}" +
+    ".ll-skin svg,.ll-skin i{opacity:.12!important}" +
+    ".ll-skin .ll-t{background:linear-gradient(100deg,rgba(255,255,255,.08) 30%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.08) 70%)!important;background-size:300% 100%!important;animation:llshine 1.4s ease-in-out infinite!important;border-radius:6px!important;-webkit-text-fill-color:transparent!important}" +
     "#lumaLoaderErr{position:fixed;inset:0;z-index:2147483001;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(5,8,18,.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif}" +
     "#lumaLoaderErr.on{display:flex}" +
     "#lumaLoaderErr .ll-err{max-width:340px;text-align:center;padding:26px;border-radius:18px;background:#1e293b;border:1px solid rgba(255,255,255,.1);color:#fff;line-height:1.5}" +
@@ -89,15 +95,48 @@
       var top = head ? head.offsetTop + head.offsetHeight + parseFloat(getComputedStyle(head).marginBottom || 0) : 0;
       if (getComputedStyle(pg).position === "static") pg.style.position = "relative";
       var layer = document.createElement("div"); layer.className = "ll-layer"; layer.style.top = top + "px";
-      layer.innerHTML = (SHAPES[KIND[key] || "grid"])();
-      pg.appendChild(layer);
-      var start = Date.now(), over = false;
+      var snap = readSnap(key);
+      layer.innerHTML = snap ? '<div class="ll-skin">' + snap + '</div>' : SHAPES[KIND[key] || "grid"]();
+      if (snap) markText(layer);
+      pg.classList.add("ll-busy"); pg.appendChild(layer);
+      var start = Date.now(), over = false, tok = pg._llTok = (pg._llTok || 0) + 1;
       var timer = setTimeout(function () { if (!over) fail(); }, MAX_MS);
       var done = function () {
         var wait = Math.max(0, MIN_MS - (Date.now() - start));
-        setTimeout(function () { over = true; clearTimeout(timer); layer.classList.add("out"); setTimeout(function () { layer.remove(); }, 350); }, wait);
+        setTimeout(function () {
+          over = true; clearTimeout(timer);
+          if (pg._llTok !== tok) return; // a newer visit has its own skeleton
+          saveSnap(key, pg); pg.classList.remove("ll-busy");
+          layer.classList.add("out"); setTimeout(function () { layer.remove(); }, 350);
+        }, wait);
       };
       Promise.resolve(work).then(done, done);
     }
   };
+
+  // ---- remember what each page looks like (text blanked, so no personal data is kept) so its skeleton matches next time ----
+  var mem = {};
+  function saveSnap(key, pg) {
+    try {
+      var c = pg.cloneNode(true);
+      c.querySelectorAll(".ll-layer,.page-head,script,style").forEach(function (n) { n.remove(); });
+      var w = document.createTreeWalker(c, NodeFilter.SHOW_TEXT), t, list = [];
+      while ((t = w.nextNode())) list.push(t);
+      list.forEach(function (n) { var len = n.nodeValue.trim().length; n.nodeValue = len ? new Array(Math.min(len, 36) + 1).join("n") : n.nodeValue; });
+      c.querySelectorAll("*").forEach(function (n) {
+        ["title", "href", "src", "value", "placeholder", "alt", "srcset"].forEach(function (a) { n.removeAttribute(a); });
+        Array.prototype.slice.call(n.attributes).forEach(function (a) { if (/^data-/.test(a.name)) n.removeAttribute(a.name); });
+      });
+      var html = c.innerHTML; if (html.length > 150000) return;
+      mem[key] = html; try { localStorage.setItem("luma_sk_" + key, html); } catch (e) {}
+    } catch (e) {}
+  }
+  function readSnap(key) { if (mem[key]) return mem[key]; try { return localStorage.getItem("luma_sk_" + key) || ""; } catch (e) { return ""; } }
+  function markText(layer) {
+    layer.querySelectorAll("*").forEach(function (n) {
+      if (n.children.length) return;
+      if (/^(SCRIPT|STYLE|SVG|I|PATH|CIRCLE|INPUT|TEXTAREA|SELECT)$/i.test(n.tagName)) return;
+      if (n.textContent.trim()) n.classList.add("ll-t");
+    });
+  }
 })();
