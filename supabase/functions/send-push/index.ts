@@ -33,6 +33,22 @@ Deno.serve(async (req) => {
   const n = payload?.record;
   if (!n?.user_id) return new Response("ignored");
 
+  // A burst of chat messages should buzz once, not once per message: only push for
+  // the first message of a burst — skip it if the same sender already sent a
+  // message in this conversation during the previous minute. (The bell and the
+  // in-app toast still show every message.)
+  if (n.type === "message" && n.ref && n.actor_id && n.created_at) {
+    const since = new Date(new Date(n.created_at).getTime() - 60_000).toISOString();
+    const { count } = await db
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("contact_id", n.ref)
+      .eq("sender_id", n.actor_id)
+      .gte("created_at", since)
+      .lt("created_at", n.created_at);
+    if (count) return new Response("skipped: message burst");
+  }
+
   const { data: subs, error } = await db
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth")
