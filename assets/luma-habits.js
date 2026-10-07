@@ -66,6 +66,11 @@
       return db().from("habits").update({ archived: true }).eq("id", id);
     },
 
+    // erase deleted (archived) habits for good, together with their check-ins (cascade). Only archived rows can be purged.
+    async purgeDeleted(ids) {
+      return db().from("habits").delete().in("id", ids).eq("archived", true);
+    },
+
     // delete several habits at once (same soft delete as remove)
     async removeMany(ids) {
       return db().from("habits").update({ archived: true }).in("id", ids);

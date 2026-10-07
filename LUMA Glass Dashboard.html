@@ -3507,7 +3507,7 @@
       },
       // ---------------- HABITS ----------------
       habits() {
-        return head('Habits','<span id="habitsSub">Loading…</span>', '<button class="create-btn" id="archiveAllHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-box-archive"></i> Archive all</button><button class="create-btn" id="selectHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-regular fa-square-check"></i> Select</button><button class="create-btn" id="addHabitBtn"><i class="fa-solid fa-plus"></i> New habit</button>') +
+        return head('Habits','<span id="habitsSub">Loading…</span>', '<button class="create-btn" id="clearGoneHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-box-archive"></i> <span>Clear deleted</span></button><button class="create-btn" id="selectHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-regular fa-square-check"></i> Select</button><button class="create-btn" id="addHabitBtn"><i class="fa-solid fa-plus"></i> New habit</button>') +
         '<div id="habitsRoot"></div>';
       },
       // ---------------- HEALTH ----------------
@@ -3877,7 +3877,7 @@
       if (!HABITS.length) { hSelecting = false; hSel.clear(); }
       [...hSel].forEach(id => { if (!HABITS.some(h => h.id === id)) hSel.delete(id); });
       const selBtn = document.getElementById('selectHabitBtn');
-      const arcBtn = document.getElementById('archiveAllHabitBtn'); if (arcBtn) arcBtn.style.display = HABITS.length && !hSelecting ? '' : 'none';
+      const goneBtn = document.getElementById('clearGoneHabitBtn'); if (goneBtn) { goneBtn.style.display = HGONE.length && !hSelecting ? '' : 'none'; goneBtn.querySelector('span').textContent = `Clear deleted (${HGONE.length})`; }
       if (selBtn) { selBtn.style.display = HABITS.length ? '' : 'none'; selBtn.innerHTML = hSelecting ? '<i class="fa-solid fa-xmark"></i> Cancel' : '<i class="fa-regular fa-square-check"></i> Select'; }
       const today = hToday();
       if (hDay && (hDay > today || hDay < hKeyAdd(today, -H_BACK))) hDay = null;
@@ -4104,14 +4104,12 @@
     async function loadHabits(pg) {
       pg.querySelector('#addHabitBtn').addEventListener('click', () => openHabitModal(null));
       hSelecting = false; hSel.clear(); hDay = null; hMonth = null;
-      pg.querySelector('#archiveAllHabitBtn').addEventListener('click', async () => {
-        const ids = HABITS.map(h => h.id); if (!ids.length) return;
-        if (!await luConfirm({ title: `Archive all ${ids.length} habit${ids.length === 1 ? '' : 's'}?`, message: 'They disappear from your list and stop reminding you, and no longer count in your Consistency chart or best streak. The days you completed stay visible when you look back at those days.', icon: 'fa-box-archive', ok: 'Archive all' })) return;
-        const { error } = await LumaHabits.removeMany(ids);
-        if (error) return luAlert('Could not archive: ' + error.message);
-        const now = new Date().toISOString();
-        HABITS.forEach(h => HGONE.push({ ...h, archived: true, updated_at: now }));
-        HABITS = []; hSel.clear(); hSelecting = false; hDay = null;
+      pg.querySelector('#clearGoneHabitBtn').addEventListener('click', async () => {
+        const ids = HGONE.map(h => h.id); if (!ids.length) return;
+        if (!await luConfirm({ title: `Clear ${ids.length} deleted habit${ids.length === 1 ? '' : 's'}?`, message: `They stop showing as "Deleted" rows on past days, and their saved ticks are erased for good. This can't be undone. Your current habits aren't touched.`, icon: 'fa-box-archive', ok: 'Clear' })) return;
+        const { error } = await LumaHabits.purgeDeleted(ids);
+        if (error) return luAlert('Could not clear: ' + error.message);
+        HGONE = []; ids.forEach(id => HLOGS.delete(id));
         paintHabits();
       });
       pg.querySelector('#selectHabitBtn').addEventListener('click', () => { hSelecting = !hSelecting; hSel.clear(); paintHabits(); });
