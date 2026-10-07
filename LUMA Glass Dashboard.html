@@ -2468,6 +2468,11 @@
 
     // ---------- Themed dialogs: use these instead of confirm() / alert() / prompt() ----------
     // All return promises:  await luConfirm({...}) → true/false · await luAlert(msg) · await luPrompt({...}) → string | null
+    // keep only digits, commas and a single decimal point (used by number-only text boxes)
+    function cleanDecimal(v) {
+      let t = String(v).replace(/[^0-9.,]/g, ''); const i = t.indexOf('.');
+      return i >= 0 ? t.slice(0, i + 1) + t.slice(i + 1).replace(/\./g, '') : t;
+    }
     function luDialog({ title, message = '', icon = 'fa-trash-can', tone = 'danger', ok = 'OK', cancel = 'Cancel', showCancel = true, input = null }) {
       return new Promise(resolve => {
         const ov = document.getElementById('dialogOverlay'), inp = document.getElementById('dlgInput');
@@ -2479,9 +2484,10 @@
         okBtn.textContent = ok; okBtn.className = 'confirm-btn ' + (tone === 'danger' ? 'danger' : 'primary');
         cancelBtn.textContent = cancel; cancelBtn.style.display = showCancel ? '' : 'none';
         inp.style.display = input ? '' : 'none';
+        inp.inputMode = input && input.numeric ? 'decimal' : 'text';
         if (input) { inp.value = input.value || ''; inp.placeholder = input.placeholder || ''; }
         // with a text box, the confirm button stays disabled until something is typed
-        const sync = () => { okBtn.disabled = !!input && !inp.value.trim(); };
+        const sync = () => { if (input && input.numeric) inp.value = cleanDecimal(inp.value); okBtn.disabled = !!input && !inp.value.trim(); };
         inp.oninput = sync; sync();
         const done = result => {
           ov.classList.remove('open');
@@ -2502,7 +2508,7 @@
     }
     const luConfirm = o => luDialog({ ok: 'Delete', ...o });
     const luAlert = (message, title = 'Something went wrong') => luDialog({ title, message, icon: 'fa-triangle-exclamation', tone: 'warn', ok: 'OK', showCancel: false });
-    const luPrompt = o => luDialog({ icon: 'fa-pen', tone: 'info', ok: 'Add', ...o, input: { placeholder: o.placeholder, value: o.value } });
+    const luPrompt = o => luDialog({ icon: 'fa-pen', tone: 'info', ok: 'Add', ...o, input: { placeholder: o.placeholder, value: o.value, numeric: o.numeric } });
 
 
     // =====================================================
@@ -3908,6 +3914,7 @@
         ? 'Type the percentage you have reached so far, as a number — for example 40 for 40%.'
         : `Type how much you have done so far, in the same units as your target${unit ? ' (' + unit + ')' : ''} — not a percentage; the % is worked out for you. Decimals are fine, like 12.5.` + (target > 0 ? ` Example: ${gFmt(Math.round(target * 0.4 * 100) / 100, unit)} of ${gFmt(target, unit)}.` : '');
     }
+    ['goalTarget', 'goalCurrent'].forEach(id => { docEl(id).addEventListener('input', () => { const c = cleanDecimal(docEl(id).value); if (c !== docEl(id).value) docEl(id).value = c; }); }); // numbers only
     ['goalTarget', 'goalUnit'].forEach(id => docEl(id).addEventListener('input', paintGoalHint));
     function paintGoalForm() {
       docEl('goalCats').innerHTML = G_CATS.map(([n, i, c]) => `<button type="button" data-c="${n}" class="${n === gForm.category ? 'on' : ''}" style="--gc:${c}"><i class="fa-solid ${i}" style="color:${c}"></i>${n}</button>`).join('');
@@ -3963,7 +3970,7 @@
 
     // quick progress update from a card
     async function updateGoalProgress(g) {
-      const raw = await luPrompt({ title: g.title, message: `Now: ${gFmt(g.current_value, g.unit)} of ${gFmt(g.target_value, g.unit)}. Enter your new total.`, placeholder: String(g.current_value), value: String(g.current_value), ok: 'Save' });
+      const raw = await luPrompt({ title: g.title, message: `Now: ${gFmt(g.current_value, g.unit)} of ${gFmt(g.target_value, g.unit)}. Enter your new total.`, placeholder: String(g.current_value), value: String(g.current_value), ok: 'Save', numeric: true });
       if (raw == null) return;
       const v = gNum(raw);
       if (!(v >= 0)) return luAlert('Please enter a number (0 or more).', 'Invalid amount');
@@ -4184,7 +4191,7 @@
       const m = HLOGS.get(id), before = new Map(m);
       let write;
       if (h.goal_value) { // measurable: ask how much (0 clears it)
-        const raw = await luPrompt({ title: h.name, message: `How many ${h.unit || 'units'} ${logDay === today ? 'today' : 'on ' + hKeyLabel(logDay)}? Goal: ${h.goal_value}. Enter 0 to clear.`, placeholder: String(h.goal_value), value: String(m.has(logDay) ? m.get(logDay) : h.goal_value), ok: 'Save' });
+        const raw = await luPrompt({ title: h.name, message: `How many ${h.unit || 'units'} ${logDay === today ? 'today' : 'on ' + hKeyLabel(logDay)}? Goal: ${h.goal_value}. Enter 0 to clear.`, placeholder: String(h.goal_value), value: String(m.has(logDay) ? m.get(logDay) : h.goal_value), ok: 'Save', numeric: true });
         if (raw == null) return;
         const v = Number(String(raw).replace(',', '.'));
         if (!isFinite(v) || v < 0) return luAlert('Please enter a number.', 'Invalid amount');
