@@ -3825,7 +3825,7 @@
       if (pg) pg.classList.add('active');
       pageTitle.textContent = titles[key];
       document.querySelectorAll('.menu').forEach(i => i.classList.toggle('active', i.dataset.page === key));
-      if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); rendered[key] = true; LumaLoader.run(wireModule(key)); } else LumaLoader.run();
+      if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); rendered[key] = true; LumaLoader.page(pg, key, wireModule(key)); } else LumaLoader.page(pg, key);
       const mc = document.querySelector('.main-content');
       mc.classList.toggle('fit', FIT_PAGES.has(key));
       if (key === 'calendar') calOnShow();
