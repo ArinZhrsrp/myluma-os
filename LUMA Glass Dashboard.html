@@ -2399,7 +2399,7 @@
         <div class="pem-field" id="habitUnitWrap"><label>Unit</label><input id="habitUnit" type="text" maxlength="20" placeholder="pages, min, km…" autocomplete="off"></div>
       </div>
       <div class="pem-field" id="habitTargetWrap"><label>Note <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="habitTarget" type="text" maxlength="40" placeholder="e.g. before 8pm" autocomplete="off"></div>
-      <div class="pem-field" id="habitRemindWrap"><label>Remind me at <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="habitRemind" type="text" placeholder="No reminder"><div class="pem-hint" style="margin:6px 0 0">Sent as a notification at this time (Malaysia time) while the habit isn't done yet. Turn on push in Settings to get it when LUMA is closed.</div></div>
+      <div class="pem-field" id="habitRemindWrap"><label>Remind me at <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="habitRemind" type="text" placeholder="No reminder"><div class="pem-hint" style="margin:6px 0 0">Sent as a notification at this time (in your time zone) while the habit isn't done yet. Turn on push in Settings to get it when LUMA is closed.</div></div>
       <div class="pem-field"><label>Icon</label><div class="h-icons" id="habitIcons"></div></div>
       <div class="pem-field"><label>Colour</label><div class="h-colors" id="habitColors"></div></div>
       <div class="pem-actions" style="gap:10px">
@@ -2422,6 +2422,7 @@
         <div class="pem-field"><label>Last name</label><input id="pemLast" type="text"></div>
       </div>
       <div class="pem-field"><label>Country</label><select id="pemCountry"></select><div class="pem-hint" style="margin:6px 0 0">Malaysian salary deductions (EPF, SOCSO, EIS, tax) are only worked out for Malaysia.</div></div>
+      <div class="pem-field"><label>Time zone (GMT)</label><select id="pemTimezone"></select><div class="pem-hint" style="margin:6px 0 0">Dates, times and push reminders use this time zone. Changing it reloads the page.</div></div>
       <div class="pem-field"><label>Email <span style="color:#fca5a5">*</span></label><input id="pemEmail" type="email"></div>
       <div class="pem-field"><label>New password</label><input id="pemPw" type="password" placeholder="Leave blank to keep current password" autocomplete="new-password"></div>
       <div class="pem-field" style="margin-bottom:0"><label>Confirm new password</label><input id="pemPw2" type="password" placeholder="Re-enter new password" autocomplete="new-password"></div>
@@ -2622,7 +2623,7 @@
         </div>
       </div>
 
-      <div class="pem-hint">Reminders are created on the server at the times you set, so they are waiting in your notifications whenever you open LUMA. With device notifications on, they also reach you when LUMA is closed. Times are Malaysia time.</div>
+      <div class="pem-hint">Reminders are created on the server at the times you set, so they are waiting in your notifications whenever you open LUMA. With device notifications on, they also reach you when LUMA is closed. Times are in your time zone.</div>
       <div class="pem-actions"><button class="confirm-btn save" id="remSave" style="flex:1">Save reminders</button></div>
     </div>
   </div>
@@ -2783,15 +2784,20 @@
   <script src="assets/luma-money.js"></script>
   <script src="assets/luma-events.js"></script>
   <script>
-    // ---------- Malaysia time (MYT, UTC+8) — the app always shows this, regardless of the viewer's own timezone ----------
-    const MYT = "Asia/Kuala_Lumpur";
+    // ---------- App time zone ----------
+    // Every date and time in the app (greeting, calendar, reminders, "today") uses this zone, whatever the browser's own is.
+    // It is the time zone chosen at sign-up / in Edit profile (Malaysia, UTC+8, until one is chosen). The helper names
+    // below still start with "myt" for historical reasons.
+    let MYT = LumaAuth.DEFAULT_TIMEZONE;
+    const tzOffsetLabel = () => LumaAuth.tzOffset(MYT); // "GMT+08:00"
+    function setAppTimezone(tz) { if (tz && LumaAuth.isValidTimezone(tz)) MYT = tz; }
     function mytHour() {
       return parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: MYT, hour: "2-digit", hourCycle: "h23" }).format(new Date()), 10);
     }
     function mytTopbarDate() {
       return new Intl.DateTimeFormat("en-GB", { timeZone: MYT, day: "numeric", month: "short", year: "numeric" }).format(new Date());
     }
-    // "7 Oct 2026, 3:45 PM" in Malaysia time, for upload / created / updated stamps
+    // "7 Oct 2026, 3:45 PM" in the app time zone, for upload / created / updated stamps
     function mytDateTime(iso) {
       if (!iso) return "";
       const d = new Date(iso);
@@ -3042,7 +3048,7 @@
     document.getElementById('chatNudge').addEventListener('click', e => nudgeContact(activeChatContactId, chatNameEl.textContent, e.currentTarget));
 
     // ---------- Date filter (used by Documents and Notes) ----------
-    // state = { preset: 'any'|'today'|'7d'|'30d'|'month'|'custom', from, to } with YYYY-MM-DD keys in Malaysia time
+    // state = { preset: 'any'|'today'|'7d'|'30d'|'month'|'custom', from, to } with YYYY-MM-DD keys in the app time zone
     const DATE_PRESETS = [['any', 'Any time'], ['today', 'Today'], ['7d', 'Last 7 days'], ['30d', 'Last 30 days'], ['month', 'This month'], ['custom', 'Custom range']];
     const newDateFilter = () => ({ preset: 'any', from: '', to: '' });
     function dateFilterRange(st) {
@@ -3307,7 +3313,8 @@
 
       const { data, error } = await LumaAuth.getProfile();
       if (!error) LUMA_PROFILE = data;
-      else console.info("LUMA: luma.profiles not reachable yet (run supabase/migrations/001_profiles_contacts_chat.sql and expose the schema) — using signup metadata instead.", error.message);
+      setAppTimezone((LUMA_PROFILE && LUMA_PROFILE.timezone) || (LUMA_USER.user_metadata && LUMA_USER.user_metadata.timezone)); // the time zone chosen at sign-up / in Edit profile
+      if (error) console.info("LUMA: luma.profiles not reachable yet (run supabase/migrations/001_profiles_contacts_chat.sql and expose the schema) — using signup metadata instead.", error.message);
 
       applyUserUI();
       document.getElementById("authGate").remove();
@@ -3393,7 +3400,7 @@
     const pemPw = document.getElementById('pemPw');
     const pemPw2 = document.getElementById('pemPw2');
     const pemSave = document.getElementById('pemSave');
-    const pemCountry = document.getElementById('pemCountry');
+    const pemCountry = document.getElementById('pemCountry'), pemTimezone = document.getElementById('pemTimezone');
     pemCountry.innerHTML = '<option value="">Not set</option>' + LumaAuth.COUNTRIES.map(c => `<option value="${c}">${c}</option>`).join('');
 
     function pemShowError(text) { pemOk.style.display = 'none'; pemError.textContent = text; pemError.style.display = 'flex'; }
@@ -3409,6 +3416,7 @@
       pemPw2.value = '';
       pemCountry.value = lumaCountry(); if (pemCountry.selectedIndex < 0) pemCountry.value = '';
       skinSelect(pemCountry);
+      pemTimezone.innerHTML = LumaAuth.timezoneOptions(MYT); skinSelect(pemTimezone);
       pemOverlay.classList.add('open');
       pemFirst.focus();
     }
@@ -3433,14 +3441,19 @@
 
       const notices = [];
 
+      const tzChanged = pemTimezone.value && pemTimezone.value !== MYT;
+      let tzSaved = false;
       let { data: profileData, error: profileError } = await LumaAuth.updateProfile({
         first_name: pemFirst.value.trim(),
         last_name: pemLast.value.trim(),
         country: pemCountry.value || null,
+        timezone: pemTimezone.value || null,
       });
-      if (profileError && /country/i.test(profileError.message)) { // migration 023 not run yet: still save the name
+      if (!profileError && tzChanged) tzSaved = true;
+      if (profileError && /country|timezone/i.test(profileError.message)) { // migrations 023 / 028 not run yet: still save the name
         ({ data: profileData, error: profileError } = await LumaAuth.updateProfile({ first_name: pemFirst.value.trim(), last_name: pemLast.value.trim() }));
-        if (!profileError) notices.push('country not saved — run supabase/migrations/023_money_country.sql');
+        if (!profileError) notices.push('country / time zone not saved — run supabase/migrations/023_money_country.sql and 028_timezone.sql');
+        if (!profileError && tzChanged) { setAppTimezone(pemTimezone.value); } // still use it in this session
       }
       if (profileError) {
         pemSave.disabled = false;
@@ -3490,7 +3503,8 @@
       if (emailView) emailView.textContent = lumaEmail();
       if (avatar) avatar.textContent = lumaInitial();
 
-      pemShowOk('Saved' + (notices.length ? ' — ' + notices.join(', ') + '.' : '.'));
+      pemShowOk('Saved' + (notices.length ? ' — ' + notices.join(', ') + '.' : '.') + (tzSaved ? ' Applying your new time zone…' : ''));
+      if (tzSaved) return setTimeout(() => location.reload(), 1200); // every date and time in the app follows the new zone
       setTimeout(closeProfileEditModal, 1400);
     });
 
@@ -4199,7 +4213,7 @@
           return `<div class="tg-ev ${h < 36 ? 'tiny' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${c.k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}" style="top:${top}px;height:${h}px;left:calc(${ev.lane * w}% + 2px);width:calc(${w}% - 4px);--ic:${it.color}"><div class="t">${escapeHtml(it.title)}</div><div class="m">${t12(it.time)}${it.end ? ' – ' + t12(it.end) : ''}</div></div>`;
         }).join('')}${c.k === today ? `<div class="tg-now" style="top:${nowMin / 60 * hourH}px"></div>` : ''}</div>`).join('');
         const labels = Array.from({ length: 24 }, (_, h) => h ? `<div class="tg-hl" style="top:${h * hourH}px">${hr12(h)}</div>` : '').join('');
-        html = `<div class="cal-tg"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>+08:00</span></div>${headCells}</div><div class="tg-row tg-adrow"><div class="tg-corner"><span>all-day</span></div>${adCells}</div></div>`
+        html = `<div class="cal-tg"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>${tzOffsetLabel().replace('GMT', '')}</span></div>${headCells}</div><div class="tg-row tg-adrow"><div class="tg-corner"><span>all-day</span></div>${adCells}</div></div>`
           + `<div class="tg-row tg-body" style="height:${24 * hourH}px"><div class="tg-hours">${labels}</div>${dayCols}</div></div>`;
       } else if (cView === 'day') {
         const items = cItemsOn(cDate);
@@ -4213,6 +4227,8 @@
           return `<div class="cal-ym"><div class="mn" data-m="${first}">${cFmt(first, { month: 'long' })}</div><div class="g">${'SMTWTFS'.split('').map(w => `<b>${w}</b>`).join('')}${cells}</div></div>`;
         }).join('') + '</div>';
       }
+      const sun = k => bAddDays(k, -cDow(k)), here = cView === 'month' ? bFirst(cDate) === bFirst(today) : cView === 'week' ? sun(cDate) === sun(today) : cView === 'day' ? cDate === today : cDate.slice(0, 4) === today.slice(0, 4);
+      docEl('calToday').style.display = here ? 'none' : ''; // already looking at today: no need for the Today button
       docEl('calTitle').textContent = title; body.innerHTML = html; body.dataset.v = cView;
       if (cView === 'week') body.scrollTop = keepScroll != null ? keepScroll : 7 * C_HOUR_H; // first look starts around 7 am
       paintCalSide();
@@ -5682,7 +5698,7 @@
       const body = docEl('viewerBody'), dl = docEl('viewerDownload');
       if (viewerUrl) { URL.revokeObjectURL(viewerUrl); viewerUrl = null; }
       docEl('viewerTitle').textContent = d.name;
-      docEl('viewerSub').textContent = 'Uploaded ' + mytDateTime(d.created_at) + ' (MYT)';
+      docEl('viewerSub').textContent = 'Uploaded ' + mytDateTime(d.created_at) + ' (' + tzOffsetLabel() + ')';
       dl.removeAttribute('href'); dl.removeAttribute('download');
       body.className = 'viewer-body'; body.innerHTML = '<div class="ls">Loading…</div>';
       docEl('viewerOverlay').classList.add('open');
@@ -6231,7 +6247,7 @@
         docEl('nvBody').textContent = n.body || '';
         docEl('nvBody').style.display = n.body ? '' : 'none';
         docEl('nvDocs').innerHTML = n.docs.length ? `<div class="pem-field" style="margin-bottom:0"><label>Documents</label>${n.docs.map(d => `<div class="att-row" data-id="${d.id}"><i class="fa-solid ${LumaDocuments.icon(d)}" style="color:#93c5fd"></i><span class="att-name">${escapeHtml(d.name)}</span><span class="ls">${mytDateTime(d.created_at)} · ${LumaDocuments.formatSize(d.size_bytes)}</span><i class="fa-regular fa-eye" style="color:rgba(255,255,255,0.5)"></i></div>`).join('')}</div>` : '';
-        docEl('nvDate').textContent = 'Created ' + mytDateTime(n.created_at) + (n.updated_at !== n.created_at ? ' · Updated ' + mytDateTime(n.updated_at) : '') + ' (MYT)';
+        docEl('nvDate').textContent = 'Created ' + mytDateTime(n.created_at) + (n.updated_at !== n.created_at ? ' · Updated ' + mytDateTime(n.updated_at) : '') + ' (' + tzOffsetLabel() + ')';
         docEl('noteViewOverlay').classList.add('open');
       };
       const closeView = () => docEl('noteViewOverlay').classList.remove('open');

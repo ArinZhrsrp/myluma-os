@@ -70,6 +70,7 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
       <div class="field"><label>Last name</label><div class="inp"><i class="fa-regular fa-user"></i><input type="text" id="lastName" placeholder="Aziz" required></div></div>
     </div>
     <div class="field"><label>Country</label><div class="inp"><i class="fa-solid fa-earth-asia"></i><select id="country" required><option value="" disabled selected>Select your country</option></select><i class="fa-solid fa-chevron-down caret"></i></div></div>
+    <div class="field"><label>Time zone (GMT)</label><div class="inp"><i class="fa-regular fa-clock"></i><select id="timezone" required></select><i class="fa-solid fa-chevron-down caret"></i></div></div>
     <div class="field"><label>Email</label><div class="inp"><i class="fa-regular fa-envelope"></i><input type="email" id="email" placeholder="you@luma.os" required></div></div>
     <div class="field" style="margin-bottom:15px;">
       <label>Password</label>
@@ -96,7 +97,7 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
   <script src="assets/luma-auth.js"></script>
   <script>
     // fill the country list (shared with Edit profile)
-    (function () { const sel = document.getElementById('country'); (window.LumaAuth && LumaAuth.COUNTRIES || []).forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); }); })();
+    (function () { const tz = document.getElementById('timezone'); tz.innerHTML = LumaAuth.timezoneOptions(LumaAuth.browserTimezone()); const sel = document.getElementById('country'); (window.LumaAuth && LumaAuth.COUNTRIES || []).forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); }); })();
     LumaAuth.redirectIfSignedIn();
 
     LumaAuth._comingSoon = (btn) => {
@@ -140,7 +141,7 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
       submitBtn.innerHTML = 'Creating account\u2026';
 
       const country = document.getElementById("country").value;
-      const { data, error } = await LumaAuth.signUp({ firstName, lastName, email, password, country });
+      const { data, error } = await LumaAuth.signUp({ firstName, lastName, email, password, country, timezone: document.getElementById("timezone").value });
 
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Create account <i class="fa-solid fa-arrow-right"></i>';

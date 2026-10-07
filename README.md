@@ -273,6 +273,7 @@ supabase/migrations/
   025_subscription_reminders.sql  daily job: notification / push 3 days before a subscription renews
   026_task_notes.sql           notes on tasks
   027_events.sql               calendar events
+  028_timezone.sql             time zone (GMT) per user — dashboard times + push reminders follow it
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:
