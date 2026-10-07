@@ -904,6 +904,8 @@
     #page-calendar .cal-title h2 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
     #page-calendar .cal-title .chevron, #page-calendar .cal-today { flex:none; }
     #page-calendar .view-tabs, #page-calendar #calCreate { flex:none; white-space:nowrap; }
+    #page-calendar .cal-head { justify-content:flex-start; }
+    #page-calendar .view-tabs { margin-left:auto; } /* tabs + Create sit on the right, so they stay put when the month title changes width */
     @container calcard (max-width: 880px) {
       #page-calendar .cal-title h2 { font-size:1rem; }
       #page-calendar .view-tabs span { padding:6px 11px; font-size:0.72rem; }
