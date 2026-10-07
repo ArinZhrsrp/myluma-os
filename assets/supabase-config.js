@@ -6,3 +6,7 @@
 // enforces access with Row Level Security on the database side).
 window.LUMA_SUPABASE_URL = "https://rbrpgjcwiptuvuluqrxs.supabase.co";
 window.LUMA_SUPABASE_ANON_KEY = "sb_publishable_wtJUFH-GEQJiKW25WztC4A_07MkH6qM";
+
+
+window.LUMA_VAPID_PUBLIC_KEY = "YBAfbaXDobohcpSOR4McX7Uj8j4C7tQNdIUnSFcvScPajTO4KPj6dDket4V6uJzsHAvfGIu-w2FC1aeT0pAQnez0";
+
