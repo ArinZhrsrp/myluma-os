@@ -28,6 +28,10 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
 .inp i{color:rgba(255,255,255,0.4);font-size:0.9rem;width:18px;text-align:center;}
 .inp input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:#fff;font-size:0.9rem;}
 .inp input::placeholder{color:rgba(255,255,255,0.3);}
+.inp select{flex:1;min-width:0;height:100%;background:transparent;border:none;outline:none;color:#fff;font-size:0.9rem;cursor:pointer;appearance:none;-webkit-appearance:none;font-family:inherit;}
+.inp select:invalid{color:rgba(255,255,255,0.3);}
+.inp select option{background:#141a2c;color:#fff;}
+.inp .caret{margin-left:auto;font-size:0.7rem;pointer-events:none;}
 .strength{display:flex;gap:5px;margin-top:9px;}
 .strength span{flex:1;height:4px;border-radius:3px;background:rgba(255,255,255,0.1);transition:0.3s;}
 .strength span.on{background:linear-gradient(90deg,#2563eb,#3b82f6);}
@@ -65,6 +69,7 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
       <div class="field"><label>First name</label><div class="inp"><i class="fa-regular fa-user"></i><input type="text" id="firstName" placeholder="Shirin" required></div></div>
       <div class="field"><label>Last name</label><div class="inp"><i class="fa-regular fa-user"></i><input type="text" id="lastName" placeholder="Aziz" required></div></div>
     </div>
+    <div class="field"><label>Country</label><div class="inp"><i class="fa-solid fa-earth-asia"></i><select id="country" required><option value="" disabled selected>Select your country</option></select><i class="fa-solid fa-chevron-down caret"></i></div></div>
     <div class="field"><label>Email</label><div class="inp"><i class="fa-regular fa-envelope"></i><input type="email" id="email" placeholder="you@luma.os" required></div></div>
     <div class="field" style="margin-bottom:15px;">
       <label>Password</label>
@@ -90,6 +95,8 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
   <script src="assets/supabase-config.js"></script>
   <script src="assets/luma-auth.js"></script>
   <script>
+    // fill the country list (shared with Edit profile)
+    (function () { const sel = document.getElementById('country'); (window.LumaAuth && LumaAuth.COUNTRIES || []).forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); }); })();
     LumaAuth.redirectIfSignedIn();
 
     LumaAuth._comingSoon = (btn) => {
@@ -132,7 +139,8 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
       submitBtn.disabled = true;
       submitBtn.innerHTML = 'Creating account\u2026';
 
-      const { data, error } = await LumaAuth.signUp({ firstName, lastName, email, password });
+      const country = document.getElementById("country").value;
+      const { data, error } = await LumaAuth.signUp({ firstName, lastName, email, password, country });
 
       submitBtn.disabled = false;
       submitBtn.innerHTML = 'Create account <i class="fa-solid fa-arrow-right"></i>';

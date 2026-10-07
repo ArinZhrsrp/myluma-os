@@ -32,11 +32,15 @@
   window.LumaAuth = {
     client,
 
-    async signUp({ firstName, lastName, email, password }) {
+    // countries offered at sign-up and in Edit profile (Malaysian salary deductions only apply to "Malaysia")
+    COUNTRIES: ["Malaysia", "Singapore", "Indonesia", "Brunei", "Thailand", "Philippines", "Vietnam", "Cambodia", "Myanmar", "Laos", "India", "Pakistan", "Bangladesh", "Sri Lanka", "China", "Hong Kong", "Taiwan", "Japan", "South Korea",
+      "Australia", "New Zealand", "United Kingdom", "Ireland", "United States", "Canada", "Germany", "France", "Netherlands", "Spain", "Italy", "United Arab Emirates", "Saudi Arabia", "Qatar", "Turkey", "Egypt", "Nigeria", "South Africa", "Brazil", "Other"],
+
+    async signUp({ firstName, lastName, email, password, country = "" }) {
       return client.auth.signUp({
         email,
         password,
-        options: { data: { first_name: firstName, last_name: lastName } },
+        options: { data: { first_name: firstName, last_name: lastName, country } },
       });
     },
 

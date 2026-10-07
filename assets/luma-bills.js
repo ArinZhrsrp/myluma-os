@@ -23,7 +23,7 @@
 
     // every payment (due_date of the cycle that was paid, and the amount paid)
     async listPayments() {
-      return db().from("bill_payments").select("bill_id, due_date, amount").limit(10000);
+      return db().from("bill_payments").select("bill_id, due_date, amount, paid_at").limit(10000);
     },
 
     // user_id defaults to auth.uid() in the database

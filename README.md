@@ -268,6 +268,7 @@ supabase/migrations/
   020_bills.sql                bills (once / monthly / yearly) and their payments
   021_bill_active.sql          pause a subscription (hides it from Bills)
   022_bill_weekly.sql          weekly bills / subscriptions
+  023_money_country.sql        Money (income, budget, entries) + country on profiles
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:
