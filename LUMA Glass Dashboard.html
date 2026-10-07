@@ -2093,6 +2093,7 @@
           <div class="right-col">
             <div class="card">
               <div class="box-head"><h3>Upcoming Events</h3><a href="#" id="calViewAll">View all</a></div>
+              <div class="ls" id="calUpRemark" style="margin:-4px 0 8px;font-size:0.68rem;color:rgba(255,255,255,0.5)"></div>
               <div id="calUpcoming"></div>
             </div>
 
@@ -2198,7 +2199,7 @@
         <div class="pem-title">Upcoming events</div>
         <button class="x" id="calListClose"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="ls" style="margin-bottom:10px">Everything coming up in the next 90 days — events, tasks that are due and bills.</div>
+      <div class="ls" style="margin-bottom:10px">Only the next 2 weeks are listed — events, tasks that are due and bills.</div>
       <div id="calListBody"></div>
       <div class="pem-actions"><button class="confirm-btn cancel" id="calListDone" style="flex:1">Close</button></div>
     </div>
@@ -4093,6 +4094,7 @@
     // Your own events (with category, time and repeats) plus — read-only — tasks that are due and bills that are due.
     const C_CATS = [['Work', '#3b82f6'], ['Meeting', '#8b5cf6'], ['Personal', '#22c55e'], ['Health', '#f59e0b'], ['Social', '#ec4899'], ['Other', '#14b8a6']];
     const C_EXTRA = [['Tasks', '#38bdf8'], ['Bills', '#fb923c']];
+    const C_UP_DAYS = 14; // the upcoming list only looks 2 weeks ahead
     const C_REPEAT = [['none', 'Never'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
     let CEV = [], CTASKS = [], CERR = null, cView = 'month', cDate = null, cBound = false, cAllUp = false;
     const cHidden = new Set();
@@ -4165,13 +4167,14 @@
     // right column: what's coming up + category toggles
     function paintCalSide() {
       const today = mytDayKey(Date.now()), rows = [];
-      for (let i = 0; i < 31; i++) { const k = bAddDays(today, i); cItemsOn(k).forEach(it => rows.push({ it, k })); }
+      for (let i = 0; i < C_UP_DAYS; i++) { const k = bAddDays(today, i); cItemsOn(k).forEach(it => rows.push({ it, k })); }
+      docEl('calUpRemark').textContent = `Only the next 2 weeks are listed (until ${cFmt(bAddDays(today, C_UP_DAYS - 1), { day: 'numeric', month: 'short' })}).`;
       const shown = rows.slice(0, 5);
       docEl('calViewAll').textContent = 'View all'; docEl('calViewAll').style.display = rows.length ? '' : 'none';
       docEl('calUpcoming').innerHTML = shown.length ? shown.map(({ it, k }) => {
         const d = bDays(k, today), when = d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : cFmt(k, { weekday: 'short', day: 'numeric', month: 'short' });
         return `<div class="upcoming-item" data-d="${k}" data-type="${it.type}" data-id="${it.id}"><div class="dot" style="background:${it.color}"></div><div><div class="up-title">${escapeHtml(it.title)}</div><div class="up-time">${when} · ${cTimeLabel(it)}</div></div></div>`;
-      }).join('') : '<div class="ls" style="padding:6px 0">Nothing in the next 30 days.</div>';
+      }).join('') : '<div class="ls" style="padding:6px 0">Nothing in the next 2 weeks.</div>';
       // counts for the month being looked at (hidden categories still show their count, just dimmed)
       const first = bFirst(cDate || today), n = cLast(first), cnt = {};
       const hiddenNow = new Set(cHidden); cHidden.clear();
@@ -4302,11 +4305,11 @@
     // "View all": a popup with the whole list of what's coming up
     function openCalList() {
       const today = mytDayKey(Date.now()), groups = []; let total = 0;
-      for (let i = 0; i < 90 && total < 300; i++) { const k = bAddDays(today, i), items = cItemsOn(k); if (items.length) { groups.push([k, items]); total += items.length; } }
+      for (let i = 0; i < C_UP_DAYS && total < 300; i++) { const k = bAddDays(today, i), items = cItemsOn(k); if (items.length) { groups.push([k, items]); total += items.length; } }
       docEl('calListBody').innerHTML = groups.length ? groups.map(([k, items]) => {
         const d = bDays(k, today), label = d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : cFmt(k, { weekday: 'long' });
         return `<div class="cal-lhead">${label} · ${cFmt(k, { day: 'numeric', month: 'short', year: 'numeric' })}</div>${items.map(it => cRow(it, k)).join('')}`;
-      }).join('') : '<div class="cal-empty">Nothing coming up in the next 90 days.</div>';
+      }).join('') : '<div class="cal-empty">Nothing coming up in the next 2 weeks.</div>';
       docEl('calListOverlay').classList.add('open');
     }
     const closeCalList = () => docEl('calListOverlay').classList.remove('open');
