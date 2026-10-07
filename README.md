@@ -227,6 +227,19 @@ The service worker (`sw.js`, same folder as the pages) shows the notification on
 when no LUMA window is in front, and tapping it opens the right page. On iPhone/iPad,
 push only works once LUMA is added to the Home Screen.
 
+## Lumi assistant (free AI, optional)
+
+Lumi (the chat bubble + the Lumi page + "Get AI insights" in Analytics) runs through the `lumi` Edge Function, which calls a free-tier
+model: **Gemini first, Groq as the fallback**. Each user gets **15 chat questions per day** (and 10 AI-insight requests per day).
+Lumi can add events / tasks / notes / expenses and log health; it can't delete anything, and it only answers about LUMA.
+
+1. Run `supabase/migrations/029_assistant.sql` in the SQL Editor.
+2. Get free keys: Gemini → https://aistudio.google.com/apikey · Groq → https://console.groq.com/keys (one of them is enough; both = automatic fallback).
+3. Store them on the server (never in the page):
+   `npx supabase secrets set GEMINI_API_KEY=... GROQ_API_KEY=...`
+   (or Dashboard → Edge Functions → Secrets). Optional: `LUMI_DAILY_LIMIT`, `LUMI_INSIGHTS_LIMIT`, `GEMINI_MODEL`, `GROQ_MODEL`.
+4. Deploy: `npx supabase functions deploy lumi` (leave JWT verification ON — it is how Lumi knows who is asking).
+
 ## File structure
 
 ```
@@ -274,6 +287,7 @@ supabase/migrations/
   026_task_notes.sql           notes on tasks
   027_events.sql               calendar events
   028_timezone.sql             time zone (GMT) per user — dashboard times + push reminders follow it
+  029_assistant.sql            Lumi assistant daily question limit (15 per user per day)
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:

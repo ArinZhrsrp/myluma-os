@@ -2144,13 +2144,13 @@
       <button class="x" id="chatClose"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="chat-pop-body" id="popBody">
-      <div class="bubble ai">Hi <span class="js-user-name">there</span> 👋 I'm Lumi. Ask me to plan your day, check your budget, or reschedule your week.</div>
+      <div class="bubble ai">Hi <span class="js-user-name">there</span> 👋 I'm Lumi. I can add events, tasks, notes and expenses, log your health, and answer questions about your data. Try: <i>“Add dentist on Friday 3pm”</i>.</div>
     </div>
     <div class="chat-pop-foot">
       <div class="chat-pop-chips">
-        <span class="chip">Plan my day</span>
-        <span class="chip">What should I focus on?</span>
+        <span class="chip">What should I focus on today?</span>
         <span class="chip">How is my spending?</span>
+        <span class="chip">Log 500ml water</span>
       </div>
       <div class="chat-input" style="margin-top:0;">
         <input id="popInput" placeholder="Message Lumi…" autocomplete="off">
@@ -3915,16 +3915,16 @@
       },
       // ---------------- AI ASSISTANT (full chat) ----------------
       assistant() {
-        const mem = ['Focuses best 9–11 AM','Prefers RM budget alerts','Works out Mon/Wed/Fri','Dislikes back-to-back meetings'];
-        const cmds = ['Plan my day','What should I focus on?','Can I afford a RM900 purchase?','Summarize my week','Reschedule my week'];
+        const mem = ['Add events, tasks and notes','Log sleep, water, steps and mood','Record expenses and income','Answer questions about your data'];
+        const cmds = ['What should I focus on today?','How is my spending this month?','Add a task: pay rent, due Friday','Log 7 hours of sleep','Add dentist tomorrow 3pm'];
         const firstName = lumaName();
-        return head('Lumi','Your personal chief of staff') +
+        return head('Lumi','Your personal assistant') +
         `<div style="display:grid;grid-template-columns:1fr 300px;gap:0.9rem;align-items:start">
-          ${card(`<div id="chatScroll" class="chat-scroll"><div class="bubble ai">Good morning, ${firstName}. You're a little overloaded this week — want me to rebalance Thursday and Friday?</div></div>
+          ${card(`<div id="chatScroll" class="chat-scroll"><div class="bubble ai">Hi ${firstName}! I can add events, tasks and notes, log your health and expenses, and answer questions about your LUMA data. I can't delete things or help with topics outside the app.</div></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:0.8rem">${cmds.slice(0,3).map(c=>`<span class="chat-chip suggestion-badge" style="font-size:0.62rem;padding:0.25rem 0.8rem;background:rgba(59,130,246,0.12);color:#93c5fd;border-color:rgba(59,130,246,0.25)">${c}</span>`).join('')}</div>
             <div class="chat-input"><input id="chatInput" placeholder="Message Lumi…" autocomplete="off"><button class="chat-send" id="chatSend"><i class="fa-solid fa-arrow-up"></i></button></div>`)}
           <div style="display:flex;flex-direction:column;gap:0.9rem">
-            ${card(`<div class="section-title"><i class="fa-solid fa-brain"></i> AI memory</div>${mem.map(m=>`<div style="display:flex;gap:10px;align-items:center;font-size:0.75rem;color:rgba(255,255,255,0.8);padding:6px 0"><i class="fa-solid fa-check" style="color:#6ee7b7"></i> ${m}</div>`).join('')}`)}
+            ${card(`<div class="section-title"><i class="fa-solid fa-brain"></i> What Lumi can do</div><div class="ls" id="lumiLeftPage" style="margin:-4px 0 8px"></div>${mem.map(m=>`<div style="display:flex;gap:10px;align-items:center;font-size:0.75rem;color:rgba(255,255,255,0.8);padding:6px 0"><i class="fa-solid fa-check" style="color:#6ee7b7"></i> ${m}</div>`).join('')}`)}
             ${card(`<div class="section-title"><i class="fa-solid fa-terminal"></i> Quick commands</div>${cmds.slice(2).map(c=>`<div class="chat-chip add-card" style="justify-content:flex-start;margin-bottom:0.5rem;font-size:0.72rem">${c}</div>`).join('')}`)}
           </div>
         </div>`;
@@ -5298,7 +5298,21 @@
           ${card(`<div class="section-title"><i class="fa-solid fa-chart-pie"></i> Completed tasks by tag</div>${tags.length ? tags.map((t, i) => bar(t[0], `${t[1]} · ${Math.round(t[1] / tagTot * 100)}%`, t[1] / tagTot * 100, tcol[i % tcol.length])).join('') : '<div class="ls">No tasks completed in this period.</div>'}`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-wallet"></i> Spending by category <span class="ls" style="margin-left:auto">${anRM(cur.spend)}${cur.income ? ' · income ' + anRM(cur.income) : ''}</span></div>${cats.length ? cats.slice(0, 6).map(c => bar(c[0], anRM(c[1]), c[1] / catMax * 100, mcol[c[0]] || '#94a3b8')).join('') : '<div class="ls">No spending recorded in this period.</div>'}`)}
         </div>
-        ${card(`<div class="section-title"><i class="fa-solid fa-robot"></i> Lumi's insights</div><div class="grid-3">${ins.slice(0, 6).map(c => `<div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05)"><i class="fa-solid ${c[0]}" style="color:#93c5fd;font-size:1.1rem"></i><p style="margin-top:10px;font-size:0.75rem;color:rgba(255,255,255,0.8);line-height:1.55">${escapeHtml(c[1])}</p></div>`).join('')}</div>`)}`;
+        ${card(`<div class="section-title"><i class="fa-solid fa-robot"></i> Lumi's insights <button type="button" class="create-btn" id="anAiBtn" style="margin-left:auto;padding:6px 12px;font-size:0.7rem;background:rgba(255,255,255,0.08);box-shadow:none"><i class="fa-solid fa-wand-magic-sparkles"></i> ${anAiGet() ? 'Refresh with AI' : 'Get AI insights'}</button></div><div id="anAiNote" class="ls" style="margin:-4px 0 10px;display:${anAiGet() ? 'block' : 'none'}">Written by Lumi (AI) from your numbers.</div><div class="grid-3">${(anAiGet() ? anAiGet().map(t => ['fa-wand-magic-sparkles', t]) : ins).slice(0, 6).map(c => `<div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05)"><i class="fa-solid ${c[0]}" style="color:#93c5fd;font-size:1.1rem"></i><p style="margin-top:10px;font-size:0.75rem;color:rgba(255,255,255,0.8);line-height:1.55">${escapeHtml(c[1])}</p></div>`).join('')}</div>`)}`;
+      document.getElementById('anAiBtn').onclick = anAskAi;
+    }
+
+    const anAiKey = () => `luma_ai_ins_${LUMA_USER ? LUMA_USER.id : ''}_${hToday()}_${anRange}`;
+    function anAiGet() { try { const v = JSON.parse(localStorage.getItem(anAiKey()) || 'null'); return Array.isArray(v) && v.length ? v : null; } catch (e) { return null; } }
+    async function anAskAi() {
+      const btn = document.getElementById('anAiBtn'); if (!btn || !an) return;
+      const cur = anCalc(anKeys(anRange)), prev = anCalc(anKeys(anRange, anRange)), P = v => v == null ? null : Math.round(v * 100);
+      const cats = [...cur.cats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n, v]) => [n, Math.round(v)]);
+      const metrics = { period_days: anRange, productivity_score_pct: [P(cur.score), P(prev.score)], task_completion_pct: [P(cur.taskRate), P(prev.taskRate)], habit_consistency_pct: [P(cur.habit), P(prev.habit)], health_goal_progress_pct: [P(cur.health), P(prev.health)], tasks_completed: [cur.done, prev.done], spending_rm: [Math.round(cur.spend), Math.round(prev.spend)], income_rm: Math.round(cur.income), top_spending_categories: cats, overdue_open_tasks: an.tasks.filter(t => t.status !== 'done' && t.due_date && t.due_date < hToday()).length, note: 'each pair is [this period, previous period]' };
+      btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Thinking…';
+      const r = await lumiCall({ mode: 'insights', metrics });
+      if (r.insights && r.insights.length) { try { localStorage.setItem(anAiKey(), JSON.stringify(r.insights)); } catch (e) {} paintAnalytics(); }
+      else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Get AI insights'; luAlert(r.error || 'Lumi could not write insights just now.'); }
     }
 
     async function loadAnalytics(pg) {
@@ -6751,13 +6765,13 @@
         const send = pg.querySelector('#chatSend');
         const push = (role, text) => {
           const b = document.createElement('div'); b.className = 'bubble ' + role; b.textContent = text;
-          scroll.appendChild(b); scroll.scrollTop = scroll.scrollHeight;
+          scroll.appendChild(b); scroll.scrollTop = scroll.scrollHeight; return b;
         };
         const submit = (val) => {
           const t = (val || input.value).trim(); if (!t) return;
-          push('me', t); input.value = '';
-          setTimeout(() => push('ai', aiReply(t)), 350);
+          input.value = ''; lumiSend(t, (r, x) => { const b = push(r, x); scroll.scrollTop = scroll.scrollHeight; return b; });
         };
+        lumiCheckLeft().then(lumiPaintLeft);
         send.addEventListener('click', () => submit());
         input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
         pg.querySelectorAll('.chat-chip').forEach(c => c.addEventListener('click', () => submit(c.textContent.trim())));
@@ -6869,14 +6883,37 @@
     // =====================================================
     //  DASHBOARD INTERACTIONS
     // =====================================================
-    const aiReply = (t) => {
-      t = t.toLowerCase();
-      if (t.includes('afford')||t.includes('spend')||t.includes('spending')) return "You've spent RM2,550 of RM3,000 this month — RM450 left. Dining is your biggest jump (+22%). Want me to set a weekend cap?";
-      if (t.includes('plan')&&t.includes('day')) return "You have 2 meetings and 3 priorities. I've blocked 9–11 AM for the Q3 deck and pushed admin to the afternoon.";
-      if (t.includes('focus')) return "Start with 'Finalize Q3 strategy deck' — it's high-priority and due today, and your energy peaks now.";
-      if (t.includes('week')) return "This week you completed 92% of tasks and logged 28 focus hours (+8%). Thursday was your most productive day.";
-      return "On it — I've noted that and I'll surface a suggestion on your dashboard shortly.";
-    };
+    // ----- Lumi: real assistant (Supabase Edge Function "lumi"; free-tier Gemini / Groq on the server) -----
+    const LUMI_HIST = []; let lumiLeft = null, lumiLimit = 15, lumiBusy = false;
+    async function lumiCall(body) {
+      const now = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, dateStyle: 'full', timeStyle: 'short' }).format(new Date());
+      try {
+        const { data, error } = await LumaAuth.client.functions.invoke('lumi', { body: { ...body, tz: MYT, today: hToday(), now } });
+        if (error) { try { return await error.context.json(); } catch (e) { return { error: /not found|404/i.test(error.message || '') ? "Lumi isn't deployed yet — see the README (Lumi assistant)." : 'Lumi could not be reached. Please try again.' }; } }
+        return data || { error: 'No answer came back.' };
+      } catch (e) { return { error: 'Lumi could not be reached. Please check your connection.' }; }
+    }
+    function lumiPaintLeft() {
+      const txt = lumiLeft == null ? 'Online · ready to help' : `${lumiLeft} of ${lumiLimit} questions left today`;
+      document.querySelectorAll('#chatPop .chat-pop-head .s, #lumiLeftPage').forEach(el => { el.innerHTML = el.id === 'lumiLeftPage' ? txt : `<span class="dot"></span> ${txt}`; });
+    }
+    async function lumiCheckLeft() { if (lumiLeft != null) return; const r = await lumiCall({ mode: 'chat', check: true }); if (r && r.left != null) { lumiLeft = r.left; lumiLimit = r.limit || 15; lumiPaintLeft(); } }
+    // push(role, text) must return the bubble element
+    async function lumiSend(text, push) {
+      if (lumiBusy) return; lumiBusy = true;
+      push('me', text); LUMI_HIST.push({ role: 'user', content: text });
+      const bub = push('ai', 'Lumi is thinking…'); bub.style.opacity = '0.6';
+      const r = await lumiCall({ mode: 'chat', messages: LUMI_HIST });
+      bub.style.opacity = ''; bub.textContent = r.reply || r.error || 'Something went wrong.';
+      if (r.reply) LUMI_HIST.push({ role: 'assistant', content: r.reply }); else LUMI_HIST.pop();
+      if (LUMI_HIST.length > 12) LUMI_HIST.splice(0, LUMI_HIST.length - 12);
+      if (r.left != null) { lumiLeft = r.left; lumiLimit = r.limit || lumiLimit; lumiPaintLeft(); }
+      if (r.actions && r.actions.length) { // something was saved: refresh what's on screen
+        if (document.getElementById('page-dashboard').classList.contains('active')) loadDashboard().catch(() => {});
+        const act = document.querySelector('.page.active'); if (act && act.id !== 'page-dashboard' && act.id !== 'page-assistant') goTo(act.id.replace('page-', ''));
+      }
+      lumiBusy = false;
+    }
     // AI assistant on dashboard: jump to the full chat page
     (function initDashAI(){
       const ai = document.querySelector('#page-dashboard .assistant-input');
@@ -7080,17 +7117,16 @@
     const chatPop = document.getElementById('chatPop');
     const popBody = document.getElementById('popBody');
     const popInput = document.getElementById('popInput');
-    function openChat(){ chatPop.classList.add('open'); setTimeout(()=>popInput.focus(),100); }
+    function openChat(){ chatPop.classList.add('open'); setTimeout(()=>popInput.focus(),100); lumiCheckLeft(); }
     function closeChat(){ chatPop.classList.remove('open'); }
     function toggleChat(){ chatPop.classList.contains('open') ? closeChat() : openChat(); }
     function popPush(role, text){
       const b=document.createElement('div'); b.className='bubble '+role; b.textContent=text;
-      popBody.appendChild(b); popBody.scrollTop=popBody.scrollHeight;
+      popBody.appendChild(b); popBody.scrollTop=popBody.scrollHeight; return b;
     }
     function popSubmit(val){
       const t=(val||popInput.value).trim(); if(!t) return;
-      popPush('me',t); popInput.value='';
-      setTimeout(()=>popPush('ai', aiReply(t)), 350);
+      popInput.value=''; lumiSend(t, popPush);
     }
     document.getElementById('fab').addEventListener('click', toggleChat);
     document.getElementById('chatClose').addEventListener('click', closeChat);
