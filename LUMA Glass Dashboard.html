@@ -5314,7 +5314,7 @@
     // =====================================================
     //  DASHBOARD — every widget is computed from your real data
     // =====================================================
-    let dashTasks = [], dashRecHidden = false;
+    let dashTasks = [], dashRecHidden = false, dashPrIds = null; // dashPrIds: the priorities shown at the last load — ticked ones stay (crossed out) until the dashboard is reloaded
     const D_PRIO = { high: ['#ef4444', 0], med: ['#f59e0b', 1], low: ['#22c55e', 2] };
     const dashCard = (icon, color, label, value) => `<div style="flex:1;text-align:center;padding:14px 6px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><i class="fa-solid ${icon}" style="color:${color};font-size:1.2rem;"></i><div class="wgt-it" style="margin-top:9px;">${value}</div><div class="wgt-sub" style="margin-top:2px;">${label}</div></div>`;
     const dashChip = (icon, color, text, page) => `<span data-go="${page}" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:0.75rem;color:rgba(255,255,255,0.85);"><i class="${icon}" style="color:${color};"></i> ${text}</span>`;
@@ -5355,8 +5355,10 @@
       dashSet('dashSched', todayItems.length ? todayItems.map(it => `<div data-cal="${it.type}:${it.id}" style="display:flex;gap:11px;cursor:pointer;"><span class="wgt-time" style="width:56px;flex-shrink:0;padding-top:9px;">${it.time ? t12(it.time) : it.type === 'event' ? 'All day' : it.type === 'bill' ? 'Bill' : 'Task'}</span><span style="width:3px;border-radius:3px;background:${it.color};margin:3px 0;"></span><div style="flex:1;min-width:0;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">${escapeHtml(it.title)}</div><div class="wgt-sub" style="margin-top:2px;">${escapeHtml(cTimeLabel(it))}${it.type === 'event' ? ' · ' + escapeHtml(it.cat) : ''}</div></div></div>`).join('') : '<div class="wgt-sub">Nothing scheduled today. Add an event on the Calendar.</div>');
 
       // priorities: 8 open tasks — overdue ones first (oldest first), then high priority first (nearest due date first), then medium, then low
-      const od = t => t.due_date && t.due_date < today ? 0 : 1, pr = open.slice().sort((a, b) => od(a) - od(b) || (od(a) === 0 ? a.due_date.localeCompare(b.due_date) : 0) || (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9999').localeCompare(b.due_date || '9999')).slice(0, 8);
-      dashSet('dashTasks', pr.length ? pr.map(t => { const dl = t.due_date ? (t.due_date < today ? '<span style="color:#fca5a5;font-size:0.68rem;">overdue</span>' : t.due_date === today ? '<span style="color:#fcd34d;font-size:0.68rem;">today</span>' : `<span style="color:rgba(255,255,255,0.45);font-size:0.68rem;">${hKeyLabel(t.due_date)}</span>`) : ''; return `<div class="check-row" data-id="${t.id}"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">${escapeHtml(t.title)} ${dl}</span><span class="prio-dot" style="background:${(D_PRIO[t.priority] || D_PRIO.med)[0]};"></span></div>`; }).join('') : '<div class="wgt-sub">No open tasks. Enjoy the calm.</div>');
+      const od = t => t.due_date && t.due_date < today ? 0 : 1;
+      if (!dashPrIds) dashPrIds = open.slice().sort((a, b) => od(a) - od(b) || (od(a) === 0 ? a.due_date.localeCompare(b.due_date) : 0) || (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9999').localeCompare(b.due_date || '9999')).slice(0, 8).map(t => t.id);
+      const pr = dashPrIds.map(id => T.find(t => t.id === id)).filter(Boolean);
+      dashSet('dashTasks', pr.length ? pr.map(t => { const dl = t.due_date && t.status !== 'done' ? (t.due_date < today ? '<span style="color:#fca5a5;font-size:0.68rem;">overdue</span>' : t.due_date === today ? '<span style="color:#fcd34d;font-size:0.68rem;">today</span>' : `<span style="color:rgba(255,255,255,0.45);font-size:0.68rem;">${hKeyLabel(t.due_date)}</span>`) : ''; return `<div class="check-row ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">${escapeHtml(t.title)} ${dl}</span><span class="prio-dot" style="background:${(D_PRIO[t.priority] || D_PRIO.med)[0]};"></span></div>`; }).join('') : '<div class="wgt-sub">No open tasks. Enjoy the calm.</div>');
 
       // money
       const bp = budget ? Math.min(100, Math.round(spent / budget * 100)) : 0, ip = income ? Math.min(100, Math.round(spent / income * 100)) : 0;
@@ -5391,6 +5393,7 @@
       const [t, ev] = await Promise.all([LumaTasks.list(), LumaEvents.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(hKeyAdd(hToday(), -70)).then(h => { an = { ...(an || {}), health: h.error ? [] : (h.data || []) }; }), LumaHealth.getGoals().then(g => { an = { ...(an || {}), goals: g.data }; })]);
       dashTasks = t.error ? [] : t.data; CTASKS = dashTasks; if (!ev.error) CEV = ev.data || [];
       an = { ...(an || {}), tasks: dashTasks };
+      dashPrIds = null; // a fresh load picks the top 8 again
       paintDashboard();
     }
 
