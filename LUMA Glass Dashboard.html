@@ -865,7 +865,8 @@
     .hrow:last-child { border-bottom:none; }
     /* fit layout (like Documents / Notes): the page header stays put; the habit list and the side cards scroll together as one area */
     .main-content.fit #habitsRoot { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; }
-    .main-content.fit #habitsRoot .habit-grid { align-items:start; }
+    .main-content.fit #habitsRoot .habit-grid { align-items:stretch; } /* the habit list card is as tall as the right column (down to the bottom of This week) */
+    .main-content.fit #habitsRoot .h-side > .card:last-child { flex:1 1 auto; }
     .h-daynav { display:flex; align-items:center; gap:8px; margin:2px 0 8px; }
     .h-daynav .lbl { flex:1; text-align:center; font-size:0.78rem; color:rgba(255,255,255,0.7); }
     .h-daynav button { height:30px; min-width:30px; padding:0 10px; border-radius:9px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.8); cursor:pointer; font-size:0.72rem; font-family:inherit; }
@@ -3811,7 +3812,7 @@
     const hGoneCounts = (h, key) => { const d = mytDayKey(h.updated_at); return key < d || (key === d && hLogged(h, key)); };
     // share of the daily habits due on `key` that were done (null when none were due)
     function hDayRatio(key) {
-      const due = [...HABITS, ...HGONE].filter(h => h.period === 'daily' && hSched(h, key) && (hBorn(h) <= key || hLogged(h, key)) && (!h.archived || hGoneCounts(h, key)));
+      const due = HABITS.filter(h => h.period === 'daily' && hSched(h, key) && (hBorn(h) <= key || hLogged(h, key)));
       return due.length ? due.filter(h => hLogged(h, key)).length / due.length : null;
     }
 
@@ -3861,7 +3862,7 @@
       if (hDay && (hDay > today || hDay < hKeyAdd(today, -H_BACK))) hDay = null;
       const day = hDay || today, isToday = day === today;
       const dayWord = isToday ? 'today' : day === hKeyAdd(today, -1) ? 'yesterday' : 'on ' + hKeyLabel(day);
-      // habits you deleted still appear on the days they existed (read-only), so past days keep your ticks
+      // habits you deleted still appear (read-only) on the days they existed so past days keep your ticks — but they don't count in Consistency / best streak
       const dayHabits = [...HABITS, ...(hSelecting ? [] : HGONE.filter(h => h.period === 'daily' && (hBorn(h) <= day || hLogged(h, day)) && hGoneCounts(h, day)))];
       const daily = dayHabits.filter(h => h.period === 'daily' && hSched(h, day)), longer = HABITS.filter(h => h.period !== 'daily');
       sub.textContent = HABITS.length
@@ -3879,7 +3880,7 @@
       const showGroups = HABITS.some(h => h.period !== 'daily');
       const goneRow = h => {
         const d = hLogged(h, day);
-        return `<div class="hrow gone" data-id="${h.id}"><div class="licon" style="color:${h.color};background:${h.color}22;opacity:.7"><i class="fa-solid ${h.icon}"></i></div><div style="flex:1;min-width:0"><div class="lt" style="opacity:.8">${escapeHtml(h.name)}</div><div class="ls">Deleted ${hKeyLabel(mytDayKey(h.updated_at))} · kept in your history</div></div><span class="hbtn ${d ? 'on' : ''}" title="${d ? 'Done that day' : 'Not done that day'}" style="${d ? `background:${h.color};` : ''}cursor:default;opacity:.8"><i class="fa-solid fa-check"></i></span></div>`;
+        return `<div class="hrow gone" data-id="${h.id}"><div class="licon" style="color:${h.color};background:${h.color}22;opacity:.7"><i class="fa-solid ${h.icon}"></i></div><div style="flex:1;min-width:0"><div class="lt" style="opacity:.8">${escapeHtml(h.name)}</div><div class="ls">Deleted ${hKeyLabel(mytDayKey(h.updated_at))} · history only</div></div><span class="hbtn ${d ? 'on' : ''}" title="${d ? 'Done that day' : 'Not done that day'}" style="${d ? `background:${h.color};` : ''}cursor:default;opacity:.8"><i class="fa-solid fa-check"></i></span></div>`;
       };
       const rowHtml = h => {
         if (h.archived) return goneRow(h);
@@ -3912,7 +3913,7 @@
         const bg = r == null ? 'rgba(255,255,255,0.03)' : r >= 0.99 ? '#3b82f6' : r >= 0.5 ? 'rgba(59,130,246,0.55)' : r > 0 ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.06)';
         return `<span title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}" style="background:${bg}"></span>`;
       }).join('');
-      const best = Math.max(0, ...[...HABITS, ...HGONE].map(h => hRuns(h, today).best));
+      const best = Math.max(0, ...HABITS.map(h => hRuns(h, today).best));
       const mon = hKeyAdd(today, -((hDow(today) + 6) % 7)); // this week's Monday
       const bars = Array.from({ length: 7 }, (_, i) => { const k = hKeyAdd(mon, i), r = k > today ? null : hDayRatio(k); return `<div class="bcol" title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}"><div class="bbar" style="height:${Math.max(r || 0, 0.04) * 100}%;${k > today ? 'opacity:.25' : ''}"></div><div class="blbl">${'MTWTFSS'[i]}</div></div>`; }).join('');
       root.innerHTML = `<div class="habit-grid">
@@ -4061,7 +4062,7 @@
     };
     docEl('habitDelete').onclick = async () => {
       const h = HABITS.find(x => x.id === habitForm.id); if (!h) return;
-      if (!await luConfirm({ title: `Delete “${h.name}”?`, message: 'It disappears from your list and stops reminding you. The days you already completed still count in your Consistency chart and best streak.' })) return;
+      if (!await luConfirm({ title: `Delete “${h.name}”?`, message: 'It disappears from your list and stops reminding you, and no longer counts in your Consistency chart or best streak. The days you completed stay visible when you look back at those days.' })) return;
       const { error } = await LumaHabits.remove(h.id);
       if (error) return habitErr(error.message);
       HGONE.push({ ...h, archived: true, updated_at: new Date().toISOString() }); HABITS = HABITS.filter(x => x !== h); closeHabitModal(); paintHabits();
@@ -4081,7 +4082,7 @@
         if (e.target.closest('.h-selall')) { hSel.size === HABITS.length ? hSel.clear() : HABITS.forEach(h => hSel.add(h.id)); return paintHabits(); }
         if (e.target.closest('.h-seldel')) {
           const ids = [...hSel]; if (!ids.length) return;
-          if (!await luConfirm({ title: `Delete ${ids.length} habit${ids.length === 1 ? '' : 's'}?`, message: 'They disappear from your list and stop reminding you. The days you already completed still count in your Consistency chart and best streak.', ok: 'Delete' })) return;
+          if (!await luConfirm({ title: `Delete ${ids.length} habit${ids.length === 1 ? '' : 's'}?`, message: 'They disappear from your list and stop reminding you, and no longer count in your Consistency chart or best streak. The days you completed stay visible when you look back at those days.', ok: 'Delete' })) return;
           const { error } = await LumaHabits.removeMany(ids);
           if (error) return luAlert('Could not delete: ' + error.message);
           const now = new Date().toISOString();
