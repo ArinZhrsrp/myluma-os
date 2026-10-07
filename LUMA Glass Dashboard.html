@@ -868,6 +868,23 @@
     /* calendar month: the original table look, filling the card so it never scrolls */
     #calBody.cal-nosc { overflow-x:hidden; overflow-y:auto; }
     #calBody.cal-nosc .cal-cell { min-height:0 !important; overflow:hidden; padding:8px 10px; }
+
+    /* calendar month: one-line items (dot · time · title) like a real calendar app */
+    .cal-cell .cchip { display:flex; align-items:center; gap:6px; margin:3px -3px 0; padding:1px 4px; border-radius:6px; font-size:0.7rem; line-height:1.55; white-space:nowrap; overflow:hidden; cursor:pointer; color:rgba(255,255,255,0.85); }
+    .cal-cell .cchip:hover { background:rgba(255,255,255,0.1); }
+    .cal-cell .cchip .dot { width:8px; height:8px; border-radius:50%; flex:none; }
+    .cal-cell .cchip .tm { flex:none; color:rgba(255,255,255,0.7); font-variant-numeric:tabular-nums; }
+    .cal-cell .cchip .ck { flex:none; font-size:0.6rem; color:rgba(255,255,255,0.6); }
+    .cal-cell .cchip .tt { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; font-weight:500; }
+    .cal-cell .cchip.done .tt { text-decoration:line-through; opacity:.6; }
+    .cal-more { color:#fbbf24 !important; }
+    .cal-more:hover { color:#fcd34d !important; }
+    .cal-pop { position:fixed; z-index:270; width:290px; max-height:min(420px, calc(100vh - 16px)); display:flex; flex-direction:column; padding:12px; border-radius:16px; background:rgba(20,26,44,0.98); backdrop-filter:blur(24px); border:1px solid rgba(255,255,255,0.14); box-shadow:0 20px 56px rgba(0,0,0,0.6); }
+    .cal-pop .ph { font-size:0.8rem; font-weight:600; color:#fff; margin-bottom:10px; }
+    .cal-pop .pl { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:-6px; padding-right:6px; }
+    .cal-pop .po { margin-top:8px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#93c5fd; font-size:0.76rem; font-family:inherit; cursor:pointer; }
+    .cal-pop .po:hover { background:rgba(255,255,255,0.12); }
+
     /* calendar: header fixed, the calendar body and the side column scroll on their own */
     .main-content.fit #page-calendar .cal-layout { flex:1 1 auto; min-height:0; align-items:stretch; padding-bottom:24px; }
     .main-content.fit #page-calendar .calendar-card { display:flex; flex-direction:column; min-height:0; }
@@ -4045,7 +4062,8 @@
       return out.sort((a, c) => (a.time ? 1 : 0) - (c.time ? 1 : 0) || (a.time || '').localeCompare(c.time || '') || a.title.localeCompare(c.title));
     }
     const cTimeLabel = it => it.type === 'event' ? (it.time ? fmt12(it.time) + (it.end ? ' – ' + fmt12(it.end) : '') : 'All day') : it.label;
-    const cChip = (it, k) => `<div class="evt ${it.done ? 'done' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${k}"><div class="dot" style="background:${it.color}"></div><div class="evt-text"><span class="evt-title">${escapeHtml(it.title)}</span><span class="evt-time">${cTimeLabel(it)}</span></div></div>`;
+    const t12 = t => { const [h, m] = t.split(':').map(Number); return `${String(((h + 11) % 12) + 1).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; }; // 03:00 pm
+    const cChip = (it, k) => `<div class="cchip ${it.done ? 'done' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}"><span class="dot" style="background:${it.color}"></span>${it.time ? `<span class="tm">${t12(it.time)}</span>` : ''}${it.done ? '<i class="fa-solid fa-check ck"></i>' : ''}<span class="tt">${escapeHtml(it.title)}</span></div>`;
     const cRow = (it, k) => `<div class="cal-it ${it.done ? 'done' : ''}" style="--ic:${it.color}" data-type="${it.type}" data-id="${it.id}" data-d="${k}"><div><div class="t">${escapeHtml(it.title)}</div><div class="m">${cTimeLabel(it)}${it.type === 'event' ? ' · ' + it.cat : ''}</div></div></div>`;
 
     function paintCalendar() {
@@ -4059,10 +4077,10 @@
         const first = bFirst(cDate), lead = cDow(first), n = cLast(first), weeks = Math.ceil((lead + n) / 7), start = bAddDays(first, -lead);
         title = cFmt(first, { month: 'long', year: 'numeric' });
         // same look as always (one table with thin lines); the rows split the card's height evenly so the month never scrolls
-        const gridH = Math.max(weeks * 64, body.clientHeight - 4), cellH = gridH / weeks, per = Math.max(1, Math.floor((cellH - 40) / 60)); // rows shrink to fit (min 64px); only a very short window scrolls
+        const gridH = Math.max(weeks * 64, body.clientHeight - 4), cellH = gridH / weeks, cap = Math.max(2, Math.floor((cellH - 38) / 21)); // rows shrink to fit (min 64px); one line per item
         html = `<div class="cal-grid" style="grid-template-rows:repeat(${weeks},1fr);height:${gridH}px">` + Array.from({ length: weeks * 7 }, (_, i) => {
-          const k = bAddDays(start, i), items = cItemsOn(k), muted = k.slice(0, 7) !== first.slice(0, 7), more = items.length - per;
-          return `<div class="cal-cell ${muted ? 'muted' : ''} ${k === today ? 'today' : ''}" data-d="${k}"><div class="num">${+k.slice(8)}</div>${items.slice(0, more > 0 ? per - 1 : per).map(it => cChip(it, k)).join('')}${more > 0 ? `<div class="cal-more" data-d="${k}">+${items.length - (per - 1)} more</div>` : ''}</div>`;
+          const k = bAddDays(start, i), items = cItemsOn(k), muted = k.slice(0, 7) !== first.slice(0, 7), shown = items.length > cap ? cap - 1 : items.length; // when it doesn't all fit, the last line becomes "+N more"
+          return `<div class="cal-cell ${muted ? 'muted' : ''} ${k === today ? 'today' : ''}" data-d="${k}"><div class="num">${+k.slice(8)}</div>${items.slice(0, shown).map(it => cChip(it, k)).join('')}${items.length > shown ? `<div class="cal-more" data-d="${k}">+${items.length - shown} more</div>` : ''}</div>`;
         }).join('') + '</div>';
         body.classList.add('cal-nosc');
       } else if (cView === 'week') {
@@ -4152,6 +4170,25 @@
       CEV = CEV.filter(x => x !== e); closeCalModal(); paintCalendar();
     };
 
+    // small list of everything on a day (opened from "+N more")
+    function calDayPopup(k, anchor) {
+      document.querySelectorAll('.cal-pop').forEach(x => x.remove());
+      const items = cItemsOn(k), pop = document.createElement('div'); pop.className = 'cal-pop';
+      pop.innerHTML = `<div class="ph">${cFmt(k, { weekday: 'long', day: 'numeric', month: 'long' })}</div><div class="pl">${items.map(it => cRow(it, k)).join('')}</div><button type="button" class="po">Open day view</button>`;
+      document.body.appendChild(pop);
+      const r = anchor.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+      pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left)) + 'px';
+      pop.style.top = Math.max(8, Math.min(window.innerHeight - h - 8, r.top - 4)) + 'px';
+      const close = () => { pop.remove(); document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', onKey, true); };
+      const outside = e => { if (!pop.contains(e.target)) close(); };
+      const onKey = e => { if (e.key === 'Escape') close(); };
+      pop.onclick = e => {
+        if (e.target.closest('.po')) { close(); cDate = k; cView = 'day'; return paintCalendar(); }
+        const it = e.target.closest('[data-type]'); if (it) { close(); calOpenItem(it.dataset.type, it.dataset.id, it.dataset.d); }
+      };
+      document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', onKey, true);
+    }
+
     // ----- page wiring -----
     function calOpenItem(type, id, dateKey) {
       if (type === 'event') return openCalModal(CEV.find(x => x.id === id), dateKey);
@@ -4175,7 +4212,7 @@
       docEl('calBody').onclick = e => {
         if (e.target.closest('#calEmptyAdd')) return openCalModal(null, cDate);
         const mn = e.target.closest('.mn[data-m]'); if (mn) { cDate = mn.dataset.m; cView = 'month'; return paintCalendar(); }
-        const more = e.target.closest('.cal-more'); if (more) { cDate = more.dataset.d; cView = 'day'; return paintCalendar(); }
+        const more = e.target.closest('.cal-more'); if (more) return calDayPopup(more.dataset.d, more.closest('.cal-cell') || more);
         const it = e.target.closest('[data-type]'); if (it) return calOpenItem(it.dataset.type, it.dataset.id, it.dataset.d);
         const yd = e.target.closest('.cal-ym span[data-d]'); if (yd) { cDate = yd.dataset.d; cView = 'day'; return paintCalendar(); }
         const cell = e.target.closest('[data-d]'); if (cell) openCalModal(null, cell.dataset.d); // empty space in a day: create an event on that day
