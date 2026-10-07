@@ -1024,6 +1024,8 @@
     .kcard .knote { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-wrap; margin-top:0.5rem; font-size:0.7rem; line-height:1.45; color:rgba(255,255,255,0.6); }
     .kcard .knote i { margin-right:5px; color:rgba(255,255,255,0.4); }
     .kcard .kmeta { flex-wrap:wrap; }
+    .kcard .kfoot { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:0.55rem; padding-top:0.55rem; border-top:1px solid rgba(255,255,255,0.06); font-size:0.64rem; color:rgba(255,255,255,0.45); }
+    .kcard .kfoot .kact { display:inline-flex; align-items:center; gap:14px; }
     .kcard .kmeta .pill { font-size:0.6rem; }
     .t-status { cursor:pointer; display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:0.6rem; font-weight:600; background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.75); border:1px solid rgba(255,255,255,0.08); }
     .t-status:hover { background:rgba(255,255,255,0.14); color:#fff; }
@@ -4018,9 +4020,10 @@
               ${t.notes ? `<div class="knote"><i class="fa-regular fa-note-sticky"></i>${escapeHtml(t.notes)}</div>` : ''}
               <div class="kmeta"><span class="pill pill-${t.priority}">${t.priority==='high'?'High':t.priority==='med'?'Medium':'Low'}</span><span>${escapeHtml(t.tag)}</span>
                 <span class="t-status" title="Change status"><span class="d" style="background:${col.dot}"></span>${col.name}<i class="fa-solid fa-chevron-down" style="font-size:0.5rem"></i></span>
-                ${t.due_date?`<span style="margin-left:auto" class="${t.status!=='done' && t.due_date < today ? 't-due-over' : ''}"><i class="fa-regular fa-clock"></i> ${taskDue(t)}</span>`:'<span style="margin-left:auto"></span>'}
-                <i class="fa-solid ${t.status==='done'?'fa-rotate-left':'fa-arrow-right'} task-advance" title="${t.status==='done'?'Reopen':'Move forward'}" style="cursor:pointer"></i>
-                <i class="fa-regular fa-trash-can task-delete" title="Delete" style="cursor:pointer"></i></div></div>`).join('')}
+              </div>
+              <div class="kfoot">${t.due_date?`<span class="kdue ${t.status!=='done' && t.due_date < today ? 't-due-over' : ''}"><i class="fa-regular fa-clock"></i> ${taskDue(t)}</span>`:'<span class="kdue" style="opacity:.5"><i class="fa-regular fa-clock"></i> No due date</span>'}
+                <span class="kact"><i class="fa-solid ${t.status==='done'?'fa-rotate-left':'fa-arrow-right'} task-advance" title="${t.status==='done'?'Reopen':'Move forward'}" style="cursor:pointer"></i>
+                <i class="fa-regular fa-trash-can task-delete" title="Delete" style="cursor:pointer"></i></span></div></div>`).join('')}
             <div class="add-card task-add" title="Add a task to ${col.name}"><i class="fa-solid fa-plus"></i> Add task</div></div></div>`;
         }).join('');
         board.querySelectorAll('.kcol-body').forEach(body => {
@@ -5351,8 +5354,8 @@
       // schedule
       dashSet('dashSched', todayItems.length ? todayItems.map(it => `<div data-cal="${it.type}:${it.id}" style="display:flex;gap:11px;cursor:pointer;"><span class="wgt-time" style="width:56px;flex-shrink:0;padding-top:9px;">${it.time ? t12(it.time) : it.type === 'event' ? 'All day' : it.type === 'bill' ? 'Bill' : 'Task'}</span><span style="width:3px;border-radius:3px;background:${it.color};margin:3px 0;"></span><div style="flex:1;min-width:0;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">${escapeHtml(it.title)}</div><div class="wgt-sub" style="margin-top:2px;">${escapeHtml(cTimeLabel(it))}${it.type === 'event' ? ' · ' + escapeHtml(it.cat) : ''}</div></div></div>`).join('') : '<div class="wgt-sub">Nothing scheduled today. Add an event on the Calendar.</div>');
 
-      // priorities: 8 open tasks — high priority first (nearest due date first), then medium, then low
-      const pr = open.slice().sort((a, b) => (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9999').localeCompare(b.due_date || '9999')).slice(0, 8);
+      // priorities: 8 open tasks — overdue ones first (oldest first), then high priority first (nearest due date first), then medium, then low
+      const od = t => t.due_date && t.due_date < today ? 0 : 1, pr = open.slice().sort((a, b) => od(a) - od(b) || (od(a) === 0 ? a.due_date.localeCompare(b.due_date) : 0) || (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9999').localeCompare(b.due_date || '9999')).slice(0, 8);
       dashSet('dashTasks', pr.length ? pr.map(t => { const dl = t.due_date ? (t.due_date < today ? '<span style="color:#fca5a5;font-size:0.68rem;">overdue</span>' : t.due_date === today ? '<span style="color:#fcd34d;font-size:0.68rem;">today</span>' : `<span style="color:rgba(255,255,255,0.45);font-size:0.68rem;">${hKeyLabel(t.due_date)}</span>`) : ''; return `<div class="check-row" data-id="${t.id}"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">${escapeHtml(t.title)} ${dl}</span><span class="prio-dot" style="background:${(D_PRIO[t.priority] || D_PRIO.med)[0]};"></span></div>`; }).join('') : '<div class="wgt-sub">No open tasks. Enjoy the calm.</div>');
 
       // money
