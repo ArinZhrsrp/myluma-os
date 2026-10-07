@@ -263,6 +263,7 @@ supabase/migrations/
   015_active_reminder.sql      "Stay active" reminder
   016_habits.sql               habits + daily check-ins (streaks are worked out in the app)
   017_habit_periods.sql        daily / weekly / monthly habits, amounts (5 pages, 30 min), sleep habit from Health
+  018_habit_reminders.sql      per-habit reminder time (pg_cron job → notification → push)
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:

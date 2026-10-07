@@ -863,6 +863,12 @@
     @media (max-width:1024px){ .habit-grid{ grid-template-columns:1fr; } }
     .hrow { display:flex; align-items:center; gap:14px; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,0.04); }
     .hrow:last-child { border-bottom:none; }
+    .h-daynav { display:flex; align-items:center; gap:8px; margin:2px 0 8px; }
+    .h-daynav .lbl { flex:1; text-align:center; font-size:0.78rem; color:rgba(255,255,255,0.7); }
+    .h-daynav button { height:30px; min-width:30px; padding:0 10px; border-radius:9px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.8); cursor:pointer; font-size:0.72rem; font-family:inherit; }
+    .h-daynav button:hover:not(:disabled) { background:rgba(255,255,255,0.12); }
+    .h-daynav button:disabled { opacity:0.3; cursor:default; }
+    .h-daynav .h-dtoday { background:rgba(59,130,246,0.2); border-color:rgba(59,130,246,0.45); color:#bfdbfe; }
     .hrow .licon { flex:none; width:40px; height:40px; display:grid; place-items:center; }
     .hrow.selecting { cursor:pointer; border-radius:12px; }
     .hrow.selecting:hover { background:rgba(255,255,255,0.04); }
@@ -1976,6 +1982,7 @@
         <div class="pem-field" id="habitUnitWrap"><label>Unit</label><input id="habitUnit" type="text" maxlength="20" placeholder="pages, min, km…" autocomplete="off"></div>
       </div>
       <div class="pem-field" id="habitTargetWrap"><label>Note <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="habitTarget" type="text" maxlength="40" placeholder="e.g. before 8pm" autocomplete="off"></div>
+      <div class="pem-field" id="habitRemindWrap"><label>Remind me at <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="habitRemind" type="text" placeholder="No reminder"><div class="pem-hint" style="margin:6px 0 0">Sent as a notification at this time (Malaysia time) while the habit isn't done yet. Turn on push in Settings to get it when LUMA is closed.</div></div>
       <div class="pem-field"><label>Icon</label><div class="h-icons" id="habitIcons"></div></div>
       <div class="pem-field"><label>Colour</label><div class="h-colors" id="habitColors"></div></div>
       <div class="pem-actions" style="gap:10px">
@@ -2422,7 +2429,7 @@
     let NOTIFS = [], notifChannel = null, notifFilter = 'all';
     const NOTIF_ICONS = {
       welcome: ['fa-circle-check', '#22c55e'], share: ['fa-share-nodes', '#38bdf8'],
-      contact_request: ['fa-user-plus', '#f59e0b'], nudge: ['fa-bell', '#f59e0b'], message: ['fa-comment', '#3b82f6'], reminder_water: ['fa-droplet', '#38bdf8'], reminder_steps: ['fa-shoe-prints', '#34d399'], reminder_active: ['fa-fire', '#fb923c'], reminder_sleep: ['fa-moon', '#a78bfa'], contact_accepted: ['fa-user-check', '#22c55e'], system: ['fa-bell', '#94a3b8'],
+      contact_request: ['fa-user-plus', '#f59e0b'], nudge: ['fa-bell', '#f59e0b'], message: ['fa-comment', '#3b82f6'], reminder_water: ['fa-droplet', '#38bdf8'], reminder_steps: ['fa-shoe-prints', '#34d399'], reminder_active: ['fa-fire', '#fb923c'], reminder_habit: ['fa-bell', '#fb923c'], reminder_sleep: ['fa-moon', '#a78bfa'], contact_accepted: ['fa-user-check', '#22c55e'], system: ['fa-bell', '#94a3b8'],
     };
     const mytDayKey = d => new Intl.DateTimeFormat('en-CA', { timeZone: MYT }).format(new Date(d));
     const mytTime = d => new Intl.DateTimeFormat('en-US', { timeZone: MYT, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(d));
@@ -3746,16 +3753,14 @@
       { name: 'Solat 5 waktu', icon: 'fa-mosque', color: '#22c55e', pack: ['Subuh', 'Zohor', 'Asar', 'Maghrib', 'Isyak'] },
       { name: 'Baca Al-Quran', icon: 'fa-book-quran', color: '#14b8a6', goal_value: 5, unit: 'pages' },
       { name: 'Exercise', icon: 'fa-dumbbell', color: '#f97316', goal_value: 30, unit: 'min' },
-      { name: 'Lipat baju', icon: 'fa-shirt', color: '#38bdf8' },
-      { name: 'Cuci toilet', icon: 'fa-toilet', color: '#3b82f6', period: 'weekly' },
-      { name: 'Tukar cadar', icon: 'fa-bed', color: '#8b5cf6', period: 'weekly' },
-      { name: 'Lap meja study', icon: 'fa-broom', color: '#eab308', period: 'weekly' },
       { name: 'Tidur 6 jam', icon: 'fa-moon', color: '#a78bfa', source: 'sleep', goal_value: 6, unit: 'h' },
     ];
     const H_DAY_ORDER = [[1, 'M'], [2, 'T'], [3, 'W'], [4, 'T'], [5, 'F'], [6, 'S'], [0, 'S']]; // Monday first; value = weekday (0 = Sunday)
     const H_GROUPS = [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']];
     const H_PUNIT = { daily: 'day', weekly: 'week', monthly: 'month' };
     const H_WINDOW = 365; // days of history loaded (for streaks)
+    let hDay = null; // the day the check buttons apply to (null = today); you can go back up to 14 days to tick something you forgot
+    const H_BACK = 14;
     let hSelecting = false; const hSel = new Set(); // multi-select mode (to delete several habits at once)
     let HABITS = [], HLOGS = new Map(), HSLEEP = new Map(), HABITS_ERR = null; // HLOGS: habit id → Map(day → amount | null); HSLEEP: day → hours slept
 
@@ -3811,7 +3816,7 @@
       const { data } = await LumaHealth.listLogs(hKeyAdd(hToday(), -H_WINDOW));
       (data || []).forEach(r => { if (r.sleep_hours != null) HSLEEP.set(r.log_date, Number(r.sleep_hours)); });
     }
-    const hRow = h => ({ ...h, period: h.period || 'daily', per_period: h.per_period || 1, goal_value: h.goal_value == null ? null : Number(h.goal_value), unit: h.unit || '', source: h.source || 'manual', days: (h.days || []).map(Number) });
+    const hRow = h => ({ ...h, period: h.period || 'daily', per_period: h.per_period || 1, goal_value: h.goal_value == null ? null : Number(h.goal_value), unit: h.unit || '', source: h.source || 'manual', reminder_time: h.reminder_time || null, days: (h.days || []).map(Number) });
     async function refreshHabits() {
       const [l, g] = await Promise.all([LumaHabits.list(), LumaHabits.logsSince(hKeyAdd(hToday(), -H_WINDOW))]);
       HABITS_ERR = l.error || g.error || null;
@@ -3847,9 +3852,12 @@
       const selBtn = document.getElementById('selectHabitBtn');
       if (selBtn) { selBtn.style.display = HABITS.length ? '' : 'none'; selBtn.innerHTML = hSelecting ? '<i class="fa-solid fa-xmark"></i> Cancel' : '<i class="fa-regular fa-square-check"></i> Select'; }
       const today = hToday();
-      const daily = HABITS.filter(h => h.period === 'daily' && hSched(h, today)), longer = HABITS.filter(h => h.period !== 'daily');
+      if (hDay && (hDay > today || hDay < hKeyAdd(today, -H_BACK))) hDay = null;
+      const day = hDay || today, isToday = day === today;
+      const dayWord = isToday ? 'today' : day === hKeyAdd(today, -1) ? 'yesterday' : 'on ' + hKeyLabel(day);
+      const daily = HABITS.filter(h => h.period === 'daily' && hSched(h, day)), longer = HABITS.filter(h => h.period !== 'daily');
       sub.textContent = HABITS.length
-        ? `${daily.filter(h => hLogged(h, today)).length} of ${daily.length} done today` + (longer.length ? ` · ${longer.filter(h => hPeriodDone(h, hPeriodKey(h, today), today)).length} of ${longer.length} weekly & monthly` : '')
+        ? `${daily.filter(h => hLogged(h, day)).length} of ${daily.length} done ${dayWord}` + (longer.length ? ` · ${longer.filter(h => hPeriodDone(h, hPeriodKey(h, day), today)).length} of ${longer.length} weekly & monthly` : '')
         : 'Build routines that stick';
       if (!HABITS.length) {
         root.innerHTML = card(`<div class="h-empty">
@@ -3862,16 +3870,17 @@
       }
       const showGroups = HABITS.some(h => h.period !== 'daily');
       const rowHtml = h => {
-        const pk = hPeriodKey(h, today), cnt = hCount(h, pk, today), done = cnt >= hNeed(h), { cur } = hRuns(h, today), sleep = h.source === 'sleep';
+        const pk = hPeriodKey(h, day), curPk = hPeriodKey(h, today), cnt = hCount(h, pk, today), done = cnt >= hNeed(h), { cur } = hRuns(h, today), sleep = h.source === 'sleep';
         let detail = '';
-        if (sleep) { const v = HSLEEP.get(today); detail = (v != null ? `slept ${v}h` : 'no sleep logged') + ` · goal ${h.goal_value || 6}h+`; }
-        else if (h.goal_value && h.period === 'daily') detail = `${hValue(h, today) ?? 0}/${h.goal_value} ${h.unit}`.trim();
-        else if (h.period !== 'daily') detail = `${cnt}/${h.per_period} this ${H_PUNIT[h.period]}`;
+        if (sleep) { const v = HSLEEP.get(day); detail = (v != null ? `slept ${v}h` : 'no sleep logged') + ` · goal ${h.goal_value || 6}h+`; }
+        else if (h.goal_value && h.period === 'daily') detail = `${hValue(h, day) ?? 0}/${h.goal_value} ${h.unit}`.trim();
+        else if (h.period !== 'daily') detail = `${cnt}/${h.per_period} ${pk === curPk ? 'this' : 'that'} ${H_PUNIT[h.period]}`;
         else if (h.target) detail = h.target;
-        if (h.period === 'daily' && !hSched(h, today)) detail += (detail ? ' · ' : '') + 'rest day';
+        if (h.period === 'daily' && !hSched(h, day)) detail += (detail ? ' · ' : '') + 'rest day';
+        if (h.reminder_time) detail += (detail ? ' · ' : '') + '⏰ ' + fmt12(h.reminder_time);
         const dots = hPeriods(h, today, 7).map(k => {
           const d = hPeriodDone(h, k, today);
-          return `<button type="button" class="hdot ${hSched(h, k) ? '' : 'rest'} ${k === pk ? 'today' : ''}" data-day="${k}" title="${hPeriodLabel(h, k)}${d ? ' · done' : ''}" style="${d ? `background:${h.color};border-color:${h.color}` : ''}"></button>`;
+          return `<button type="button" class="hdot ${hSched(h, k) ? '' : 'rest'} ${k === pk ? 'today' : ''}" data-day="${k === curPk ? today : k}" title="${hPeriodLabel(h, k)}${d ? ' · done' : ''}" style="${d ? `background:${h.color};border-color:${h.color}` : ''}"></button>`;
         }).join('');
         const picked = hSel.has(h.id);
         return `<div class="hrow ${hSelecting ? 'selecting' : ''} ${hSelecting && picked ? 'selected' : ''}" data-id="${h.id}">${hSelecting ? '<span class="hsel"><i class="fa-solid fa-check"></i></span>' : ''}<div class="licon" style="color:${h.color};background:${h.color}22"><i class="fa-solid ${h.icon}"></i></div>
@@ -3879,7 +3888,7 @@
             <div class="ls" style="color:${cur ? '#fb923c' : 'rgba(255,255,255,0.4)'}"><i class="fa-solid fa-fire"></i> ${cur} ${H_PUNIT[h.period]} streak${detail ? ' · ' + escapeHtml(detail) : ''}</div>
             <div class="hdots">${dots}</div></div>
           ${hSelecting ? '' : `<button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button>
-          <button type="button" class="hbtn ${done ? 'on' : ''}" data-day="${today}" title="${sleep ? 'Counted from your sleep log in Health' : done ? 'Done — tap to undo' : h.goal_value ? 'Log amount' : 'Mark done'}" style="${done ? `background:${h.color}` : ''}"><i class="fa-solid fa-check"></i></button>`}</div>`;
+          <button type="button" class="hbtn ${done ? 'on' : ''}" data-day="${day}" title="${sleep ? 'Counted from your sleep log in Health' : done ? 'Done — tap to undo' : h.goal_value ? 'Log amount' : 'Mark done'}" style="${done ? `background:${h.color}` : ''}"><i class="fa-solid fa-check"></i></button>`}</div>`;
       };
       const rows = H_GROUPS.map(([per, label]) => {
         const hs = HABITS.filter(h => h.period === per); if (!hs.length) return '';
@@ -3894,7 +3903,7 @@
       const mon = hKeyAdd(today, -((hDow(today) + 6) % 7)); // this week's Monday
       const bars = Array.from({ length: 7 }, (_, i) => { const k = hKeyAdd(mon, i), r = k > today ? null : hDayRatio(k); return `<div class="bcol" title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}"><div class="bbar" style="height:${Math.max(r || 0, 0.04) * 100}%;${k > today ? 'opacity:.25' : ''}"></div><div class="blbl">${'MTWTFSS'[i]}</div></div>`; }).join('');
       root.innerHTML = `<div class="habit-grid">
-        ${card(`<div class="section-title"><i class="fa-solid fa-circle-check"></i> ${showGroups ? 'Habits' : 'Today'}</div>` + (hSelecting ? `<div class="h-selbar"><button type="button" class="h-selall">${hSel.size === HABITS.length ? 'Deselect all' : 'Select all'}</button><span class="cnt">${hSel.size} selected</span><button type="button" class="del h-seldel" ${hSel.size ? '' : 'disabled'}><i class="fa-regular fa-trash-can"></i> Delete${hSel.size ? ' (' + hSel.size + ')' : ''}</button></div>` : '') + rows)}
+        ${card(`<div class="section-title"><i class="fa-solid fa-circle-check"></i> ${showGroups ? 'Habits' : isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}</div>` + `<div class="h-daynav"><button type="button" class="h-dprev" ${day <= hKeyAdd(today, -H_BACK) ? 'disabled' : ''} title="Previous day"><i class="fa-solid fa-chevron-left"></i></button><span class="lbl">${isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}${isToday ? '' : ' · editing past day'}</span><button type="button" class="h-dnext" ${isToday ? 'disabled' : ''} title="Next day"><i class="fa-solid fa-chevron-right"></i></button>${isToday ? '' : '<button type="button" class="h-dtoday">Back to today</button>'}</div>` + (hSelecting ? `<div class="h-selbar"><button type="button" class="h-selall">${hSel.size === HABITS.length ? 'Deselect all' : 'Select all'}</button><span class="cnt">${hSel.size} selected</span><button type="button" class="del h-seldel" ${hSel.size ? '' : 'disabled'}><i class="fa-regular fa-trash-can"></i> Delete${hSel.size ? ' (' + hSel.size + ')' : ''}</button></div>` : '') + rows)}
         <div style="display:flex;flex-direction:column;gap:0.9rem">
           ${card(`<div class="section-title"><i class="fa-solid fa-table-cells"></i> Consistency</div><div class="heat">${heat}</div><div style="display:flex;justify-content:space-between;margin-top:12px;font-size:0.72rem"><span style="color:rgba(255,255,255,0.4)">Best streak</span><span style="color:#fff;font-weight:600">${best}</span></div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-arrow-trend-up"></i> This week</div><div class="barchart" style="height:90px">${bars}</div>`)}
@@ -3906,7 +3915,7 @@
       const h = HABITS.find(x => x.id === id), today = hToday(); if (!h || day > today) return;
       if (h.source === 'sleep') return goTo('health'); // sleep habits are worked out from the Health sleep log
       const pk = hPeriodKey(h, day), curPk = hPeriodKey(h, today);
-      const logDay = h.period === 'daily' ? day : pk === curPk ? today : pk;
+      const logDay = h.period === 'daily' || pk === curPk ? day : pk;
       if (!HLOGS.has(id)) HLOGS.set(id, new Map());
       const m = HLOGS.get(id), before = new Map(m);
       let write;
@@ -3962,13 +3971,14 @@
       docEl('habitName').value = src.name || ''; docEl('habitTarget').value = src.target || '';
       docEl('habitTimes').value = src.per_period || 1;
       docEl('habitGoal').value = src.goal_value || ''; docEl('habitUnit').value = src.unit && src.source !== 'sleep' ? src.unit : '';
+      docEl('habitRemind').value = h ? h.reminder_time || '' : ''; if (docEl('habitRemind')._luTimeRefresh) docEl('habitRemind')._luTimeRefresh();
       docEl('habitDelete').style.display = h ? '' : 'none';
       show('habitTplWrap', !h);
       habitErr(''); paintHabitForm();
       docEl('habitOverlay').classList.add('open'); setTimeout(() => docEl('habitName').focus(), 50);
     }
     const closeHabitModal = () => docEl('habitOverlay').classList.remove('open');
-    const setHabitErrFrom = e => habitErr(/habits|period|per_period|goal_value|source|unit|value|schema cache|does not exist/i.test(e.message) ? 'Habits aren\'t fully set up — run supabase/migrations/016_habits.sql and 017_habit_periods.sql in the SQL Editor.' : e.message);
+    const setHabitErrFrom = e => habitErr(/habits|period|per_period|goal_value|source|unit|value|reminder_time|schema cache|does not exist/i.test(e.message) ? 'Habits aren\'t fully set up — run supabase/migrations/016, 017 and 018 (habit_reminders) in the SQL Editor.' : e.message);
     // ----- templates: show what will be added, ask first, and skip habits you already have -----
     const H_DAYNAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const habitRowsFromPreset = p => (p.pack || [null]).map(n => ({
@@ -3994,7 +4004,7 @@
       });
       if (!ok) return;
       const { data, error } = await LumaHabits.addMany(fresh);
-      if (error) return luAlert(/habits|period|per_period|goal_value|source|unit|schema cache|does not exist/i.test(error.message) ? 'Habits aren\'t fully set up — run supabase/migrations/016_habits.sql and 017_habit_periods.sql in the SQL Editor.' : error.message);
+      if (error) return luAlert(/habits|period|per_period|goal_value|source|unit|reminder_time|schema cache|does not exist/i.test(error.message) ? 'Habits aren\'t fully set up — run supabase/migrations/016, 017 and 018 (habit_reminders) in the SQL Editor.' : error.message);
       data.forEach(r => HABITS.push(hRow(r)));
       if (data.some(r => r.source === 'sleep')) await loadSleep();
       closeHabitModal(); paintHabits();
@@ -4024,6 +4034,7 @@
         goal_value: measured ? goal : null,
         unit: f.mode === 'amount' && daily ? docEl('habitUnit').value.trim() : f.mode === 'sleep' && daily ? 'h' : '',
         source: f.mode === 'sleep' && daily ? 'sleep' : 'manual',
+        reminder_time: docEl('habitRemind').value || null,
       };
       if (HABITS.some(h => h.id !== f.id && h.name.trim().toLowerCase() === name.toLowerCase()) && !await luConfirm({ title: `You already have “${name}”`, message: 'Add another habit with the same name?', icon: 'fa-clone', tone: 'info', ok: 'Add anyway' })) return;
       const btn = docEl('habitSave'); btn.disabled = true; btn.textContent = 'Saving…';
@@ -4045,9 +4056,15 @@
 
     async function loadHabits(pg) {
       pg.querySelector('#addHabitBtn').addEventListener('click', () => openHabitModal(null));
-      hSelecting = false; hSel.clear();
+      hSelecting = false; hSel.clear(); hDay = null;
       pg.querySelector('#selectHabitBtn').addEventListener('click', () => { hSelecting = !hSelecting; hSel.clear(); paintHabits(); });
       pg.querySelector('#habitsRoot').addEventListener('click', async e => {
+        if (e.target.closest('.h-dprev') || e.target.closest('.h-dnext') || e.target.closest('.h-dtoday')) {
+          const t0 = hToday(), cur = hDay || t0;
+          hDay = e.target.closest('.h-dtoday') ? null : (e.target.closest('.h-dprev') ? hKeyAdd(cur, -1) : hKeyAdd(cur, 1));
+          if (hDay === t0) hDay = null;
+          return paintHabits();
+        }
         if (e.target.closest('.h-selall')) { hSel.size === HABITS.length ? hSel.clear() : HABITS.forEach(h => hSel.add(h.id)); return paintHabits(); }
         if (e.target.closest('.h-seldel')) {
           const ids = [...hSel]; if (!ids.length) return;
@@ -5356,7 +5373,7 @@
         document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', onKey, true); document.addEventListener('scroll', onScroll, true);
       };
     }
-    [['hBed', true], ['hWake', true], ['rWFrom'], ['rWTo'], ['rSFrom'], ['rSTo'], ['rAFrom'], ['rATo'], ['rBed'], ['rWake']].forEach(([id, clear]) => skinTime(document.getElementById(id), { clear: !!clear }));
+    [['hBed', true], ['hWake', true], ['rWFrom'], ['rWTo'], ['rSFrom'], ['rSTo'], ['rAFrom'], ['rATo'], ['rBed'], ['rWake'], ['habitRemind', true]].forEach(([id, clear]) => skinTime(document.getElementById(id), { clear: !!clear }));
 
     // Fixed-size modals: wrap every popup that has a header + action buttons so only its fields scroll; the header and
     // buttons never scroll away (messages stay pinned under the header too). New popups get this automatically.
