@@ -8,12 +8,12 @@
 
   var css = document.createElement("style");
   css.textContent =
-    "#lumaLoader{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:rgba(10,14,26,.45);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:opacity .35s ease}" +
+    "#lumaLoader{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:rgba(10,14,26,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:opacity .35s ease}" +
     "#lumaLoader.out{opacity:0;pointer-events:none}" +
-    "#lumaLoader .ll-box{display:flex;flex-direction:column;align-items:center;gap:16px;padding:26px 38px;border-radius:22px;background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 60px rgba(0,0,0,.45);color:rgba(255,255,255,.7);font:500 .85rem -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif}" +
-    "#lumaLoader .ll-logo{font:700 1.3rem -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;letter-spacing:.18em;color:#fff}" +
-    "#lumaLoader .ll-spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.12);border-top-color:#3b82f6;animation:llspin .8s linear infinite}" +
-    "@keyframes llspin{to{transform:rotate(360deg)}}" +
+    "#lumaLoader .ll-box{width:min(1100px,92vw);max-height:92vh;overflow:hidden;display:flex;flex-direction:column;gap:16px}" +
+    "#lumaLoader .ll-row{display:grid;gap:16px}" +
+    "#lumaLoader .ll-sk{border-radius:18px;background:linear-gradient(100deg,rgba(255,255,255,.07) 30%,rgba(255,255,255,.16) 50%,rgba(255,255,255,.07) 70%);background-size:300% 100%;animation:llshine 1.4s ease-in-out infinite}" +
+    "@keyframes llshine{from{background-position:100% 0}to{background-position:0 0}}" +
     "#lumaLoader .ll-err{display:none;max-width:340px;text-align:center;padding:24px;border-radius:18px;background:rgba(30,41,59,.9);border:1px solid rgba(255,255,255,.1);color:#fff;line-height:1.5}" +
     "#lumaLoader .ll-err b{display:block;font-size:1rem;margin-bottom:6px}" +
     "#lumaLoader .ll-err span{display:block;color:rgba(255,255,255,.7);font-size:.82rem;margin-bottom:16px}" +
@@ -25,7 +25,11 @@
   el.id = "lumaLoader";
   el.setAttribute("role", "status");
   el.innerHTML =
-    '<div class="ll-box"><div class="ll-logo">LUMA</div><div class="ll-spin"></div><div>Loading…</div></div>' +
+    '<div class="ll-box" aria-label="Loading">' +
+    '<div class="ll-sk" style="height:26px;width:220px;border-radius:10px"></div><div class="ll-sk" style="height:14px;width:340px;border-radius:8px;margin-top:-6px"></div>' +
+    '<div class="ll-row" style="grid-template-columns:repeat(3,1fr)"><div class="ll-sk" style="height:110px"></div><div class="ll-sk" style="height:110px"></div><div class="ll-sk" style="height:110px"></div></div>' +
+    '<div class="ll-row" style="grid-template-columns:repeat(2,1fr)"><div class="ll-sk" style="height:200px"></div><div class="ll-sk" style="height:200px"></div></div>' +
+    '<div class="ll-sk" style="height:90px"></div></div>' +
     '<div class="ll-err"><b>Something went wrong</b><span>Please refresh the page or try again later.</span><button type="button">Refresh page</button></div>';
   el.querySelector("button").onclick = function () { location.reload(); };
   root.appendChild(el);
