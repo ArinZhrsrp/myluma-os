@@ -863,6 +863,19 @@
     @media (max-width:1024px){ .habit-grid{ grid-template-columns:1fr; } }
     .hrow { display:flex; align-items:center; gap:14px; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,0.04); }
     .hrow:last-child { border-bottom:none; }
+    /* fit layout (like Documents / Notes): the page doesn't scroll — the habit list does, header and day switcher stay put */
+    .main-content.fit #habitsRoot { flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; padding:2px 6px 24px 0; }
+    .main-content.fit #habitsRoot .habit-grid { flex:1 1 auto; min-height:0; grid-template-rows:minmax(0,1fr); }
+    .main-content.fit #habitsRoot .h-main { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+    .main-content.fit #habitsRoot .h-main > * { flex:none; }
+    .main-content.fit #habitsRoot .h-main > .h-list { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:-6px; padding-right:6px; }
+    .main-content.fit #habitsRoot .h-side { min-height:0; overflow-y:auto; }
+    @media (max-width:1024px) { /* one column on small screens: let the whole area scroll instead */
+      .main-content.fit #habitsRoot .habit-grid { flex:none; grid-template-rows:auto; }
+      .main-content.fit #habitsRoot .h-main { overflow:visible; }
+      .main-content.fit #habitsRoot .h-main > .h-list { overflow:visible; margin-right:0; padding-right:0; }
+      .main-content.fit #habitsRoot .h-side { overflow:visible; }
+    }
     .h-daynav { display:flex; align-items:center; gap:8px; margin:2px 0 8px; }
     .h-daynav .lbl { flex:1; text-align:center; font-size:0.78rem; color:rgba(255,255,255,0.7); }
     .h-daynav button { height:30px; min-width:30px; padding:0 10px; border-radius:9px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.8); cursor:pointer; font-size:0.72rem; font-family:inherit; }
@@ -3345,7 +3358,7 @@
       analytics:'Analytics', settings:'Settings', support:'Support', notifications:'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
     const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits']);
@@ -3903,8 +3916,8 @@
       const mon = hKeyAdd(today, -((hDow(today) + 6) % 7)); // this week's Monday
       const bars = Array.from({ length: 7 }, (_, i) => { const k = hKeyAdd(mon, i), r = k > today ? null : hDayRatio(k); return `<div class="bcol" title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}"><div class="bbar" style="height:${Math.max(r || 0, 0.04) * 100}%;${k > today ? 'opacity:.25' : ''}"></div><div class="blbl">${'MTWTFSS'[i]}</div></div>`; }).join('');
       root.innerHTML = `<div class="habit-grid">
-        ${card(`<div class="section-title"><i class="fa-solid fa-circle-check"></i> ${showGroups ? 'Habits' : isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}</div>` + `<div class="h-daynav"><button type="button" class="h-dprev" ${day <= hKeyAdd(today, -H_BACK) ? 'disabled' : ''} title="Previous day"><i class="fa-solid fa-chevron-left"></i></button><span class="lbl">${isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}${isToday ? '' : ' · editing past day'}</span><button type="button" class="h-dnext" ${isToday ? 'disabled' : ''} title="Next day"><i class="fa-solid fa-chevron-right"></i></button>${isToday ? '' : '<button type="button" class="h-dtoday">Back to today</button>'}</div>` + (hSelecting ? `<div class="h-selbar"><button type="button" class="h-selall">${hSel.size === HABITS.length ? 'Deselect all' : 'Select all'}</button><span class="cnt">${hSel.size} selected</span><button type="button" class="del h-seldel" ${hSel.size ? '' : 'disabled'}><i class="fa-regular fa-trash-can"></i> Delete${hSel.size ? ' (' + hSel.size + ')' : ''}</button></div>` : '') + rows)}
-        <div style="display:flex;flex-direction:column;gap:0.9rem">
+        ${card(`<div class="section-title"><i class="fa-solid fa-circle-check"></i> ${showGroups ? 'Habits' : isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}</div>` + `<div class="h-daynav"><button type="button" class="h-dprev" ${day <= hKeyAdd(today, -H_BACK) ? 'disabled' : ''} title="Previous day"><i class="fa-solid fa-chevron-left"></i></button><span class="lbl">${isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}${isToday ? '' : ' · editing past day'}</span><button type="button" class="h-dnext" ${isToday ? 'disabled' : ''} title="Next day"><i class="fa-solid fa-chevron-right"></i></button>${isToday ? '' : '<button type="button" class="h-dtoday">Back to today</button>'}</div>` + (hSelecting ? `<div class="h-selbar"><button type="button" class="h-selall">${hSel.size === HABITS.length ? 'Deselect all' : 'Select all'}</button><span class="cnt">${hSel.size} selected</span><button type="button" class="del h-seldel" ${hSel.size ? '' : 'disabled'}><i class="fa-regular fa-trash-can"></i> Delete${hSel.size ? ' (' + hSel.size + ')' : ''}</button></div>` : '') + `<div class="h-list">${rows}</div>`, 'h-main')}
+        <div class="h-side" style="display:flex;flex-direction:column;gap:0.9rem">
           ${card(`<div class="section-title"><i class="fa-solid fa-table-cells"></i> Consistency</div><div class="heat">${heat}</div><div style="display:flex;justify-content:space-between;margin-top:12px;font-size:0.72rem"><span style="color:rgba(255,255,255,0.4)">Best streak</span><span style="color:#fff;font-weight:600">${best}</span></div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-arrow-trend-up"></i> This week</div><div class="barchart" style="height:90px">${bars}</div>`)}
         </div></div>`;
