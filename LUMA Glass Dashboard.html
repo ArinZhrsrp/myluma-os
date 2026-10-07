@@ -946,6 +946,7 @@
     .h-group { font-size:0.66rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.35); padding:14px 6px 4px; }
     .h-group:first-of-type { padding-top:2px; }
     .h-tpls { display:flex; flex-wrap:wrap; gap:7px; }
+    .h-chip.sm.on { background:rgba(59,130,246,0.25); border-color:rgba(59,130,246,0.6); color:#fff; }
     .h-chip.sm { height:30px; padding:0 12px; font-size:0.72rem; gap:6px; }
     .h-icons { display:grid; grid-template-columns:repeat(10,1fr); gap:6px; }
     .h-icons button { aspect-ratio:1; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.65); cursor:pointer; font-size:0.85rem; padding:0; }
@@ -3910,6 +3911,7 @@
     // explains what to type in "Progress so far", with an example built from the target / unit entered above
     function paintGoalHint() {
       const unit = docEl('goalUnit').value.trim(), target = gNum(docEl('goalTarget').value);
+      docEl('goalUnits').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.u === unit)); // highlight the chosen unit chip
       docEl('goalCurrentHint').textContent = unit === '%'
         ? 'Type the percentage you have reached so far, as a number — for example 40 for 40%.'
         : `Type how much you have done so far, in the same units as your target${unit ? ' (' + unit + ')' : ''} — not a percentage; the % is worked out for you. Decimals are fine, like 12.5.` + (target > 0 ? ` Example: ${gFmt(Math.round(target * 0.4 * 100) / 100, unit)} of ${gFmt(target, unit)}.` : '');
@@ -3939,7 +3941,8 @@
     docEl('goalClose').onclick = closeGoalModal;
     docEl('goalOverlay').onclick = e => { if (e.target === docEl('goalOverlay')) closeGoalModal(); };
     docEl('goalCats').onclick = e => { const b = e.target.closest('button'); if (b) { gForm.category = b.dataset.c; paintGoalForm(); } };
-    docEl('goalUnits').onclick = e => { const b = e.target.closest('button'); if (b) { docEl('goalUnit').value = b.dataset.u; paintGoalHint(); } };
+    // tap a unit to use it; tap the highlighted one again (or empty the Unit box) to remove the unit
+    docEl('goalUnits').onclick = e => { const b = e.target.closest('button'); if (b) { docEl('goalUnit').value = docEl('goalUnit').value.trim() === b.dataset.u ? '' : b.dataset.u; paintGoalHint(); } };
     docEl('goalTpls').onclick = e => { const b = e.target.closest('button'); if (b) openGoalModal(null, G_PRESETS[+b.dataset.gpreset]); };
     docEl('goalNoDeadline').onclick = () => { docEl('goalDeadline').value = ''; docEl('goalDeadline')._luDateRefresh(); paintGoalForm(); };
     docEl('goalDeadline').addEventListener('change', paintGoalForm);
