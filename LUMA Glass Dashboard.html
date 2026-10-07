@@ -5375,7 +5375,7 @@
 
       // reminders: next unpaid bills & subscriptions
       const up = rows.sort((a, b) => a.due.localeCompare(b.due)).slice(0, 4);
-      dashSet('dashRem', up.length ? up.map(r => { const d = bDays(r.due, today), sub = r.b.category === 'Subscription', [, icon] = bCat(r.b.category); return `<div class="reminder-item" style="font-size:0.78rem;padding:0.5rem 0;"><span class="title"><i class="fa-solid ${icon}"></i> ${escapeHtml(r.b.name)}</span><span><span class="meta" style="${d < 0 ? 'color:#fca5a5' : ''}">${d < 0 ? 'Overdue ' + (-d) + 'd' : d === 0 ? 'Due today' : (sub ? 'Renews in ' : 'Due in ') + d + 'd'}</span> <span class="price">${bRM(r.amount)}</span></span></div>`; }).join('') : '<div class="wgt-sub">No bills or subscriptions due soon.</div>');
+      dashSet('dashRem', up.length ? up.map(r => { const d = bDays(r.due, today), sub = r.b.category === 'Subscription', [, icon] = bCat(r.b.category); return `<div class="reminder-item" style="font-size:0.78rem;padding:0.5rem 0;"><span class="title" style="color:#fff"><i class="fa-solid ${icon}" style="color:rgba(255,255,255,0.7)"></i> ${escapeHtml(r.b.name)}</span><span><span class="meta" style="font-weight:600;color:${d < 0 ? '#fca5a5' : d === 0 ? '#fcd34d' : 'rgba(255,255,255,0.75)'}">${d < 0 ? 'Overdue ' + (-d) + 'd' : d === 0 ? 'Due today' : (sub ? 'Renews in ' : 'Due in ') + d + 'd'}</span> <span class="price">${bRM(r.amount)}</span></span></div>`; }).join('') : '<div class="wgt-sub">No bills or subscriptions due soon.</div>');
 
       // overview
       const load = overdue.length + dueToday.length, lvl = load <= 3 ? ['Low', '✅'] : load <= 6 ? ['Medium', '🟡'] : ['High', '⚠️'];
