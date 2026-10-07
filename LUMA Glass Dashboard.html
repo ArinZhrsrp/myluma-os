@@ -1987,6 +1987,19 @@
     </div>
   </div>
 
+  <div class="modal-overlay confirm-overlay" id="goneOverlay">
+    <div class="profile-edit-modal" style="width:440px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Deleted habits</div>
+        <button class="x" id="goneClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="goneError"></div>
+      <div class="ls" style="margin-bottom:10px">Taken off your list. They don't count in Consistency and don't send reminders.</div>
+      <div id="goneList"></div>
+      <div class="pem-actions"><button class="confirm-btn cancel" id="goneClear" style="flex:1">Clear all deleted</button></div>
+    </div>
+  </div>
+
   <div class="modal-overlay confirm-overlay" id="habitOverlay">
     <div class="profile-edit-modal" style="width:480px;max-width:100%">
       <div class="pem-head">
@@ -3507,7 +3520,7 @@
       },
       // ---------------- HABITS ----------------
       habits() {
-        return head('Habits','<span id="habitsSub">Loading…</span>', '<button class="create-btn" id="clearGoneHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-box-archive"></i> <span>Clear deleted</span></button><button class="create-btn" id="selectHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-regular fa-square-check"></i> Select</button><button class="create-btn" id="addHabitBtn"><i class="fa-solid fa-plus"></i> New habit</button>') +
+        return head('Habits','<span id="habitsSub">Loading…</span>', '<button class="create-btn" id="goneHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-box-archive"></i> <span>Deleted</span></button><button class="create-btn" id="selectHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-regular fa-square-check"></i> Select</button><button class="create-btn" id="addHabitBtn"><i class="fa-solid fa-plus"></i> New habit</button>') +
         '<div id="habitsRoot"></div>';
       },
       // ---------------- HEALTH ----------------
@@ -3828,8 +3841,6 @@
       if (hPeriodDone(h, ps[ps.length - 1], today)) { run++; best = Math.max(best, run); }
       return { cur: run, best };
     }
-    // did a deleted habit still count on this day? yes on every day before the day it was deleted, and on the deletion day itself only if it was done
-    const hGoneCounts = (h, key) => { const d = mytDayKey(h.updated_at); return key < d || (key === d && hLogged(h, key)); };
     // share of your daily habits due on `key` that were done (null when none were due)
     function hDayRatio(key) {
       const due = HABITS.filter(h => h.period === 'daily' && hSched(h, key)); // every daily habit you have counts for every day, so ticking a past day behaves exactly like today
@@ -3877,14 +3888,14 @@
       if (!HABITS.length) { hSelecting = false; hSel.clear(); }
       [...hSel].forEach(id => { if (!HABITS.some(h => h.id === id)) hSel.delete(id); });
       const selBtn = document.getElementById('selectHabitBtn');
-      const goneBtn = document.getElementById('clearGoneHabitBtn'); if (goneBtn) { goneBtn.style.display = HGONE.length && !hSelecting ? '' : 'none'; goneBtn.querySelector('span').textContent = `Clear deleted (${HGONE.length})`; }
+      const goneBtn = document.getElementById('goneHabitBtn'); if (goneBtn) { goneBtn.style.display = HGONE.length && !hSelecting ? '' : 'none'; goneBtn.querySelector('span').textContent = `Deleted (${HGONE.length})`; }
+      if (docEl('goneOverlay').classList.contains('open')) paintGone();
       if (selBtn) { selBtn.style.display = HABITS.length ? '' : 'none'; selBtn.innerHTML = hSelecting ? '<i class="fa-solid fa-xmark"></i> Cancel' : '<i class="fa-regular fa-square-check"></i> Select'; }
       const today = hToday();
       if (hDay && (hDay > today || hDay < hKeyAdd(today, -H_BACK))) hDay = null;
       const day = hDay || today, isToday = day === today;
       const dayWord = isToday ? 'today' : day === hKeyAdd(today, -1) ? 'yesterday' : 'on ' + hKeyLabel(day);
-      // habits you deleted still appear (read-only) on the days they existed so past days keep your ticks — but they don't count in Consistency / best streak
-      const dayHabits = [...HABITS, ...(hSelecting ? [] : HGONE.filter(h => h.period === 'daily' && (hBorn(h) <= day || hLogged(h, day)) && hGoneCounts(h, day)))];
+      const dayHabits = HABITS;
       const daily = dayHabits.filter(h => h.period === 'daily' && hSched(h, day)), longer = HABITS.filter(h => h.period !== 'daily');
       sub.textContent = HABITS.length
         ? `${daily.filter(h => hLogged(h, day)).length} of ${daily.length} done ${dayWord}` + (longer.length ? ` · ${longer.filter(h => hPeriodDone(h, hPeriodKey(h, day), today)).length} of ${longer.length} weekly & monthly` : '')
@@ -3899,12 +3910,7 @@
         return;
       }
       const showGroups = HABITS.some(h => h.period !== 'daily');
-      const goneRow = h => {
-        const d = hLogged(h, day);
-        return `<div class="hrow gone" data-id="${h.id}"><div class="licon" style="color:${h.color};background:${h.color}22;opacity:.7"><i class="fa-solid ${h.icon}"></i></div><div style="flex:1;min-width:0"><div class="lt" style="opacity:.8">${escapeHtml(h.name)}</div><div class="ls">Deleted ${hKeyLabel(mytDayKey(h.updated_at))} · history only</div></div><span class="hbtn ${d ? 'on' : ''}" title="${d ? 'Done that day' : 'Not done that day'}" style="${d ? `background:${h.color};` : ''}cursor:default;opacity:.8"><i class="fa-solid fa-check"></i></span></div>`;
-      };
       const rowHtml = h => {
-        if (h.archived) return goneRow(h);
         const pk = hPeriodKey(h, day), curPk = hPeriodKey(h, today), cnt = hCount(h, pk, today), done = cnt >= hNeed(h), { cur } = hRuns(h, today), sleep = h.source === 'sleep';
         let detail = '';
         if (sleep) { const v = HSLEEP.get(day); detail = (v != null ? `slept ${v}h` : 'no sleep logged') + ` · goal ${h.goal_value || 6}h+`; }
@@ -4095,23 +4101,49 @@
     };
     docEl('habitDelete').onclick = async () => {
       const h = HABITS.find(x => x.id === habitForm.id); if (!h) return;
-      if (!await luConfirm({ title: `Delete “${h.name}”?`, message: 'It disappears from your list and stops reminding you, and no longer counts in your Consistency chart or best streak. The days you completed stay visible when you look back at those days.' })) return;
+      if (!await luConfirm({ title: `Delete “${h.name}”?`, message: 'It moves to your Deleted list (button at the top), stops reminding you and no longer counts in Consistency or best streak. You can restore it from there.' })) return;
       const { error } = await LumaHabits.remove(h.id);
       if (error) return habitErr(error.message);
       HGONE.push({ ...h, archived: true, updated_at: new Date().toISOString() }); HABITS = HABITS.filter(x => x !== h); closeHabitModal(); paintHabits();
     };
 
+
+    // ----- list of deleted habits -----
+    const goneErr = m => { docEl('goneError').textContent = m; docEl('goneError').style.display = m ? 'flex' : 'none'; };
+    function paintGone() {
+      const list = [...HGONE].sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+      docEl('goneClear').style.display = list.length ? '' : 'none';
+      docEl('goneList').innerHTML = list.length ? list.map(h => {
+        const n = [...(HLOGS.get(h.id) || new Map()).keys()].filter(k => hLogged(h, k)).length;
+        return `<div class="hrow" data-id="${h.id}"><div class="licon" style="color:${h.color};background:${h.color}22"><i class="fa-solid ${h.icon}"></i></div><div style="flex:1;min-width:0"><div class="lt">${escapeHtml(h.name)}</div><div class="ls">Deleted ${hKeyLabel(mytDayKey(h.updated_at))} · done ${n} day${n === 1 ? '' : 's'}</div></div><button type="button" class="np-btn gone-restore">Restore</button></div>`;
+      }).join('') : '<div class="ls" style="text-align:center;padding:26px 0">No deleted habits.</div>';
+    }
+    function openGone() { goneErr(''); paintGone(); docEl('goneOverlay').classList.add('open'); }
+    const closeGone = () => docEl('goneOverlay').classList.remove('open');
+    docEl('goneClose').onclick = closeGone;
+    docEl('goneOverlay').onclick = e => { if (e.target === docEl('goneOverlay')) closeGone(); };
+    docEl('goneList').onclick = async e => {
+      const b = e.target.closest('.gone-restore'), row = e.target.closest('.hrow'); if (!b || !row) return;
+      const h = HGONE.find(x => x.id === row.dataset.id); if (!h) return;
+      b.disabled = true; goneErr('');
+      const { data, error } = await LumaHabits.update(h.id, { archived: false });
+      if (error) { b.disabled = false; return goneErr(error.message); }
+      HGONE = HGONE.filter(x => x !== h); HABITS.push(hRow(data)); HABITS.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+      if (!HGONE.length) closeGone();
+      paintHabits();
+    };
+    docEl('goneClear').onclick = async () => {
+      const ids = HGONE.map(h => h.id); if (!ids.length) return;
+      if (!await luConfirm({ title: `Clear ${ids.length} deleted habit${ids.length === 1 ? '' : 's'}?`, message: 'They are erased for good, together with their saved ticks. This can\'t be undone. Your current habits aren\'t touched.', icon: 'fa-box-archive', ok: 'Clear' })) return;
+      const { error } = await LumaHabits.purgeDeleted(ids);
+      if (error) return goneErr(error.message);
+      HGONE = []; ids.forEach(id => HLOGS.delete(id)); closeGone(); paintHabits();
+    };
+
     async function loadHabits(pg) {
       pg.querySelector('#addHabitBtn').addEventListener('click', () => openHabitModal(null));
       hSelecting = false; hSel.clear(); hDay = null; hMonth = null;
-      pg.querySelector('#clearGoneHabitBtn').addEventListener('click', async () => {
-        const ids = HGONE.map(h => h.id); if (!ids.length) return;
-        if (!await luConfirm({ title: `Clear ${ids.length} deleted habit${ids.length === 1 ? '' : 's'}?`, message: `They stop showing as "Deleted" rows on past days, and their saved ticks are erased for good. This can't be undone. Your current habits aren't touched.`, icon: 'fa-box-archive', ok: 'Clear' })) return;
-        const { error } = await LumaHabits.purgeDeleted(ids);
-        if (error) return luAlert('Could not clear: ' + error.message);
-        HGONE = []; ids.forEach(id => HLOGS.delete(id));
-        paintHabits();
-      });
+      pg.querySelector('#goneHabitBtn').addEventListener('click', openGone);
       pg.querySelector('#selectHabitBtn').addEventListener('click', () => { hSelecting = !hSelecting; hSel.clear(); paintHabits(); });
       pg.querySelector('#habitsRoot').addEventListener('click', async e => {
         if (e.target.closest('.h-dprev') || e.target.closest('.h-dnext') || e.target.closest('.h-dtoday')) {
@@ -4129,7 +4161,7 @@
         if (e.target.closest('.h-selall')) { hSel.size === HABITS.length ? hSel.clear() : HABITS.forEach(h => hSel.add(h.id)); return paintHabits(); }
         if (e.target.closest('.h-seldel')) {
           const ids = [...hSel]; if (!ids.length) return;
-          if (!await luConfirm({ title: `Delete ${ids.length} habit${ids.length === 1 ? '' : 's'}?`, message: 'They disappear from your list and stop reminding you, and no longer count in your Consistency chart or best streak. The days you completed stay visible when you look back at those days.', ok: 'Delete' })) return;
+          if (!await luConfirm({ title: `Delete ${ids.length} habit${ids.length === 1 ? '' : 's'}?`, message: 'They move to your Deleted list (button at the top), stop reminding you and no longer count in Consistency or best streak. You can restore them from there.', ok: 'Delete' })) return;
           const { error } = await LumaHabits.removeMany(ids);
           if (error) return luAlert('Could not delete: ' + error.message);
           const now = new Date().toISOString();
