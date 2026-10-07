@@ -1,36 +1,19 @@
-// LUMA — skeleton loading screens.
-//  • First load of any page: a skeleton of the page shape (form on Login/Register/Reset, app layout on the Dashboard).
-//    It stays at least 1 second and keeps going until the page (and anything it asked to wait for) has loaded.
-//  • Moving between Dashboard pages: shimmering skeleton blocks sit exactly where that page's data goes
-//    (header, sidebar and top bar stay usable).
-//  • Anything still loading after 3 minutes → "something went wrong" popup.
+// LUMA — simple loading overlay for every page.
+//  • Shows at once, stays at least 1 second, and keeps going until the page (and anything it asked to wait for) has loaded.
+//  • Also covers each move between Dashboard pages while that page's data loads.
+//  • Still loading after 3 minutes → "something went wrong" popup.
 // A page can wait for its own data:  LumaLoader.hold("name") … LumaLoader.release("name").
 (function () {
   var MIN_MS = 1000, MAX_MS = 3 * 60 * 1000, root = document.documentElement;
-  var holds = { load: true }, first = { start: Date.now(), gone: false }, el = null;
+  var holds = { load: true }, start = Date.now(), gone = false, token = 0, failTimer = null;
 
   var css = document.createElement("style");
   css.textContent =
-    ".ll-sk{border-radius:14px;background:linear-gradient(100deg,rgba(255,255,255,.07) 30%,rgba(255,255,255,.17) 50%,rgba(255,255,255,.07) 70%);background-size:300% 100%;animation:llshine 1.4s ease-in-out infinite}" +
-    "@keyframes llshine{from{background-position:100% 0}to{background-position:0 0}}" +
-    ".ll-c{border-radius:18px;padding:16px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:12px;min-width:0}" +
-    ".ll-r{display:grid;gap:14px}.ll-fl{display:flex;gap:12px;align-items:center}" +
-    "#lumaLoader{position:fixed;inset:0;z-index:2147483000;background:#0a0e1a;transition:opacity .35s ease;overflow:hidden}" +
+    "#lumaLoader{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:rgba(10,14,26,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:opacity .3s ease}" +
     "#lumaLoader.out{opacity:0;pointer-events:none}" +
-    "#lumaLoader .ll-form{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px}" +
-    "#lumaLoader .ll-form .ll-c{width:min(400px,100%);padding:26px;gap:14px}" +
-    "#lumaLoader .ll-app{position:absolute;inset:0;display:flex;gap:16px;padding:16px}" +
-    "#lumaLoader .ll-side{width:210px;flex:none;display:flex;flex-direction:column;gap:12px}" +
-    "#lumaLoader .ll-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:16px}" +
-    "@media(max-width:768px){#lumaLoader .ll-side{display:none}}" +
-    ".ll-layer{position:absolute;left:0;right:0;bottom:0;z-index:20;overflow:hidden;display:flex;flex-direction:column;gap:14px;transition:opacity .3s ease;pointer-events:auto}" +
-    ".ll-layer.out{opacity:0;pointer-events:none}" +
-    ".ll-busy>*:not(.ll-layer):not(.page-head){visibility:hidden!important}" +
-    ".ll-skin{display:contents}" +
-    ".ll-skin *{color:transparent!important;text-shadow:none!important;caret-color:transparent!important;pointer-events:none!important;animation:none!important;transition:none!important}" +
-    ".ll-skin img,.ll-skin canvas,.ll-skin video{opacity:0!important}" +
-    ".ll-skin svg,.ll-skin i{opacity:.12!important}" +
-    ".ll-skin .ll-t{background:linear-gradient(100deg,rgba(255,255,255,.08) 30%,rgba(255,255,255,.2) 50%,rgba(255,255,255,.08) 70%)!important;background-size:300% 100%!important;animation:llshine 1.4s ease-in-out infinite!important;border-radius:6px!important;-webkit-text-fill-color:transparent!important}" +
+    "#lumaLoader .ll-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px 34px;border-radius:20px;background:rgba(15,23,42,.8);border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 60px rgba(0,0,0,.45);color:rgba(255,255,255,.75);font:500 .82rem -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif}" +
+    "#lumaLoader .ll-spin{width:32px;height:32px;border-radius:50%;border:3px solid rgba(255,255,255,.14);border-top-color:#3b82f6;animation:llspin .8s linear infinite}" +
+    "@keyframes llspin{to{transform:rotate(360deg)}}" +
     "#lumaLoaderErr{position:fixed;inset:0;z-index:2147483001;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(5,8,18,.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif}" +
     "#lumaLoaderErr.on{display:flex}" +
     "#lumaLoaderErr .ll-err{max-width:340px;text-align:center;padding:26px;border-radius:18px;background:#1e293b;border:1px solid rgba(255,255,255,.1);color:#fff;line-height:1.5}" +
@@ -39,104 +22,46 @@
     "#lumaLoaderErr button{border:none;border-radius:12px;padding:10px 22px;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font:600 .85rem inherit;font-family:inherit;cursor:pointer}";
   root.appendChild(css);
 
-  // ---- skeleton shapes ----
-  var B = function (h, w, x) { return '<div class="ll-sk" style="height:' + h + 'px;' + (w ? 'width:' + w + ';' : '') + (x || '') + '"></div>'; };
-  var rep = function (n, f) { var s = ""; for (var i = 0; i < n; i++) s += f(i); return s; };
-  var card = function (h) { return '<div class="ll-c" style="height:' + h + 'px">' + B(16, "45%") + B(10, "80%") + B(10, "65%") + '</div>'; };
-  var rowItem = function () { return '<div class="ll-c" style="flex-direction:row;align-items:center;padding:14px">' + B(38, "38px", "border-radius:50%;flex:none") + '<div style="flex:1;display:flex;flex-direction:column;gap:8px">' + B(12, "40%") + B(9, "70%") + '</div>' + B(26, "60px") + '</div>'; };
-  var SHAPES = {
-    stats: function () { return '<div class="ll-r" style="grid-template-columns:repeat(3,1fr)">' + rep(3, function () { return card(110); }) + '</div><div class="ll-r" style="grid-template-columns:repeat(2,1fr)">' + card(220) + card(220) + '</div>' + card(110); },
-    cols: function () { return '<div class="ll-r" style="grid-template-columns:repeat(3,1fr);flex:1">' + rep(3, function () { return '<div class="ll-c" style="gap:12px">' + B(18, "40%") + rep(3, function () { return '<div class="ll-c" style="padding:14px">' + B(12, "70%") + B(9, "50%") + '</div>'; }) + '</div>'; }) + '</div>'; },
-    grid: function () { return '<div class="ll-r" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">' + rep(6, function () { return card(150); }) + '</div>'; },
-    list: function () { return rep(6, rowItem); },
-    split: function () { return '<div class="ll-r" style="grid-template-columns:1fr 320px;flex:1"><div style="display:flex;flex-direction:column;gap:12px">' + rep(5, rowItem) + '</div>' + card(300) + '</div>'; },
-    calendar: function () { return '<div class="ll-c" style="flex:1">' + '<div class="ll-fl">' + B(28, "200px") + '<div style="flex:1"></div>' + B(28, "260px") + '</div><div class="ll-r" style="grid-template-columns:repeat(7,1fr);flex:1;grid-auto-rows:1fr">' + rep(35, function () { return B(0, null, "height:auto;min-height:48px;border-radius:10px"); }) + '</div></div>'; }
-  };
-  var KIND = { dashboard: "stats", analytics: "stats", money: "stats", health: "stats", tasks: "cols", calendar: "calendar", documents: "grid", notes: "grid", goals: "grid", habits: "split", bills: "list", subscriptions: "list", contacts: "split", notifications: "list", planner: "list" };
-
-  // ---- first-load cover ----
-  var isApp = /Dashboard/i.test(decodeURIComponent(location.pathname));
-  function buildFirst() {
-    el = document.createElement("div"); el.id = "lumaLoader"; el.setAttribute("aria-label", "Loading");
-    el.innerHTML = isApp
-      ? '<div class="ll-app"><div class="ll-side">' + B(40, "60%") + rep(8, function () { return B(34); }) + '</div><div class="ll-main">' + B(56) + B(28, "220px") + SHAPES.stats() + '</div></div>'
-      : '<div class="ll-form"><div class="ll-c">' + B(30, "40%") + B(12, "70%") + B(44) + B(44) + B(46, null, "margin-top:6px") + B(12, "50%", "align-self:center") + '</div></div>';
-    root.appendChild(el);
-  }
-  buildFirst();
+  var el = document.createElement("div");
+  el.id = "lumaLoader"; el.setAttribute("role", "status");
+  el.innerHTML = '<div class="ll-box"><div class="ll-spin"></div><div>Loading…</div></div>';
+  root.appendChild(el);
 
   var errEl = document.createElement("div");
   errEl.id = "lumaLoaderErr";
   errEl.innerHTML = '<div class="ll-err"><b>Something went wrong</b><span>Please refresh the page or try again later.</span><button type="button">Refresh page</button></div>';
   errEl.querySelector("button").onclick = function () { location.reload(); };
   root.appendChild(errEl);
-  var fail = function () { errEl.classList.add("on"); };
 
   function pending() { for (var k in holds) if (holds[k]) return true; return false; }
-  var firstFail = setTimeout(function () { if (!first.gone) fail(); }, MAX_MS);
-  function check() {
-    if (first.gone || pending()) return;
-    var wait = MIN_MS - (Date.now() - first.start);
-    if (wait > 0) return setTimeout(check, wait);
-    first.gone = true; clearTimeout(firstFail); el.classList.add("out");
-    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 450);
+  function arm() { clearTimeout(failTimer); failTimer = setTimeout(function () { if (!gone) errEl.classList.add("on"); }, MAX_MS); }
+  function show() {
+    token++; gone = false; start = Date.now();
+    el.classList.remove("out"); if (!el.parentNode) root.appendChild(el);
+    arm();
   }
+  function check() {
+    if (gone || pending()) return;
+    var wait = MIN_MS - (Date.now() - start);
+    if (wait > 0) return setTimeout(check, wait);
+    gone = true; clearTimeout(failTimer); el.classList.add("out");
+    var t = token;
+    setTimeout(function () { if (t === token && el.parentNode) el.parentNode.removeChild(el); }, 350);
+  }
+
+  arm();
   if (document.readyState === "complete") { holds.load = false; check(); }
   else window.addEventListener("load", function () { holds.load = false; check(); });
 
   window.LumaLoader = {
     hold: function (n) { holds[n] = true; },
     release: function (n) { holds[n] = false; check(); },
-    // skeleton blocks over a Dashboard page's data area (below its heading) while `work` loads; at least 1 second
+    // cover the screen while a Dashboard page loads its data (`work` is a promise, or nothing)
     page: function (pg, key, work) {
-      if (!pg || !first.gone) return; // the first-load skeleton is still up
-      var old = pg.querySelector(":scope > .ll-layer"); if (old) old.remove();
-      var head = pg.querySelector(":scope > .page-head");
-      var top = head ? head.offsetTop + head.offsetHeight + parseFloat(getComputedStyle(head).marginBottom || 0) : 0;
-      if (getComputedStyle(pg).position === "static") pg.style.position = "relative";
-      var layer = document.createElement("div"); layer.className = "ll-layer"; layer.style.top = top + "px";
-      var snap = readSnap(key);
-      layer.innerHTML = snap ? '<div class="ll-skin">' + snap + '</div>' : SHAPES[KIND[key] || "grid"]();
-      if (snap) markText(layer);
-      pg.classList.add("ll-busy"); pg.appendChild(layer);
-      var start = Date.now(), over = false, tok = pg._llTok = (pg._llTok || 0) + 1;
-      var timer = setTimeout(function () { if (!over) fail(); }, MAX_MS);
-      var done = function () {
-        var wait = Math.max(0, MIN_MS - (Date.now() - start));
-        setTimeout(function () {
-          over = true; clearTimeout(timer);
-          if (pg._llTok !== tok) return; // a newer visit has its own skeleton
-          saveSnap(key, pg); pg.classList.remove("ll-busy");
-          layer.classList.add("out"); setTimeout(function () { layer.remove(); }, 350);
-        }, wait);
-      };
+      if (!gone) return; // the first-load overlay is still up
+      show(); var n = "page" + token; holds[n] = true;
+      var done = function () { delete holds[n]; check(); };
       Promise.resolve(work).then(done, done);
     }
   };
-
-  // ---- remember what each page looks like (text blanked, so no personal data is kept) so its skeleton matches next time ----
-  var mem = {};
-  function saveSnap(key, pg) {
-    try {
-      var c = pg.cloneNode(true);
-      c.querySelectorAll(".ll-layer,.page-head,script,style").forEach(function (n) { n.remove(); });
-      var w = document.createTreeWalker(c, NodeFilter.SHOW_TEXT), t, list = [];
-      while ((t = w.nextNode())) list.push(t);
-      list.forEach(function (n) { var len = n.nodeValue.trim().length; n.nodeValue = len ? new Array(Math.min(len, 36) + 1).join("n") : n.nodeValue; });
-      c.querySelectorAll("*").forEach(function (n) {
-        ["title", "href", "src", "value", "placeholder", "alt", "srcset"].forEach(function (a) { n.removeAttribute(a); });
-        Array.prototype.slice.call(n.attributes).forEach(function (a) { if (/^data-/.test(a.name)) n.removeAttribute(a.name); });
-      });
-      var html = c.innerHTML; if (html.length > 150000) return;
-      mem[key] = html; try { localStorage.setItem("luma_sk_" + key, html); } catch (e) {}
-    } catch (e) {}
-  }
-  function readSnap(key) { if (mem[key]) return mem[key]; try { return localStorage.getItem("luma_sk_" + key) || ""; } catch (e) { return ""; } }
-  function markText(layer) {
-    layer.querySelectorAll("*").forEach(function (n) {
-      if (n.children.length) return;
-      if (/^(SCRIPT|STYLE|SVG|I|PATH|CIRCLE|INPUT|TEXTAREA|SELECT)$/i.test(n.tagName)) return;
-      if (n.textContent.trim()) n.classList.add("ll-t");
-    });
-  }
 })();
