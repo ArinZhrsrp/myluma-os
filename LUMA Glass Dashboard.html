@@ -2131,7 +2131,7 @@
       <div class="pem-field"><label>Task <span style="color:#fca5a5">*</span></label><input id="tkTitle" type="text" maxlength="200" placeholder="What needs doing?" autocomplete="off"></div>
       <div class="pem-field"><label>Status</label><div class="h-days" id="tkStatus"></div></div>
       <div class="pem-row">
-        <div class="pem-field"><label>Due date <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="tkDue" type="text"><button type="button" class="g-nodeadline" id="tkNoDue" style="display:none">Remove due date</button></div>
+        <div class="pem-field"><label>Due date <span style="color:#fca5a5">*</span></label><input id="tkDue" type="text"></div>
         <div class="pem-field"><label>Priority</label><div class="h-days" id="tkPriority"></div></div>
       </div>
       <div class="pem-field"><label>Tag</label><input id="tkTag" type="text" maxlength="30" placeholder="e.g. Work, Personal" autocomplete="off"><div class="h-tpls" id="tkTags" style="margin-top:8px"></div></div>
@@ -4028,7 +4028,6 @@
       docEl('tkStatus').innerHTML = TASK_COLS.map(c => `<button type="button" data-s="${c.status}" class="${c.status === tkForm.status ? 'on' : ''}">${c.name}</button>`).join('');
       docEl('tkPriority').innerHTML = T_PRIO.map(([v, l]) => `<button type="button" data-p="${v}" class="${v === tkForm.priority ? 'on' : ''}">${l}</button>`).join('');
       docEl('tkTags').innerHTML = T_TAGS.map(t => `<button type="button" class="h-chip sm ${docEl('tkTag').value.trim().toLowerCase() === t.toLowerCase() ? 'on' : ''}" data-t="${t}">${t}</button>`).join('');
-      docEl('tkNoDue').style.display = docEl('tkDue').value ? '' : 'none';
     }
     function openTaskModal(t, status) {
       tkForm.id = t ? t.id : null; tkForm.status = t ? t.status : status || 'todo'; tkForm.priority = t ? t.priority : 'med';
@@ -4046,11 +4045,11 @@
     docEl('tkTags').onclick = e => { const b = e.target.closest('button'); if (b) { docEl('tkTag').value = b.dataset.t; paintTaskForm(); } };
     docEl('tkTag').addEventListener('input', paintTaskForm);
     docEl('tkDue').addEventListener('change', paintTaskForm);
-    docEl('tkNoDue').onclick = () => { docEl('tkDue').value = ''; docEl('tkDue')._luDateRefresh(); paintTaskForm(); };
     docEl('tkTitle').addEventListener('keydown', e => { if (e.key === 'Enter') docEl('tkSave').click(); });
     docEl('tkSave').onclick = async () => {
       const title = docEl('tkTitle').value.trim();
       if (!title) return tkErr('Give the task a name.');
+      if (!docEl('tkDue').value) return tkErr('Pick a due date.');
       const fields = { title, status: tkForm.status, priority: tkForm.priority, tag: docEl('tkTag').value.trim() || 'Personal', due_date: docEl('tkDue').value || null, notes: docEl('tkNotes').value.trim() };
       const btn = docEl('tkSave'), label = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
       const { data, error } = tkForm.id ? await LumaTasks.update(tkForm.id, fields) : await LumaTasks.add({ title, status: fields.status, priority: fields.priority, tag: fields.tag, dueDate: fields.due_date, notes: fields.notes });
