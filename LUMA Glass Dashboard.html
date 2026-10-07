@@ -1857,6 +1857,19 @@
     </div>
   </div>
 
+  <div class="modal-overlay confirm-overlay" id="pushPromptOverlay">
+    <div class="confirm-modal">
+      <div class="confirm-icon" style="color:#fcd34d"><i class="fa-solid fa-bell"></i></div>
+      <div class="confirm-title">Turn on notifications?</div>
+      <div class="confirm-sub">Get reminders, messages and nudges on this device, even when LUMA is closed. You can change this anytime in Settings.</div>
+      <div class="pem-msg error" id="pushPromptError"></div>
+      <div class="confirm-actions">
+        <button class="confirm-btn cancel" id="pushPromptLater">Not now</button>
+        <button class="confirm-btn save" id="pushPromptYes">Enable</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay confirm-overlay" id="profileEditOverlay">
     <div class="profile-edit-modal">
       <div class="pem-head">
@@ -2034,6 +2047,9 @@
       </div>
       <div class="pem-msg error" id="remError"></div>
 
+      <div class="rem-sec" id="remDevice">
+        <div class="rem-head"><div><div class="rem-title"><i class="fa-solid fa-bell" style="color:#fcd34d"></i> Notifications on this device</div><div class="ls" id="remBrowserState"></div></div><button type="button" class="np-btn" id="remBrowserBtn" style="display:none">Enable</button></div>
+      </div>
       <div class="rem-sec" id="remWater">
         <div class="rem-head"><div><div class="rem-title"><i class="fa-solid fa-droplet" style="color:#38bdf8"></i> Drink water</div><div class="ls">A nudge to drink regularly. Skipped once you've reached your daily goal.</div></div><button type="button" class="switch" id="remWaterSw"><span class="knob"></span></button></div>
         <div class="rem-body">
@@ -2058,9 +2074,6 @@
         </div>
       </div>
 
-      <div class="rem-sec" style="margin-bottom:0">
-        <div class="rem-head"><div><div class="rem-title"><i class="fa-solid fa-bell" style="color:#fcd34d"></i> Notifications on this device</div><div class="ls" id="remBrowserState"></div></div><button type="button" class="np-btn" id="remBrowserBtn" style="display:none">Enable</button></div>
-      </div>
       <div class="pem-hint">Reminders are created on the server at the times you set, so they are waiting in your notifications whenever you open LUMA. With device notifications on, they also reach you when LUMA is closed. Times are Malaysia time.</div>
       <div class="pem-actions"><button class="confirm-btn save" id="remSave" style="flex:1">Save reminders</button></div>
     </div>
@@ -2558,6 +2571,32 @@
       const reg = await navigator.serviceWorker.getRegistration(); const sub = reg && await reg.pushManager.getSubscription();
       if (sub) { await LumaNotifications.removePushSubscription(sub.endpoint); await sub.unsubscribe(); }
     }
+
+    // ---- push on/off UI shared by the Reminders modal, Settings and the login prompt ----
+    const PUSH_TEXT = {
+      unsupported: ['Not supported by this browser. On iPhone, add LUMA to your Home Screen first.', null],
+      denied: ['Blocked — allow notifications for LUMA in your device or browser settings.', null],
+      on: ['On — reminders and messages reach this device even when LUMA is closed.', 'Turn off'],
+      off: ['Off — turn on to get reminders on this device even when LUMA is closed.', 'Enable'],
+      tab: ['Off — enable to get notifications on this device. (Closed-app push needs a VAPID key — see README.)', 'Enable'],
+      'tab-on': ['On while LUMA is open in a browser tab. (Closed-app push needs a VAPID key — see README.)', null],
+    };
+    const PUSH_CONTROLS = [['remBrowserState', 'remBrowserBtn', 'remError'], ['setPushState', 'setPushBtn', 'setPushError']];
+    async function paintPushControls() {
+      const st = await pushStatus(), T = PUSH_TEXT[st];
+      PUSH_CONTROLS.forEach(([tid, bid]) => {
+        const txt = document.getElementById(tid), btn = document.getElementById(bid);
+        if (!txt || !btn) return;
+        txt.textContent = T[0]; btn.style.display = T[1] ? '' : 'none'; if (T[1]) btn.textContent = T[1]; btn.dataset.st = st;
+      });
+      return st;
+    }
+    async function togglePush(btn, errId) {
+      btn.disabled = true;
+      try { if (btn.dataset.st === 'on') await disablePush(); else await enablePush(); }
+      catch (e) { const el = document.getElementById(errId); if (el) { el.textContent = e.message || 'Could not change notification settings.'; el.style.display = 'flex'; } }
+      btn.disabled = false; return paintPushControls();
+    }
     // a tapped push notification asks the open dashboard to go to the right page
     if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'open-page' && e.data.link && titles[e.data.link]) goTo(e.data.link); });
     // keep the worker registered (so pushes can be received) for users who already turned it on
@@ -2664,6 +2703,29 @@
       document.querySelectorAll(".js-user-initial").forEach(el => el.textContent = lumaInitial());
     }
 
+
+    // ---------- Ask to enable push after login ----------
+    // Shown when this device isn't subscribed yet; "Not now" snoozes it for a day (Settings / Health → Reminders still work).
+    async function maybePromptPush() {
+      try {
+        if (!('Notification' in window) || Notification.permission === 'denied') return;
+        const st = await pushStatus();
+        if (st !== 'off' && st !== 'tab') return;
+        let until = 0; try { until = +localStorage.getItem('luma_push_snooze') || 0; } catch (e) {}
+        if (Date.now() < until) return;
+        const ov = document.getElementById('pushPromptOverlay'), yes = document.getElementById('pushPromptYes'), err = document.getElementById('pushPromptError');
+        const close = () => ov.classList.remove('open');
+        document.getElementById('pushPromptLater').onclick = () => { try { localStorage.setItem('luma_push_snooze', String(Date.now() + 864e5)); } catch (e) {} close(); };
+        yes.onclick = async () => {
+          yes.disabled = true; err.style.display = 'none';
+          try { await enablePush(); close(); paintPushControls(); }
+          catch (e) { err.textContent = e.message || 'Could not turn on notifications.'; err.style.display = 'flex'; }
+          yes.disabled = false;
+        };
+        ov.classList.add('open');
+      } catch (e) {}
+    }
+
     (async function authGate(){
       const session = await LumaAuth.requireSession("LUMA Login.html");
       if (!session) return; // requireSession already redirected
@@ -2677,6 +2739,7 @@
       document.getElementById("authGate").remove();
       initNotifications(session.user.id);
       initReminders();
+      maybePromptPush();
     })();
 
     // ---------- Background wallpaper ----------
@@ -3434,6 +3497,7 @@
             <div id="profNameView" style="font-size:1rem;font-weight:600;color:#fff">${lumaFullName()}</div>
             <div class="ls" id="profEmailView">${lumaEmail()}</div><span class="pill pill-violet" style="margin-top:8px">Pro plan</span></div><div style="display:flex;flex-direction:column;gap:8px"><button id="profEditBtn" class="create-btn" style="background:rgba(255,255,255,0.06);box-shadow:none;justify-content:center">Edit</button><button id="logoutBtn" class="create-btn" style="background:rgba(239,68,68,0.12);color:#fca5a5;box-shadow:none;justify-content:center">Log out</button></div></div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-palette"></i> Theme</div><div style="display:flex;gap:12px" id="themeGrid">${[['Midnight Navy','#0f172a','midnight'],['Slate','#1e293b','slate'],['Obsidian','#0a0a0f','obsidian']].map(t=>`<div class="theme-opt" data-theme="${t[2]}" data-swatch="${t[1]}" style="flex:1;padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);text-align:center;cursor:pointer"><div style="height:44px;border-radius:10px;background:${t[1]};border:1px solid rgba(255,255,255,0.08);margin-bottom:9px"></div><span style="font-size:0.7rem;color:#fff">${t[0]}</span></div>`).join('')}</div>`)}
+          ${card(`<div class="section-title"><i class="fa-solid fa-bell"></i> Push notifications</div><div class="pem-msg error" id="setPushError"></div><div class="setting-row"><div class="sr-main"><div class="sr-t">Notifications on this device</div><div class="sr-s" id="setPushState">Checking…</div></div><button type="button" class="np-btn" id="setPushBtn" style="display:none">Enable</button></div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-sliders"></i> Preferences</div>${prefs.map(p=>`<div class="setting-row"><div class="sr-main"><div class="sr-t">${p[1]}</div><div class="sr-s">${p[2]}</div></div><button class="switch ${(savedPrefs[p[0]] ?? p[3])?'on':''}" data-key="${p[0]}"><span class="knob"></span></button></div>`).join('')}`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-plug"></i> Integrations</div>${integ.map(g=>`<div class="lrow"><div class="licon" style="color:${g[3]};background:${g[3]}22"><i class="fa-${g[2]==='fa-spotify'?'brands':'solid'} ${g[2]}"></i></div><div class="lmain"><div class="lt">${g[0]}</div><div class="ls">${g[1]}</div></div><span class="pill" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5)">Coming soon</span></div>`).join('')}`)}
         </div>`;
@@ -4451,18 +4515,7 @@
       let rem = { ...LumaHealth.DEFAULT_REMINDERS };
       const REM_SECS = [['remWater', 'remWaterSw', 'water_enabled'], ['remSteps', 'remStepsSw', 'steps_enabled'], ['remSleep', 'remSleepSw', 'sleep_enabled']];
       const paintRem = () => REM_SECS.forEach(([sec, sw, key]) => { docEl(sec).classList.toggle('on', !!rem[key]); docEl(sw).classList.toggle('on', !!rem[key]); });
-      const paintBrowserState = async () => {
-        const st = await pushStatus(), btn = docEl('remBrowserBtn'), txt = docEl('remBrowserState');
-        const T = {
-          unsupported: ['Not supported by this browser.', null],
-          denied: ['Blocked — allow notifications for this site in your browser settings.', null],
-          on: ['On — reminders and messages reach this device even when LUMA is closed.', 'Turn off'],
-          off: ['Off — turn on to get reminders on this device even when LUMA is closed.', 'Enable'],
-          tab: ['Off — enable to get desktop notifications while LUMA is open in the background. (Closed-app push needs setup — see README.)', 'Enable'],
-          'tab-on': ['On while LUMA is open in a browser tab. (Closed-app push needs setup — see README.)', null],
-        }[st];
-        txt.textContent = T[0]; btn.style.display = T[1] ? '' : 'none'; if (T[1]) btn.textContent = T[1]; btn.dataset.st = st;
-      };
+      const paintBrowserState = paintPushControls;
       const openRem = () => {
         docEl('rWEvery').value = rem.water_every_min; docEl('rSEvery').value = rem.steps_every_min; docEl('rLead').value = rem.sleep_lead_min;
         [['rWFrom', rem.water_from], ['rWTo', rem.water_to], ['rSFrom', rem.steps_from], ['rSTo', rem.steps_to], ['rBed', rem.bedtime], ['rWake', rem.wake_time]].forEach(([id, v]) => { docEl(id).value = v; docEl(id)._luTimeRefresh(); });
@@ -4473,12 +4526,7 @@
       docEl('remClose').onclick = closeRem;
       docEl('remindersOverlay').onclick = e => { if (e.target === docEl('remindersOverlay')) closeRem(); };
       REM_SECS.forEach(([sec, sw, key]) => docEl(sw).onclick = () => { rem[key] = !rem[key]; paintRem(); });
-      docEl('remBrowserBtn').onclick = async () => {
-        const btn = docEl('remBrowserBtn'); btn.disabled = true;
-        try { if (btn.dataset.st === 'on') await disablePush(); else await enablePush(); }
-        catch (e) { showErr('remError', e.message || 'Could not change notification settings.'); }
-        btn.disabled = false; paintBrowserState();
-      };
+      docEl('remBrowserBtn').onclick = () => togglePush(docEl('remBrowserBtn'), 'remError');
       docEl('remSave').onclick = async () => {
         const r = { ...rem,
           water_every_min: +docEl('rWEvery').value, water_from: docEl('rWFrom').value, water_to: docEl('rWTo').value,
@@ -4610,6 +4658,8 @@
       // Settings — background picker
       if (key === 'settings') {
         pg.querySelector('#logoutBtn')?.addEventListener('click', openLogoutConfirm);
+        pg.querySelector('#setPushBtn')?.addEventListener('click', e => togglePush(e.currentTarget, 'setPushError'));
+        paintPushControls();
         pg.querySelector('#profEditBtn')?.addEventListener('click', openProfileEditModal);
         // Preferences — saved to luma.profiles.preferences
         pg.querySelectorAll('.switch[data-key]').forEach(s => {
