@@ -1861,10 +1861,10 @@
     <div class="confirm-modal">
       <div class="confirm-icon" style="color:#fcd34d"><i class="fa-solid fa-bell"></i></div>
       <div class="confirm-title">Turn on notifications?</div>
-      <div class="confirm-sub">Get reminders, messages and nudges on this device, even when LUMA is closed. You can change this anytime in Settings.</div>
+      <div class="confirm-sub">Get reminders, messages and nudges on this device, even when LUMA is closed. If you say no, we won't ask again — you can turn it on anytime in Settings.</div>
       <div class="pem-msg error" id="pushPromptError"></div>
       <div class="confirm-actions">
-        <button class="confirm-btn cancel" id="pushPromptLater">Not now</button>
+        <button class="confirm-btn cancel" id="pushPromptLater">No thanks</button>
         <button class="confirm-btn save" id="pushPromptYes">Enable</button>
       </div>
     </div>
@@ -2063,6 +2063,14 @@
         <div class="rem-body">
           <div class="pem-field"><label>Remind me every</label><select id="rSEvery"><option value="60">1 hour</option><option value="120">2 hours</option><option value="180">3 hours</option><option value="240">4 hours</option></select></div>
           <div class="pem-row"><div class="pem-field"><label>From</label><input id="rSFrom" type="text"></div><div class="pem-field"><label>Until</label><input id="rSTo" type="text"></div></div>
+        </div>
+      </div>
+
+      <div class="rem-sec" id="remActive">
+        <div class="rem-head"><div><div class="rem-title"><i class="fa-solid fa-fire" style="color:#fb923c"></i> Stay active</div><div class="ls">A nudge to get your active minutes in. Skipped once you've reached your daily goal.</div></div><button type="button" class="switch" id="remActiveSw"><span class="knob"></span></button></div>
+        <div class="rem-body">
+          <div class="pem-field"><label>Remind me every</label><select id="rAEvery"><option value="60">1 hour</option><option value="120">2 hours</option><option value="180">3 hours</option><option value="240">4 hours</option></select></div>
+          <div class="pem-row"><div class="pem-field"><label>From</label><input id="rAFrom" type="text"></div><div class="pem-field"><label>Until</label><input id="rATo" type="text"></div></div>
         </div>
       </div>
 
@@ -2296,7 +2304,7 @@
     let NOTIFS = [], notifChannel = null, notifFilter = 'all';
     const NOTIF_ICONS = {
       welcome: ['fa-circle-check', '#22c55e'], share: ['fa-share-nodes', '#38bdf8'],
-      contact_request: ['fa-user-plus', '#f59e0b'], nudge: ['fa-bell', '#f59e0b'], message: ['fa-comment', '#3b82f6'], reminder_water: ['fa-droplet', '#38bdf8'], reminder_steps: ['fa-shoe-prints', '#34d399'], reminder_sleep: ['fa-moon', '#a78bfa'], contact_accepted: ['fa-user-check', '#22c55e'], system: ['fa-bell', '#94a3b8'],
+      contact_request: ['fa-user-plus', '#f59e0b'], nudge: ['fa-bell', '#f59e0b'], message: ['fa-comment', '#3b82f6'], reminder_water: ['fa-droplet', '#38bdf8'], reminder_steps: ['fa-shoe-prints', '#34d399'], reminder_active: ['fa-fire', '#fb923c'], reminder_sleep: ['fa-moon', '#a78bfa'], contact_accepted: ['fa-user-check', '#22c55e'], system: ['fa-bell', '#94a3b8'],
     };
     const mytDayKey = d => new Intl.DateTimeFormat('en-CA', { timeZone: MYT }).format(new Date(d));
     const mytTime = d => new Intl.DateTimeFormat('en-US', { timeZone: MYT, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(d));
@@ -2595,7 +2603,7 @@
     }
     async function togglePush(btn, errId) {
       btn.disabled = true;
-      try { if (btn.dataset.st === 'on') await disablePush(); else await enablePush(); }
+      try { if (btn.dataset.st === 'on') { await disablePush(); try { localStorage.setItem('luma_push_declined', '1'); } catch (e) {} } else await enablePush(); }
       catch (e) { const el = document.getElementById(errId); if (el) { el.textContent = e.message || 'Could not change notification settings.'; el.style.display = 'flex'; } }
       btn.disabled = false; return paintPushControls();
     }
@@ -2639,13 +2647,17 @@
         const have = t.water_ml || 0, goal = goals.data.water_ml;
         return have >= goal ? null : `You've had ${fmtLitres(have)} of your ${fmtLitres(goal)} goal — time for a glass.`;
       }
+      if (kind === 'active') {
+        const have = t.active_minutes || 0, goal = goals.data.active_minutes;
+        return have >= goal ? null : `${have} of ${goal} active minutes so far — a quick workout will help.`;
+      }
       const have = t.steps || 0, goal = goals.data.steps;
       return have >= goal ? null : `${fmtNum(have)} of ${fmtNum(goal)} steps so far — a short walk will help.`;
     }
     async function checkReminders() {
       if (!REMINDERS || !LUMA_USER) return;
       const now = mytNowMin(), day = mytDayKey(Date.now());
-      for (const kind of ['water', 'steps', 'sleep']) {
+      for (const kind of ['water', 'steps', 'active', 'sleep']) {
         if (!REMINDERS[kind + '_enabled']) continue;
         const slot = remDueSlot(kind, now); if (slot == null) continue;
         const key = `luma.rem.${LUMA_USER.id}.${kind}`, mark = day + '|' + slot;
@@ -2712,17 +2724,18 @@
 
 
     // ---------- Ask to enable push after login ----------
-    // Shown on each login while this device isn't subscribed; "Not now" hides it for this session only (Settings / Health → Reminders still work).
+    // Shown on login while this device isn't subscribed. "No thanks" (or turning push off in Settings) means never ask again on this
+    // device; Settings → Push notifications and Health → Reminders still let the user enable it later.
     async function maybePromptPush() {
       try {
         if (!('Notification' in window) || Notification.permission === 'denied') return;
         const st = await pushStatus();
         if (st !== 'off' && st !== 'tab') return;
-        let skipped = false; try { skipped = !!sessionStorage.getItem('luma_push_skip'); } catch (e) {}
-        if (skipped) return;
+        let declined = false; try { declined = !!localStorage.getItem('luma_push_declined'); } catch (e) {}
+        if (declined) return;
         const ov = document.getElementById('pushPromptOverlay'), yes = document.getElementById('pushPromptYes'), err = document.getElementById('pushPromptError');
         const close = () => ov.classList.remove('open');
-        document.getElementById('pushPromptLater').onclick = () => { try { sessionStorage.setItem('luma_push_skip', '1'); } catch (e) {} close(); };
+        document.getElementById('pushPromptLater').onclick = () => { try { localStorage.setItem('luma_push_declined', '1'); } catch (e) {} close(); };
         yes.onclick = async () => {
           yes.disabled = true; err.style.display = 'none';
           try { await enablePush(); close(); paintPushControls(); }
@@ -2810,7 +2823,6 @@
     logoutConfirmBtn.addEventListener('click', async () => {
       logoutConfirmBtn.disabled = true;
       logoutConfirmBtn.textContent = 'Logging out…';
-      try { sessionStorage.removeItem('luma_push_skip'); } catch (e) {}
       await LumaAuth.signOut();
       window.location.href = 'LUMA Login.html';
     });
@@ -4522,13 +4534,13 @@
 
       // ----- reminders modal -----
       let rem = { ...LumaHealth.DEFAULT_REMINDERS };
-      const REM_SECS = [['remWater', 'remWaterSw', 'water_enabled'], ['remSteps', 'remStepsSw', 'steps_enabled'], ['remSleep', 'remSleepSw', 'sleep_enabled']];
+      const REM_SECS = [['remWater', 'remWaterSw', 'water_enabled'], ['remSteps', 'remStepsSw', 'steps_enabled'], ['remActive', 'remActiveSw', 'active_enabled'], ['remSleep', 'remSleepSw', 'sleep_enabled']];
       const paintRem = () => REM_SECS.forEach(([sec, sw, key]) => { docEl(sec).classList.toggle('on', !!rem[key]); docEl(sw).classList.toggle('on', !!rem[key]); });
       const paintBrowserState = paintPushControls;
       const openRem = () => {
-        docEl('rWEvery').value = rem.water_every_min; docEl('rSEvery').value = rem.steps_every_min; docEl('rLead').value = rem.sleep_lead_min;
-        [['rWFrom', rem.water_from], ['rWTo', rem.water_to], ['rSFrom', rem.steps_from], ['rSTo', rem.steps_to], ['rBed', rem.bedtime], ['rWake', rem.wake_time]].forEach(([id, v]) => { docEl(id).value = v; docEl(id)._luTimeRefresh(); });
-        ['rWEvery', 'rSEvery', 'rLead'].forEach(id => skinSelect(docEl(id)));
+        docEl('rWEvery').value = rem.water_every_min; docEl('rSEvery').value = rem.steps_every_min; docEl('rAEvery').value = rem.active_every_min; docEl('rLead').value = rem.sleep_lead_min;
+        [['rWFrom', rem.water_from], ['rWTo', rem.water_to], ['rSFrom', rem.steps_from], ['rSTo', rem.steps_to], ['rAFrom', rem.active_from], ['rATo', rem.active_to], ['rBed', rem.bedtime], ['rWake', rem.wake_time]].forEach(([id, v]) => { docEl(id).value = v; docEl(id)._luTimeRefresh(); });
+        ['rWEvery', 'rSEvery', 'rAEvery', 'rLead'].forEach(id => skinSelect(docEl(id)));
         paintRem(); paintBrowserState(); showErr('remError', ''); docEl('remindersOverlay').classList.add('open');
       };
       const closeRem = () => docEl('remindersOverlay').classList.remove('open');
@@ -4540,16 +4552,18 @@
         const r = { ...rem,
           water_every_min: +docEl('rWEvery').value, water_from: docEl('rWFrom').value, water_to: docEl('rWTo').value,
           steps_every_min: +docEl('rSEvery').value, steps_from: docEl('rSFrom').value, steps_to: docEl('rSTo').value,
+          active_every_min: +docEl('rAEvery').value, active_from: docEl('rAFrom').value, active_to: docEl('rATo').value,
           bedtime: docEl('rBed').value, wake_time: docEl('rWake').value, sleep_lead_min: +docEl('rLead').value };
         if (r.water_enabled && timeToMin(r.water_to) <= timeToMin(r.water_from)) return showErr('remError', 'Water: "Until" must be later than "From".');
         if (r.steps_enabled && timeToMin(r.steps_to) <= timeToMin(r.steps_from)) return showErr('remError', 'Steps: "Until" must be later than "From".');
+        if (r.active_enabled && timeToMin(r.active_to) <= timeToMin(r.active_from)) return showErr('remError', 'Active: "Until" must be later than "From".');
         if (r.sleep_enabled && r.bedtime === r.wake_time) return showErr('remError', 'Sleep: bedtime and wake-up time can\'t be the same.');
         const btn = docEl('remSave'); btn.disabled = true; btn.textContent = 'Saving…';
         const { data, error } = await LumaHealth.saveReminders(r);
         btn.disabled = false; btn.textContent = 'Save reminders';
         if (error) return showErr('remError', /health_reminders|schema cache|does not exist/i.test(error.message) ? 'Reminders aren\'t set up yet — run supabase/migrations/013_health_reminders.sql in the SQL Editor.' : error.message);
         rem = { ...rem, ...data }; applyReminders(rem); closeRem();
-        flashToast('Reminders saved', [rem.water_enabled && 'water', rem.steps_enabled && 'steps', rem.sleep_enabled && 'sleep'].filter(Boolean).join(' · ') || 'All reminders are off', 'fa-bell', '#f59e0b');
+        flashToast('Reminders saved', [rem.water_enabled && 'water', rem.steps_enabled && 'steps', rem.active_enabled && 'active', rem.sleep_enabled && 'sleep'].filter(Boolean).join(' · ') || 'All reminders are off', 'fa-bell', '#f59e0b');
       };
       pg.querySelector('#healthRemBtn').onclick = openRem;
       LumaHealth.getReminders().then(r => { if (!r.error) rem = r.data; }); // pre-load so the modal opens instantly
@@ -4900,7 +4914,7 @@
         document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', onKey, true); document.addEventListener('scroll', onScroll, true);
       };
     }
-    [['hBed', true], ['hWake', true], ['rWFrom'], ['rWTo'], ['rSFrom'], ['rSTo'], ['rBed'], ['rWake']].forEach(([id, clear]) => skinTime(document.getElementById(id), { clear: !!clear }));
+    [['hBed', true], ['hWake', true], ['rWFrom'], ['rWTo'], ['rSFrom'], ['rSTo'], ['rAFrom'], ['rATo'], ['rBed'], ['rWake']].forEach(([id, clear]) => skinTime(document.getElementById(id), { clear: !!clear }));
 
     // Fixed-size modals: wrap each modal's fields in a scrollable body so the header and
     // action buttons never scroll away (messages stay pinned under the header too).

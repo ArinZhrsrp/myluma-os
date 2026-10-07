@@ -11,10 +11,15 @@
   const db = () => window.LumaAuth.client.schema("luma");
   const LOG_COLS = "log_date, sleep_hours, water_ml, steps, active_minutes, mood, note, updated_at";
   const LOG_COLS_FULL = LOG_COLS + ", bedtime, wake_time"; // bedtime / wake-up time arrive with migration 013
-  const REMINDER_COLS = "water_enabled, water_every_min, water_from, water_to, steps_enabled, steps_every_min, steps_from, steps_to, sleep_enabled, bedtime, wake_time, sleep_lead_min";
+  const REMINDER_COLS = "water_enabled, water_every_min, water_from, water_to, steps_enabled, steps_every_min, steps_from, steps_to, active_enabled, active_every_min, active_from, active_to, sleep_enabled, bedtime, wake_time, sleep_lead_min";
+  // the active_* columns come from migration 015; until it has run, fall back to the original columns
+  const ACTIVE_RE = /active_(enabled|every_min|from|to)|schema cache/i;
+  const stripActive = (o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith("active_")));
+  const BASE_REMINDER_COLS = REMINDER_COLS.split(", ").filter((c) => !c.startsWith("active_")).join(", ");
   const DEFAULT_REMINDERS = {
     water_enabled: false, water_every_min: 60, water_from: "08:00", water_to: "22:00",
     steps_enabled: false, steps_every_min: 180, steps_from: "10:00", steps_to: "20:00",
+    active_enabled: false, active_every_min: 180, active_from: "10:00", active_to: "20:00",
     sleep_enabled: false, bedtime: "23:00", wake_time: "07:00", sleep_lead_min: 30,
   };
   const GOAL_COLS = "sleep_hours, water_ml, steps, active_minutes";
@@ -59,13 +64,18 @@
 
     // ----- reminders (needs migration 013) -----
     async getReminders() {
-      const { data, error } = await db().from("health_reminders").select(REMINDER_COLS).maybeSingle();
+      let { data, error } = await db().from("health_reminders").select(REMINDER_COLS).maybeSingle();
+      if (error && ACTIVE_RE.test(error.message)) ({ data, error } = await db().from("health_reminders").select(BASE_REMINDER_COLS).maybeSingle());
       return { data: { ...DEFAULT_REMINDERS, ...(data || {}) }, error };
     },
     async saveReminders(r) {
       const user_id = await uid();
       if (!user_id) return { data: null, error: { message: "Not signed in" } };
-      return db().from("health_reminders").upsert({ user_id, ...r }, { onConflict: "user_id" }).select(REMINDER_COLS).single();
+      const res = await db().from("health_reminders").upsert({ user_id, ...r }, { onConflict: "user_id" }).select(REMINDER_COLS).single();
+      if (res.error && ACTIVE_RE.test(res.error.message)) {
+        return db().from("health_reminders").upsert({ user_id, ...stripActive(r) }, { onConflict: "user_id" }).select(BASE_REMINDER_COLS).single();
+      }
+      return res;
     },
     // writes a notification for the caller (rate-limited server-side); resolves true if one was created
     async pushReminder(kind, body) {
