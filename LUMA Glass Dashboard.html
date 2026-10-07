@@ -575,8 +575,8 @@
       color: rgba(255,255,255,0.5);
     }
 
-    .stat-item .stat-label { color: rgba(255,255,255,0.2); }
-    .stat-item .stat-value { font-weight: 500; color: rgba(255,255,255,0.8); }
+    .stat-item .stat-label { color: rgba(255,255,255,0.75); }
+    .stat-item .stat-value { font-weight: 600; color: #fff; }
 
     .stat-item.workload {
       grid-column: span 2;
@@ -587,7 +587,7 @@
     }
 
     .stat-item.workload .stat-value { color: #fca5a5; font-size: 0.7rem; }
-    .stat-item.workload .stat-label { color: rgba(255,255,255,0.15); }
+    .stat-item.workload .stat-label { color: rgba(255,255,255,0.75); }
     .stat-item.budget .stat-value { color: #6ee7b7; }
 
     /* ===== TIP ===== */
@@ -5378,8 +5378,8 @@
       dashSet('dashRem', up.length ? up.map(r => { const d = bDays(r.due, today), sub = r.b.category === 'Subscription', [, icon] = bCat(r.b.category); return `<div class="reminder-item" style="font-size:0.78rem;padding:0.5rem 0;"><span class="title" style="color:#fff"><i class="fa-solid ${icon}" style="color:rgba(255,255,255,0.7)"></i> ${escapeHtml(r.b.name)}</span><span><span class="meta" style="font-weight:600;color:${d < 0 ? '#fca5a5' : d === 0 ? '#fcd34d' : 'rgba(255,255,255,0.75)'}">${d < 0 ? 'Overdue ' + (-d) + 'd' : d === 0 ? 'Due today' : (sub ? 'Renews in ' : 'Due in ') + d + 'd'}</span> <span class="price">${bRM(r.amount)}</span></span></div>`; }).join('') : '<div class="wgt-sub">No bills or subscriptions due soon.</div>');
 
       // overview
-      const load = overdue.length + dueToday.length, lvl = load <= 3 ? ['Low', '✅'] : load <= 6 ? ['Medium', '🟡'] : ['High', '⚠️'];
-      dashSet('dashOver', `<div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Events</span><span class="stat-value">${events.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Open tasks</span><span class="stat-value">${open.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Due Today</span><span class="stat-value">${dueToday.length}</span></div><div class="stat-item budget" style="font-size:0.78rem;"><span class="stat-label">${budget ? 'Left in Budget' : 'Spent'}</span><span class="stat-value">${budget ? (left < 0 ? '−' : '') + bRM(Math.abs(left)) : bRM(spent)}</span></div><div class="stat-item workload"><span class="stat-value">${lvl[1]} ${lvl[0]}</span><span class="stat-label">Workload Level</span></div>`);
+      const load = overdue.length + dueToday.length, lvl = load <= 3 ? ['Low', '✅', '#6ee7b7'] : load <= 6 ? ['Medium', '🟡', '#fcd34d'] : ['High', '⚠️', '#fca5a5'];
+      dashSet('dashOver', `<div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Events</span><span class="stat-value">${events.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Open tasks</span><span class="stat-value">${open.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Due Today</span><span class="stat-value">${dueToday.length}</span></div><div class="stat-item budget" style="font-size:0.78rem;"><span class="stat-label">${budget ? 'Left in Budget' : 'Spent'}</span><span class="stat-value">${budget ? (left < 0 ? '−' : '') + bRM(Math.abs(left)) : bRM(spent)}</span></div><div class="stat-item workload"><span class="stat-value" style="color:${lvl[2]};font-size:0.78rem">${lvl[1]} ${lvl[0]}</span><span class="stat-label">Workload Level</span></div>`);
 
       // tip
       const tip = overdue.length ? 'Clear one overdue task first. It lifts your score fastest.' : load > 6 ? 'Your day is heavy. Block focus time and push the small stuff to tomorrow.' : habitsLeft.length ? 'A quick win: tick off a habit before you start your next task.' : log.water_ml == null ? 'Log your water and sleep in Health to keep your wellness streak going.' : "You're on top of things. Use the spare time to plan tomorrow.";
