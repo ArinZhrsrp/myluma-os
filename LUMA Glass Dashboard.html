@@ -3507,7 +3507,7 @@
       },
       // ---------------- HABITS ----------------
       habits() {
-        return head('Habits','<span id="habitsSub">Loading…</span>', '<button class="create-btn" id="selectHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-regular fa-square-check"></i> Select</button><button class="create-btn" id="addHabitBtn"><i class="fa-solid fa-plus"></i> New habit</button>') +
+        return head('Habits','<span id="habitsSub">Loading…</span>', '<button class="create-btn" id="archiveAllHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-box-archive"></i> Archive all</button><button class="create-btn" id="selectHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-regular fa-square-check"></i> Select</button><button class="create-btn" id="addHabitBtn"><i class="fa-solid fa-plus"></i> New habit</button>') +
         '<div id="habitsRoot"></div>';
       },
       // ---------------- HEALTH ----------------
@@ -3877,6 +3877,7 @@
       if (!HABITS.length) { hSelecting = false; hSel.clear(); }
       [...hSel].forEach(id => { if (!HABITS.some(h => h.id === id)) hSel.delete(id); });
       const selBtn = document.getElementById('selectHabitBtn');
+      const arcBtn = document.getElementById('archiveAllHabitBtn'); if (arcBtn) arcBtn.style.display = HABITS.length && !hSelecting ? '' : 'none';
       if (selBtn) { selBtn.style.display = HABITS.length ? '' : 'none'; selBtn.innerHTML = hSelecting ? '<i class="fa-solid fa-xmark"></i> Cancel' : '<i class="fa-regular fa-square-check"></i> Select'; }
       const today = hToday();
       if (hDay && (hDay > today || hDay < hKeyAdd(today, -H_BACK))) hDay = null;
@@ -4103,6 +4104,16 @@
     async function loadHabits(pg) {
       pg.querySelector('#addHabitBtn').addEventListener('click', () => openHabitModal(null));
       hSelecting = false; hSel.clear(); hDay = null; hMonth = null;
+      pg.querySelector('#archiveAllHabitBtn').addEventListener('click', async () => {
+        const ids = HABITS.map(h => h.id); if (!ids.length) return;
+        if (!await luConfirm({ title: `Archive all ${ids.length} habit${ids.length === 1 ? '' : 's'}?`, message: 'They disappear from your list and stop reminding you, and no longer count in your Consistency chart or best streak. The days you completed stay visible when you look back at those days.', icon: 'fa-box-archive', ok: 'Archive all' })) return;
+        const { error } = await LumaHabits.removeMany(ids);
+        if (error) return luAlert('Could not archive: ' + error.message);
+        const now = new Date().toISOString();
+        HABITS.forEach(h => HGONE.push({ ...h, archived: true, updated_at: now }));
+        HABITS = []; hSel.clear(); hSelecting = false; hDay = null;
+        paintHabits();
+      });
       pg.querySelector('#selectHabitBtn').addEventListener('click', () => { hSelecting = !hSelecting; hSel.clear(); paintHabits(); });
       pg.querySelector('#habitsRoot').addEventListener('click', async e => {
         if (e.target.closest('.h-dprev') || e.target.closest('.h-dnext') || e.target.closest('.h-dtoday')) {
