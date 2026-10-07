@@ -1010,6 +1010,7 @@
        ===================================================== */
     .modal-overlay { position:fixed; inset:0; z-index:200; background:rgba(6,10,20,0.6); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:none; align-items:flex-start; justify-content:center; padding:24px; overflow-y:auto; }
     .modal-overlay.open { display:flex; }
+    #dlgMsg { white-space:pre-line; }
     .confirm-modal { max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px); overflow-y:auto; } /* small dialogs scroll too, never overflow */
     .focus-modal { width:420px; max-width:100%; margin:auto; border-radius:26px; padding:30px; background:rgba(20,26,44,0.86); backdrop-filter:blur(40px) saturate(1.5); -webkit-backdrop-filter:blur(40px) saturate(1.5); border:1px solid rgba(255,255,255,0.12); box-shadow:0 28px 80px rgba(0,0,0,0.6); animation:popIn 0.25s cubic-bezier(0.22,1,0.36,1); }
     .fm-head { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
@@ -2384,7 +2385,7 @@
         ic.className = 'confirm-icon' + (tone === 'info' ? ' info' : tone === 'warn' ? ' warn' : '');
         ic.innerHTML = '<i class="fa-solid ' + icon + '"></i>';
         document.getElementById('dlgTitle').textContent = title;
-        const msg = document.getElementById('dlgMsg'); msg.textContent = message; msg.style.display = message ? '' : 'none';
+        const msg = document.getElementById('dlgMsg'); msg.textContent = message; msg.style.display = message ? '' : 'none'; msg.style.textAlign = message.includes('\n') ? 'left' : ''; // lists read better left-aligned
         okBtn.textContent = ok; okBtn.className = 'confirm-btn ' + (tone === 'danger' ? 'danger' : 'primary');
         cancelBtn.textContent = cancel; cancelBtn.style.display = showCancel ? '' : 'none';
         inp.style.display = input ? '' : 'none';
@@ -3968,18 +3969,35 @@
     }
     const closeHabitModal = () => docEl('habitOverlay').classList.remove('open');
     const setHabitErrFrom = e => habitErr(/habits|period|per_period|goal_value|source|unit|value|schema cache|does not exist/i.test(e.message) ? 'Habits aren\'t fully set up — run supabase/migrations/016_habits.sql and 017_habit_periods.sql in the SQL Editor.' : e.message);
-    // create a whole pack at once (e.g. the five prayers)
-    async function createHabitPack(p) {
-      const colors = [];
-      const rows = p.pack.map(n => ({ name: p.name.startsWith('Solat') ? 'Solat ' + n : n, icon: p.icon, color: p.color, target: '', days: LumaHabits.ALL_DAYS, period: 'daily', per_period: 1, goal_value: null, unit: '', source: 'manual' }));
-      const { data, error } = await LumaHabits.addMany(rows);
-      if (error) return setHabitErrFrom(error);
-      data.forEach(r => HABITS.push(hRow(r))); closeHabitModal(); paintHabits(); colors.length = 0;
+    // ----- templates: show what will be added, ask first, and skip habits you already have -----
+    const H_DAYNAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const habitRowsFromPreset = p => (p.pack || [null]).map(n => ({
+      name: n ? (p.name.startsWith('Solat') ? 'Solat ' + n : n) : p.name,
+      icon: p.icon, color: p.color, target: '', days: LumaHabits.ALL_DAYS,
+      period: p.period || 'daily', per_period: p.per_period || 1, goal_value: p.goal_value || null, unit: p.unit || '', source: p.source || 'manual',
+    }));
+    function habitSummary(r) {
+      const when = r.period === 'weekly' ? `${r.per_period}× a week` : r.period === 'monthly' ? `${r.per_period}× a month`
+        : r.days.length === 7 ? 'every day' : H_DAY_ORDER.filter(([d]) => r.days.includes(d)).map(([d]) => H_DAYNAMES[d]).join(', ');
+      const how = r.source === 'sleep' ? `counted from your Health sleep log (${r.goal_value}h or more)` : r.goal_value ? `goal ${r.goal_value} ${r.unit}`.trim() : 'tick off';
+      return `${when} · ${how}`;
     }
-    function useHabitPreset(i) {
+    const habitExists = name => HABITS.some(h => h.name.trim().toLowerCase() === name.trim().toLowerCase());
+    async function useHabitPreset(i) {
       const p = H_PRESETS[i]; if (!p) return;
-      if (p.pack) return createHabitPack(p);
-      openHabitModal(null, p);
+      const all = habitRowsFromPreset(p), fresh = all.filter(r => !habitExists(r.name)), skipped = all.length - fresh.length;
+      if (!fresh.length) return luAlert(all.length > 1 ? `You already have all ${all.length} of these habits.` : `You already have “${all[0].name}”.`, 'Already added');
+      const ok = await luConfirm({
+        title: fresh.length > 1 ? `Add ${fresh.length} habits?` : `Add “${fresh[0].name}”?`,
+        message: fresh.map(r => `• ${r.name} — ${habitSummary(r)}`).join('\n') + (skipped ? `\n\n${skipped} you already have ${skipped === 1 ? 'is' : 'are'} skipped.` : ''),
+        icon: 'fa-plus', tone: 'info', ok: 'Add',
+      });
+      if (!ok) return;
+      const { data, error } = await LumaHabits.addMany(fresh);
+      if (error) return luAlert(/habits|period|per_period|goal_value|source|unit|schema cache|does not exist/i.test(error.message) ? 'Habits aren\'t fully set up — run supabase/migrations/016_habits.sql and 017_habit_periods.sql in the SQL Editor.' : error.message);
+      data.forEach(r => HABITS.push(hRow(r)));
+      if (data.some(r => r.source === 'sleep')) await loadSleep();
+      closeHabitModal(); paintHabits();
     }
     docEl('habitClose').onclick = closeHabitModal;
     docEl('habitOverlay').onclick = e => { if (e.target === docEl('habitOverlay')) closeHabitModal(); };
@@ -4007,6 +4025,7 @@
         unit: f.mode === 'amount' && daily ? docEl('habitUnit').value.trim() : f.mode === 'sleep' && daily ? 'h' : '',
         source: f.mode === 'sleep' && daily ? 'sleep' : 'manual',
       };
+      if (HABITS.some(h => h.id !== f.id && h.name.trim().toLowerCase() === name.toLowerCase()) && !await luConfirm({ title: `You already have “${name}”`, message: 'Add another habit with the same name?', icon: 'fa-clone', tone: 'info', ok: 'Add anyway' })) return;
       const btn = docEl('habitSave'); btn.disabled = true; btn.textContent = 'Saving…';
       const { data, error } = f.id ? await LumaHabits.update(f.id, fields) : await LumaHabits.add(fields);
       btn.disabled = false; btn.textContent = 'Save habit';
