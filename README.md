@@ -1,4 +1,7 @@
-# LUMA
+# myluma-os
+
+> LUMA is an AI personal operating system with a calm glass dashboard for tasks, notes, documents, health and contacts, built with plain HTML/JS and Supabase.
+
 
 LUMA is an AI personal operating system — a calm, glassmorphism dashboard that
 unifies calendar, tasks, finances, habits and more into one surface, with an
@@ -169,16 +172,16 @@ wherever you're serving it from, e.g. `http://localhost:8000`.
 
 The app is static (no build step), so Vercel just serves the folder.
 
-1. Create an empty repository on GitHub, then from this folder:
+1. Create an empty repository named `myluma-os` on GitHub, then from this folder:
    ```bash
-   git remote add origin https://github.com/<your-user>/<your-repo>.git
+   git remote add origin https://github.com/<your-user>/myluma-os.git
    git push -u origin main
    ```
 2. At [vercel.com](https://vercel.com) choose **Add New → Project**, import the repo, and
    leave everything at its defaults (Framework: *Other*, no build command, output
-   directory `.`). Every later `git push` redeploys automatically.
+   directory `.`) and keep the project name `myluma-os`. Every later `git push` redeploys automatically.
 3. In Supabase → **Authentication → URL Configuration** set **Site URL** to your Vercel
-   address (e.g. `https://your-app.vercel.app`) and add it under **Redirect URLs**, so
+   address (`https://myluma-os.vercel.app`) and add it under **Redirect URLs**, so
    password-reset and email-confirmation links come back to the live app.
 
 `index.html` forwards the site root to the sign-in page; `vercel.json` stops browsers
