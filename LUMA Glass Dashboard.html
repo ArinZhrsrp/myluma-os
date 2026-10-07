@@ -864,6 +864,24 @@
 
 
 
+
+    /* calendar month: rounded squares sized to fit the card (no scrolling) */
+    #calBody.cal-nosc { overflow:hidden !important; }
+    .cal-wdrow { display:grid; justify-content:center; height:26px; align-items:center; }
+    .cal-wdrow div { text-align:center; font-size:0.62rem; font-weight:600; letter-spacing:0.06em; color:rgba(255,255,255,0.4); }
+    .cal-grid.sq { display:grid; justify-content:center; border:none; border-radius:0; overflow:visible; }
+    .cal-grid.sq .cal-cell { min-height:0; padding:8px; overflow:hidden; border-radius:16px; border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.035); }
+    .cal-grid.sq .cal-cell:hover { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.16); }
+    .cal-grid.sq .cal-cell.muted { opacity:.45; }
+    .cal-grid.sq .cal-cell.today { border-color:rgba(59,130,246,0.7); background:rgba(59,130,246,0.1); }
+    .cal-grid.sq .cal-cell .num { font-size:0.74rem; }
+    .cal-grid.sq .evt { margin:4px -2px 0; padding:2px 4px; align-items:center; gap:5px; background:rgba(255,255,255,0.07); border-radius:6px; }
+    .cal-grid.sq .evt .dot { margin-top:0; width:6px; height:6px; }
+    .cal-grid.sq .evt-text { flex-direction:row; min-width:0; }
+    .cal-grid.sq .evt-title { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:0.62rem; }
+    .cal-grid.sq .evt-time { display:none; }
+    .cal-grid.sq .cal-more { margin-top:4px; font-size:0.6rem; }
+
     /* calendar: header fixed, the calendar body and the side column scroll on their own */
     .main-content.fit #page-calendar .cal-layout { flex:1 1 auto; min-height:0; align-items:stretch; padding-bottom:24px; }
     .main-content.fit #page-calendar .calendar-card { display:flex; flex-direction:column; min-height:0; }
@@ -4048,16 +4066,22 @@
       const body = docEl('calBody'); if (!body) return;
       const today = mytDayKey(Date.now()); if (!cDate) cDate = today;
       document.querySelectorAll('#calViews span').forEach(sp => sp.classList.toggle('active', sp.dataset.v === cView));
-      docEl('calWd').style.display = cView === 'month' ? '' : 'none';
+      docEl('calWd').style.display = 'none'; body.classList.remove('cal-nosc');
       if (CERR) { docEl('calTitle').textContent = 'Calendar'; body.innerHTML = '<div class="cal-empty">Could not load events — has <b>supabase/migrations/027_events.sql</b> been run in the Supabase SQL Editor?</div>'; paintCalSide(); return; }
       let title = '', html = '';
       if (cView === 'month') {
         const first = bFirst(cDate), lead = cDow(first), n = cLast(first), weeks = Math.ceil((lead + n) / 7), start = bAddDays(first, -lead);
         title = cFmt(first, { month: 'long', year: 'numeric' });
-        html = '<div class="cal-grid">' + Array.from({ length: weeks * 7 }, (_, i) => {
-          const k = bAddDays(start, i), items = cItemsOn(k), muted = k.slice(0, 7) !== first.slice(0, 7);
-          return `<div class="cal-cell ${muted ? 'muted' : ''} ${k === today ? 'today' : ''}" data-d="${k}"><div class="num">${+k.slice(8)}</div>${items.slice(0, 3).map(it => cChip(it, k)).join('')}${items.length > 3 ? `<div class="cal-more" data-d="${k}">+${items.length - 3} more</div>` : ''}</div>`;
+        // square cells: as big as fit both the width and the height of the card, so the month never needs scrolling
+        const gap = 6, wdH = 26, availW = Math.max(0, body.clientWidth - 8), availH = Math.max(0, body.clientHeight - wdH - 6);
+        const size = Math.max(46, Math.floor(Math.min((availW - gap * 6) / 7, (availH - gap * (weeks - 1)) / weeks))), per = size >= 118 ? 3 : size >= 92 ? 2 : 1;
+        const cols = `grid-template-columns:repeat(7,${size}px);gap:${gap}px;`;
+        html = `<div class="cal-wdrow" style="${cols}">${['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(w => `<div>${w}</div>`).join('')}</div>`
+          + `<div class="cal-grid sq" style="${cols}grid-auto-rows:${size}px">` + Array.from({ length: weeks * 7 }, (_, i) => {
+          const k = bAddDays(start, i), items = cItemsOn(k), muted = k.slice(0, 7) !== first.slice(0, 7), more = items.length - per;
+          return `<div class="cal-cell ${muted ? 'muted' : ''} ${k === today ? 'today' : ''}" data-d="${k}"><div class="num">${+k.slice(8)}</div>${items.slice(0, more > 0 ? per - 1 : per).map(it => cChip(it, k)).join('')}${more > 0 ? `<div class="cal-more" data-d="${k}">+${items.length - (per - 1)} more</div>` : ''}</div>`;
         }).join('') + '</div>';
+        body.classList.add('cal-nosc');
       } else if (cView === 'week') {
         const start = bAddDays(cDate, -cDow(cDate)), end = bAddDays(start, 6);
         title = `${cFmt(start, { day: 'numeric', month: 'short' })} – ${cFmt(end, { day: 'numeric', month: 'short', year: 'numeric' })}`;
@@ -4157,6 +4181,7 @@
     }
     function calBind() {
       if (cBound) return; cBound = true;
+      let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (cView === 'month' && document.getElementById('page-calendar').classList.contains('active')) paintCalendar(); }, 120); }); // squares are re-sized with the window
       docEl('calPrev').onclick = () => calMove(-1); docEl('calNext').onclick = () => calMove(1);
       docEl('calToday').onclick = () => { cDate = mytDayKey(Date.now()); paintCalendar(); };
       docEl('calCreate').onclick = () => openCalModal(null, cView === 'month' || cView === 'year' ? mytDayKey(Date.now()) : cDate);
