@@ -922,13 +922,13 @@
     }
 
 
-    /* calendar week: Monday–Friday time grid */
+    /* calendar week: Sunday–Saturday time grid */
     .cal-tg { position:relative; }
     .tg-top { position:sticky; top:0; z-index:4; background:rgba(26,32,50,0.94); backdrop-filter:blur(14px); border-bottom:1px solid rgba(255,255,255,0.1); }
-    .tg-row { display:grid; grid-template-columns:62px repeat(5, minmax(0,1fr)); }
+    .tg-row { display:grid; grid-template-columns:62px repeat(7, minmax(0,1fr)); }
     .tg-corner { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:0.62rem; color:rgba(255,255,255,0.55); padding:6px 0; }
     .tg-corner span { color:#fbbf24; }
-    .tg-dh { display:flex; align-items:center; gap:9px; padding:12px 14px; border-left:1px solid rgba(255,255,255,0.08); }
+    .tg-dh { display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 6px; border-left:1px solid rgba(255,255,255,0.08); }
     .tg-dh .dn { font-size:1.3rem; font-weight:500; color:#fff; line-height:1; min-width:30px; text-align:center; }
     .tg-dh .dw { font-size:0.78rem; color:rgba(255,255,255,0.6); }
     .tg-dh.today .dn { background:#3b82f6; border-radius:50%; width:34px; height:34px; display:grid; place-items:center; }
@@ -4179,9 +4179,9 @@
         }).join('') + '</div>';
         body.classList.add('cal-nosc');
       } else if (cView === 'week') {
-        // Monday–Friday time grid: hours down the side, each timed item placed at its time and sized by its length
-        const mon = bAddDays(cDate, -((cDow(cDate) + 6) % 7)), ds = Array.from({ length: 5 }, (_, i) => bAddDays(mon, i)), nowMin = (() => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; })();
-        title = `${cFmt(mon, { day: 'numeric' })} – ${cFmt(ds[4], { day: 'numeric', month: 'short', year: 'numeric' })}`;
+        // Sunday–Saturday time grid: hours down the side, each timed item placed at its time and sized by its length
+        const mon = bAddDays(cDate, -cDow(cDate)), ds = Array.from({ length: 7 }, (_, i) => bAddDays(mon, i)), nowMin = (() => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; })();
+        title = `${cFmt(mon, { day: 'numeric', month: mon.slice(0, 7) === ds[6].slice(0, 7) ? undefined : 'short' })} – ${cFmt(ds[6], { day: 'numeric', month: 'short', year: 'numeric' })}`;
         const toMin = t => +t.slice(0, 2) * 60 + +t.slice(3, 5), hr12 = h => h === 0 ? '12 am' : h < 12 ? h + ' am' : h === 12 ? '12 pm' : (h - 12) + ' pm';
         const cols = ds.map(k => {
           const items = cItemsOn(k), timed = items.filter(it => it.time), loose = items.filter(it => !it.time);
