@@ -947,7 +947,7 @@
     .tg-ad .cchip.done .tt { text-decoration:line-through; opacity:.6; }
     .tg-body { position:relative; }
     .tg-hours { position:relative; z-index:0; }
-    .tg-hl { position:absolute; right:10px; transform:translateY(calc(-100% - 1px)); font-size:0.66rem; line-height:1.2; color:rgba(255,255,255,0.55); white-space:nowrap; } /* sits just above its line so the line stays unbroken */
+    .tg-hl { position:absolute; right:10px; margin-top:5px; font-size:0.66rem; line-height:1.2; color:rgba(255,255,255,0.55); white-space:nowrap; } /* sits just under its line: the hour starts at the line and runs down from it */
     .tg-col { position:relative; border-left:1px solid rgba(255,255,255,0.08); cursor:pointer; }
     /* hour lines run the whole width, from the left edge to the right edge — they're drawn once on the row, not per column */
     .tg-body { background-image:repeating-linear-gradient(to bottom, transparent 0, transparent 51px, rgba(255,255,255,0.1) 51px, rgba(255,255,255,0.1) 52px); border-right:1px solid rgba(255,255,255,0.08); border-bottom:1px solid rgba(255,255,255,0.1); }
@@ -4204,7 +4204,7 @@
         const top = ev.s / 60 * hourH, h = Math.max(20, (ev.e - ev.s) / 60 * hourH - 2), w = 100 / ev.lanes, it = ev.it;
         return `<div class="tg-ev ${h < 36 ? 'tiny' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${c.k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}" style="top:${top}px;height:${h}px;left:calc(${ev.lane * w}% + 2px);width:calc(${w}% - 4px);--ic:${it.color}"><div class="t">${escapeHtml(it.title)}</div><div class="m">${t12(it.time)}${it.end ? ' – ' + t12(it.end) : ''}${single ? ' · ' + it.cat : ''}</div></div>`;
       }).join('')}${c.k === today ? `<div class="tg-now" style="top:${nowMin / 60 * hourH}px"></div>` : ''}</div>`).join('');
-      const labels = Array.from({ length: 24 }, (_, h) => h ? `<div class="tg-hl" style="top:${h * hourH}px">${hr12(h)}</div>` : '').join('');
+      const labels = Array.from({ length: 24 }, (_, h) => `<div class="tg-hl" style="top:${h * hourH}px">${hr12(h)}</div>`).join('');
       const html = `<div class="cal-tg" style="--n:${ds.length}"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>${tzOffsetLabel().replace('GMT', '')}</span></div>${headCells}</div></div>`
         + `<div class="tg-scroll"><div class="tg-row tg-adrow"><div class="tg-corner"><span>all-day</span></div>${adCells}</div><div class="tg-row tg-body" style="height:${24 * hourH}px"><div class="tg-hours">${labels}</div>${dayCols}</div></div></div>`;
       return { html, wkTop: cols.some(c => c.loose.length) ? 0 : 7 * hourH }; // with all-day items the list opens at the top (where they are); otherwise around 7 am
