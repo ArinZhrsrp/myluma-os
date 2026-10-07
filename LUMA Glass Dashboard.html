@@ -3828,9 +3828,9 @@
     }
     // did a deleted habit still count on this day? yes on every day before the day it was deleted, and on the deletion day itself only if it was done
     const hGoneCounts = (h, key) => { const d = mytDayKey(h.updated_at); return key < d || (key === d && hLogged(h, key)); };
-    // share of the daily habits due on `key` that were done (null when none were due)
+    // share of your daily habits due on `key` that were done (null when none were due)
     function hDayRatio(key) {
-      const due = HABITS.filter(h => h.period === 'daily' && hSched(h, key) && (hBorn(h) <= key || hLogged(h, key)));
+      const due = HABITS.filter(h => h.period === 'daily' && hSched(h, key)); // every daily habit you have counts for every day, so ticking a past day behaves exactly like today
       return due.length ? due.filter(h => hLogged(h, key)).length / due.length : null;
     }
 
