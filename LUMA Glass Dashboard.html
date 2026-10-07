@@ -2146,7 +2146,7 @@
       <div class="pem-field" id="billCatsWrap"><label>Category</label><div class="g-cats" id="billCats"></div></div>
       <div class="pem-field" id="billTypeWrap" style="display:none"><label>Type <span style="color:rgba(255,255,255,0.35);font-weight:400">(shown under the name)</span></label><div class="h-tpls" id="billTypes"></div></div>
       <div class="pem-field"><label>Repeats</label><div class="h-days" id="billRepeat"></div></div>
-      <div class="pem-field"><label id="billDueLbl">Due date <span style="color:#fca5a5">*</span></label><input id="billDue" type="text"></div>
+      <div class="pem-field"><label id="billDueLbl">Due date <span style="color:#fca5a5">*</span></label><input id="billDue" type="text"><div class="pem-hint" id="billSubHint" style="margin:6px 0 0;display:none"><i class="fa-regular fa-bell"></i> You'll get a notification 3 days before it renews (a push too, if notifications are on in Settings).</div></div>
       <div class="pem-field"><label>Note <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="billNote" type="text" maxlength="120" placeholder="e.g. Account 1234-567" autocomplete="off"></div>
       <div class="pem-actions" style="gap:10px">
         <button type="button" class="h-del" id="billDelete" title="Delete bill" aria-label="Delete bill" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
@@ -2655,7 +2655,7 @@
     let NOTIFS = [], notifChannel = null, notifFilter = 'all';
     const NOTIF_ICONS = {
       welcome: ['fa-circle-check', '#22c55e'], share: ['fa-share-nodes', '#38bdf8'],
-      contact_request: ['fa-user-plus', '#f59e0b'], nudge: ['fa-bell', '#f59e0b'], message: ['fa-comment', '#3b82f6'], reminder_water: ['fa-droplet', '#38bdf8'], reminder_steps: ['fa-shoe-prints', '#34d399'], reminder_active: ['fa-fire', '#fb923c'], reminder_habit: ['fa-bell', '#fb923c'], reminder_sleep: ['fa-moon', '#a78bfa'], contact_accepted: ['fa-user-check', '#22c55e'], system: ['fa-bell', '#94a3b8'],
+      contact_request: ['fa-user-plus', '#f59e0b'], nudge: ['fa-bell', '#f59e0b'], message: ['fa-comment', '#3b82f6'], reminder_water: ['fa-droplet', '#38bdf8'], reminder_steps: ['fa-shoe-prints', '#34d399'], reminder_active: ['fa-fire', '#fb923c'], reminder_habit: ['fa-bell', '#fb923c'], reminder_subscription: ['fa-repeat', '#f472b6'], reminder_sleep: ['fa-moon', '#a78bfa'], contact_accepted: ['fa-user-check', '#22c55e'], system: ['fa-bell', '#94a3b8'],
     };
     const mytDayKey = d => new Intl.DateTimeFormat('en-CA', { timeZone: MYT }).format(new Date(d));
     const mytTime = d => new Intl.DateTimeFormat('en-US', { timeZone: MYT, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(d));
@@ -4306,7 +4306,7 @@
       docEl('billCats').innerHTML = B_CATS.map(([n, i, c]) => `<button type="button" data-c="${n}" class="${n === bForm.category ? 'on' : ''}" style="--gc:${c}"><i class="fa-solid ${i}" style="color:${c}"></i>${n}</button>`).join('');
       const isSub = bForm.category === 'Subscription', subMode = bForm.mode === 'sub';
       if (isSub && bForm.recurrence === 'once') bForm.recurrence = 'monthly'; // subscriptions renew: weekly, monthly or yearly
-      docEl('billCatsWrap').style.display = subMode ? 'none' : ''; // opened from Subscriptions: always a subscription, no category to pick
+      docEl('billCatsWrap').style.display = subMode ? 'none' : ''; docEl('billSubHint').style.display = isSub ? '' : 'none'; // opened from Subscriptions: always a subscription, no category to pick
       docEl('billRepeat').innerHTML = B_REPEAT.filter(([v]) => !isSub || v !== 'once').map(([v, l]) => `<button type="button" data-r="${v}" class="${v === bForm.recurrence ? 'on' : ''}">${l}</button>`).join('');
       docEl('billTypeWrap').style.display = isSub ? '' : 'none';
       docEl('billTypes').innerHTML = S_TYPES.map(([n, i, c]) => `<button type="button" class="h-chip sm ${docEl('billNote').value.trim().toLowerCase() === n.toLowerCase() ? 'on' : ''}" data-t="${n}"><i class="fa-solid ${i}" style="color:${c}"></i>${n}</button>`).join('');
