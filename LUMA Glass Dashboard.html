@@ -901,18 +901,18 @@
     .calendar-card { container-type:inline-size; container-name:calcard; }
     #page-calendar .cal-head { flex-wrap:nowrap; gap:0.6rem; }
     #page-calendar .cal-title { flex:0 1 auto; min-width:0; gap:0.45rem; }
-    #page-calendar .cal-title h2 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+    #page-calendar .cal-title h2 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; font-size:1.6rem; font-weight:600; letter-spacing:-0.01em; color:#fff; } /* the big month / week / day title, in every view */
     #page-calendar .cal-title .chevron, #page-calendar .cal-today { flex:none; }
     #page-calendar .view-tabs, #page-calendar #calCreate { flex:none; white-space:nowrap; }
     #page-calendar .cal-head { justify-content:flex-start; }
     #page-calendar .view-tabs { margin-left:auto; } /* tabs + Create sit on the right, so they stay put when the month title changes width */
     @container calcard (max-width: 880px) {
-      #page-calendar .cal-title h2 { font-size:1rem; }
+      #page-calendar .cal-title h2 { font-size:1.35rem; }
       #page-calendar .view-tabs span { padding:6px 11px; font-size:0.72rem; }
       #page-calendar #calCreate { padding:9px 13px; }
     }
     @container calcard (max-width: 720px) {
-      #page-calendar .cal-title h2 { font-size:0.92rem; }
+      #page-calendar .cal-title h2 { font-size:1.15rem; }
       #page-calendar .cal-today { padding:0 9px; }
       #page-calendar .view-tabs span { padding:6px 8px; }
       #page-calendar #calCreate .l1 { display:none; }
@@ -4233,7 +4233,7 @@
         title = `${cFmt(sun, { day: 'numeric', month: sun.slice(0, 7) === ds[6].slice(0, 7) ? undefined : 'short' })} – ${cFmt(ds[6], { day: 'numeric', month: 'short', year: 'numeric' })}`;
         ({ html, wkTop } = cTimeGrid(ds, today)); body.classList.add('cal-wk');
       } else if (cView === 'day') {
-        title = cFmt(cDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        title = cFmt(cDate, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
         ({ html, wkTop } = cTimeGrid([cDate], today)); body.classList.add('cal-wk');
       } else {
         const y = +cDate.slice(0, 4); title = String(y);
