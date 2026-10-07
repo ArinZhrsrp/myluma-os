@@ -3807,9 +3807,11 @@
       if (hPeriodDone(h, ps[ps.length - 1], today)) { run++; best = Math.max(best, run); }
       return { cur: run, best };
     }
+    // did a deleted habit still count on this day? yes on every day before the day it was deleted, and on the deletion day itself only if it was done
+    const hGoneCounts = (h, key) => { const d = mytDayKey(h.updated_at); return key < d || (key === d && hLogged(h, key)); };
     // share of the daily habits due on `key` that were done (null when none were due)
     function hDayRatio(key) {
-      const due = [...HABITS, ...HGONE].filter(h => h.period === 'daily' && hSched(h, key) && hBorn(h) <= key && (!h.archived || key < mytDayKey(h.updated_at)));
+      const due = [...HABITS, ...HGONE].filter(h => h.period === 'daily' && hSched(h, key) && hBorn(h) <= key && (!h.archived || hGoneCounts(h, key)));
       return due.length ? due.filter(h => hLogged(h, key)).length / due.length : null;
     }
 
@@ -3860,7 +3862,7 @@
       const day = hDay || today, isToday = day === today;
       const dayWord = isToday ? 'today' : day === hKeyAdd(today, -1) ? 'yesterday' : 'on ' + hKeyLabel(day);
       // habits you deleted still appear on the days they existed (read-only), so past days keep your ticks
-      const dayHabits = [...HABITS, ...(hSelecting ? [] : HGONE.filter(h => h.period === 'daily' && hBorn(h) <= day && day < mytDayKey(h.updated_at)))];
+      const dayHabits = [...HABITS, ...(hSelecting ? [] : HGONE.filter(h => h.period === 'daily' && hBorn(h) <= day && hGoneCounts(h, day)))];
       const daily = dayHabits.filter(h => h.period === 'daily' && hSched(h, day)), longer = HABITS.filter(h => h.period !== 'daily');
       sub.textContent = HABITS.length
         ? `${daily.filter(h => hLogged(h, day)).length} of ${daily.length} done ${dayWord}` + (longer.length ? ` · ${longer.filter(h => hPeriodDone(h, hPeriodKey(h, day), today)).length} of ${longer.length} weekly & monthly` : '')
