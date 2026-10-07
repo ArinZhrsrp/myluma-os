@@ -873,6 +873,14 @@
     .hbtn.on { color:#fff; border-color:transparent; }
     .hedit { width:30px; height:30px; flex:none; border-radius:9px; border:none; background:transparent; color:rgba(255,255,255,0.3); cursor:pointer; font-size:0.78rem; }
     .hedit:hover { background:rgba(255,255,255,0.08); color:#fff; }
+    .h-empty { display:flex; flex-direction:column; align-items:center; text-align:center; padding:44px 20px 40px; }
+    .h-empty-ico { width:68px; height:68px; border-radius:50%; display:grid; place-items:center; font-size:1.7rem; color:#86efac; background:radial-gradient(circle at 30% 25%, rgba(74,222,128,0.28), rgba(74,222,128,0.07)); border:1px solid rgba(74,222,128,0.22); margin-bottom:18px; }
+    .h-empty-t { font-size:1.05rem; font-weight:600; color:#fff; }
+    .h-empty-s { max-width:380px; margin:8px 0 22px; font-size:0.8rem; line-height:1.6; color:rgba(255,255,255,0.5); }
+    .h-empty-s b { color:rgba(255,255,255,0.8); font-weight:600; }
+    .h-empty-chips { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; max-width:520px; }
+    .h-chip { display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 15px; border-radius:999px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.85); font-size:0.78rem; font-family:inherit; cursor:pointer; transition:0.15s; }
+    .h-chip:hover { background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.22); transform:translateY(-1px); }
     .h-icons { display:grid; grid-template-columns:repeat(10,1fr); gap:6px; }
     .h-icons button { aspect-ratio:1; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.65); cursor:pointer; font-size:0.85rem; padding:0; }
     .h-icons button.on { color:#fff; border-color:var(--hc,#3b82f6); background:color-mix(in srgb, var(--hc,#3b82f6) 30%, transparent); }
@@ -3663,6 +3671,14 @@
 
     // ---------- Habits (luma.habits + luma.habit_logs) ----------
     const H_ICONS = ['fa-brain','fa-book-open','fa-dumbbell','fa-moon','fa-pen-nib','fa-droplet','fa-person-running','fa-apple-whole','fa-bed','fa-guitar','fa-code','fa-leaf','fa-heart','fa-sun','fa-language','fa-broom','fa-pills','fa-bicycle','fa-mug-hot','fa-spa'];
+    const H_PRESETS = [
+      { name: 'Meditate', icon: 'fa-brain', color: '#8b5cf6', target: '10 min' },
+      { name: 'Read', icon: 'fa-book-open', color: '#3b82f6', target: '20 pages' },
+      { name: 'Workout', icon: 'fa-dumbbell', color: '#22c55e', target: '45 min' },
+      { name: 'Drink water', icon: 'fa-droplet', color: '#38bdf8', target: '8 glasses' },
+      { name: 'Journal', icon: 'fa-pen-nib', color: '#ec4899', target: '1 entry' },
+      { name: 'Sleep early', icon: 'fa-moon', color: '#f59e0b', target: 'Before 11pm' },
+    ];
     const H_DAY_ORDER = [[1, 'M'], [2, 'T'], [3, 'W'], [4, 'T'], [5, 'F'], [6, 'S'], [0, 'S']]; // Monday first; value = weekday (0 = Sunday)
     const H_WINDOW = 365; // days of history loaded (for streaks)
     let HABITS = [], HLOGS = new Map(), HABITS_ERR = null; // HLOGS: habit id → Set of 'YYYY-MM-DD' days it was done
@@ -3732,7 +3748,12 @@
       const dueToday = HABITS.filter(h => hSched(h, today));
       sub.textContent = HABITS.length ? `${dueToday.filter(h => hDone(h, today)).length} of ${dueToday.length} done today` : 'Build routines that stick';
       if (!HABITS.length) {
-        root.innerHTML = card('<div style="text-align:center;padding:34px 10px"><div class="licon" style="margin:0 auto 14px;color:#fb923c;background:rgba(251,146,60,0.14)"><i class="fa-solid fa-fire"></i></div><div class="lt">No habits yet</div><div class="ls" style="margin:6px 0 16px">Add something small you want to do regularly — we\'ll track your streak.</div><button class="create-btn" id="emptyAddHabit"><i class="fa-solid fa-plus"></i> Create your first habit</button></div>');
+        root.innerHTML = card(`<div class="h-empty">
+          <div class="h-empty-ico"><i class="fa-solid fa-seedling"></i></div>
+          <div class="h-empty-t">Start your first habit</div>
+          <div class="h-empty-s">Small things you do regularly add up. Pick a starter or tap <b>New habit</b> to make your own — we'll track your streak.</div>
+          <div class="h-empty-chips">${H_PRESETS.map((p, i) => `<button type="button" class="h-chip" data-preset="${i}"><i class="fa-solid ${p.icon}" style="color:${p.color}"></i>${p.name}</button>`).join('')}</div>
+        </div>`);
         return;
       }
       const rows = HABITS.map(h => {
@@ -3782,13 +3803,13 @@
       docEl('habitColors').innerHTML = COLOR_PALETTE.map(([c, n]) => `<button type="button" data-c="${c}" title="${n}" class="${c === habitForm.color ? 'on' : ''}" style="background:${c}"></button>`).join('');
       docEl('habitDays').innerHTML = H_DAY_ORDER.map(([d, l]) => `<button type="button" data-d="${d}" class="${habitForm.days.has(d) ? 'on' : ''}">${l}</button>`).join('');
     }
-    function openHabitModal(h) {
+    function openHabitModal(h, preset) {
       habitForm.id = h ? h.id : null;
-      habitForm.icon = h ? h.icon : H_ICONS[Math.floor(Math.random() * H_ICONS.length)];
-      habitForm.color = h ? h.color : randomColor(HABITS.map(x => x.color));
+      habitForm.icon = h ? h.icon : preset ? preset.icon : H_ICONS[Math.floor(Math.random() * H_ICONS.length)];
+      habitForm.color = h ? h.color : preset ? preset.color : randomColor(HABITS.map(x => x.color));
       habitForm.days = new Set(h ? h.days : LumaHabits.ALL_DAYS);
       docEl('habitModalTitle').textContent = h ? 'Edit habit' : 'New habit';
-      docEl('habitName').value = h ? h.name : ''; docEl('habitTarget').value = h ? h.target : '';
+      docEl('habitName').value = h ? h.name : preset ? preset.name : ''; docEl('habitTarget').value = h ? h.target : preset ? preset.target : '';
       docEl('habitDelete').style.display = h ? '' : 'none';
       habitErr(''); paintHabitForm();
       docEl('habitOverlay').classList.add('open'); setTimeout(() => docEl('habitName').focus(), 50);
@@ -3825,7 +3846,7 @@
     async function loadHabits(pg) {
       pg.querySelector('#addHabitBtn').addEventListener('click', () => openHabitModal(null));
       pg.querySelector('#habitsRoot').addEventListener('click', e => {
-        if (e.target.closest('#emptyAddHabit')) return openHabitModal(null);
+        const chip = e.target.closest('.h-chip'); if (chip) return openHabitModal(null, H_PRESETS[+chip.dataset.preset]);
         const row = e.target.closest('.hrow'); if (!row) return;
         if (e.target.closest('.hedit')) return openHabitModal(HABITS.find(x => x.id === row.dataset.id));
         const t = e.target.closest('.hbtn, .hdot'); if (t) toggleHabitDay(row.dataset.id, t.dataset.day);
