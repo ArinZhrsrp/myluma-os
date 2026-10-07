@@ -4147,7 +4147,7 @@
       };
       const byRenewal = (a, c) => (bNext(a, today) || '9999').localeCompare(bNext(c, today) || '9999');
       const live = all.filter(b => b.active !== false).sort(byRenewal), paused = all.filter(b => b.active === false).sort((a, c) => a.name.localeCompare(c.name));
-      root.innerHTML = `<div class="grid-4" style="margin-bottom:0.9rem">${[['Monthly total', bRM(monthly)], ['Yearly est.', bRM(monthly * 12)], ['Active', active.length], ['Renews soon', soon]].map(m => m[0] === 'Renews soon' ? card(`<div class="metric"><div class="m-label" style="color:#fff">${m[0]}${soon ? ' <span style="text-transform:none;letter-spacing:0;font-weight:400;color:rgba(255,255,255,0.45)">· tap to ' + (sHi ? 'clear' : 'highlight') + '</span>' : ''}</div><div class="m-value">${m[1]}</div></div>`, `s-clickable ${sHi ? 'on' : ''}" title="Highlight the subscriptions renewing within 7 days`) : card(`<div class="metric"><div class="m-label" style="color:#fff">${m[0]}</div><div class="m-value">${m[1]}</div></div>`)).join('')}</div>
+      root.innerHTML = `<div class="grid-4" style="margin-bottom:0.9rem">${[['Monthly total', bRM(monthly)], ['Yearly est.', bRM(monthly * 12)], ['Active', active.length], ['Renews soon', soon]].map(m => m[0] === 'Renews soon' ? card(`<div class="metric"><div class="m-label" style="color:#fff">${m[0]}${soon ? ' <span style="text-transform:none;letter-spacing:0;font-weight:400;color:rgba(255,255,255,0.45)">· tap to ' + (sHi ? 'click anywhere to clear' : 'highlight') + '</span>' : ''}</div><div class="m-value">${m[1]}</div></div>`, `s-clickable ${sHi ? 'on' : ''}" title="Highlight the subscriptions renewing within 7 days`) : card(`<div class="metric"><div class="m-label" style="color:#fff">${m[0]}</div><div class="m-value">${m[1]}</div></div>`)).join('')}</div>
         <div class="s-list">
           <div class="s-sec">Active <span>${live.length}</span></div>${live.length ? `<div class="grid-3">${live.map(cardOf).join('')}</div>` : '<div class="ls" style="padding:6px 2px 12px">No active subscriptions.</div>'}
           ${paused.length ? `<div class="s-sec">Inactive · paused <span>${paused.length}</span></div><div class="grid-3">${paused.map(cardOf).join('')}</div>` : ''}
@@ -4163,6 +4163,8 @@
 
     async function loadSubs(pg) {
       sHi = false;
+      // while the yellow highlight is on, a click anywhere else on the page clears it (the Renews soon card itself toggles it)
+      if (!window._sHiBound) { window._sHiBound = true; document.addEventListener('click', e => { if (sHi && docEl('subsRoot') && !e.target.closest('.s-clickable')) { sHi = false; paintSubs(); } }); }
       pg.querySelector('#addSubBtn').addEventListener('click', () => openBillModal(null, { category: 'Subscription', recurrence: 'monthly' }, 'sub'));
       pg.querySelector('#subsRoot').addEventListener('click', e => {
         if (e.target.closest('.s-clickable')) {
