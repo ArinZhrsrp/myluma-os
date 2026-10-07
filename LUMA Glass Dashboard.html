@@ -2064,9 +2064,9 @@
       </div>
       <div class="pem-msg error" id="billError"></div>
       <div class="pem-field" id="billTplWrap"><label>Quick start</label><div class="h-tpls" id="billTpls"></div></div>
-      <div class="pem-field"><label>Bill name <span style="color:#fca5a5">*</span></label><input id="billName" type="text" maxlength="80" placeholder="e.g. Internet (Unifi)" autocomplete="off"></div>
+      <div class="pem-field"><label id="billNameLbl">Bill name <span style="color:#fca5a5">*</span></label><input id="billName" type="text" maxlength="80" placeholder="e.g. Internet (Unifi)" autocomplete="off"></div>
       <div class="pem-field"><label>Amount (RM) <span style="color:#fca5a5">*</span></label><input id="billAmount" type="text" inputmode="decimal" placeholder="e.g. 129" autocomplete="off"></div>
-      <div class="pem-field"><label>Category</label><div class="g-cats" id="billCats"></div></div>
+      <div class="pem-field" id="billCatsWrap"><label>Category</label><div class="g-cats" id="billCats"></div></div>
       <div class="pem-field" id="billTypeWrap" style="display:none"><label>Type <span style="color:rgba(255,255,255,0.35);font-weight:400">(shown under the name)</span></label><div class="h-tpls" id="billTypes"></div></div>
       <div class="pem-field"><label>Repeats</label><div class="h-days" id="billRepeat"></div></div>
       <div class="pem-field"><label id="billDueLbl">Due date <span style="color:#fca5a5">*</span></label><input id="billDue" type="text"></div>
@@ -3883,13 +3883,14 @@
       { name: 'Internet', category: 'Internet' }, { name: 'Electricity', category: 'Electricity' }, { name: 'Water', category: 'Water' }, { name: 'Phone', category: 'Phone' },
       { name: 'Rent', category: 'Rent' }, { name: 'Car insurance', category: 'Insurance', recurrence: 'yearly' }, { name: 'Credit card', category: 'Credit card' },
     ];
-    const B_REPEAT = [['once', 'Once'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
+    const B_REPEAT = [['once', 'Once'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
     let BILLS = [], BPAY = new Map(), BILLS_ERR = null, bMonth = null; // BPAY: bill id → Map(due date → amount paid); bMonth: first day of the month shown (null = this month)
-    const bForm = { id: null, category: 'Other', recurrence: 'monthly' };
+    const bForm = { id: null, category: 'Other', recurrence: 'monthly', mode: 'bill' }; // mode 'sub' = opened from the Subscriptions page (always a Subscription)
 
     const bCat = n => B_CATS.find(c => c[0] === n) || B_CATS[B_CATS.length - 1];
     const bRM = n => 'RM' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
     const bFirst = k => k.slice(0, 8) + '01';
+    const bAddDays = (k, n) => new Date(Date.parse(k) + n * 864e5).toISOString().slice(0, 10);
     const bAddMonths = (first, n) => { const [y, m] = first.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + n, 1)).toISOString().slice(0, 10); };
     const bDays = (a, b) => Math.round((Date.parse(a) - Date.parse(b)) / 864e5);
     const bLabel = k => new Date(k + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -3905,13 +3906,20 @@
       if (b.recurrence === 'yearly') return m === am && y >= ay ? mk(ad) : null;
       return y > ay || (y === ay && m >= am) ? mk(ad) : null;
     }
+    function bCycles(b, mFirst) {
+      if (b.recurrence !== 'weekly') { const c = bCycle(b, mFirst); return c ? [c] : []; }
+      const last = bAddDays(bAddMonths(mFirst, 1), -1); let d = b.due_date;
+      if (d > last) return [];
+      if (d < mFirst) d = bAddDays(d, Math.ceil(bDays(mFirst, d) / 7) * 7);
+      const out = []; for (; d <= last; d = bAddDays(d, 7)) out.push(d);
+      return out;
+    }
     // every bill cycle shown for a month: that month's cycles, plus (for the current month) unpaid ones from earlier months
     function bRows(mFirst) {
       const today = mytDayKey(Date.now()), thisFirst = bFirst(today), rows = [];
       BILLS.filter(b => b.active !== false).forEach(b => {
-        const due = bCycle(b, mFirst);
-        if (due) rows.push({ b, due, paid: bPaidAmt(b, due) });
-        if (mFirst === thisFirst) {
+        bCycles(b, mFirst).forEach(due => rows.push({ b, due, paid: bPaidAmt(b, due) }));
+        if (mFirst === thisFirst && b.recurrence !== 'weekly') {
           for (let k = 1; k <= (b.recurrence === 'once' ? 24 : 6); k++) {
             const d = bCycle(b, bAddMonths(mFirst, -k));
             // repeating bills only count as overdue from the month they were added (a past first due date doesn't create months of overdue bills)
@@ -3953,7 +3961,7 @@
       const list = rows.length ? rows.map(r => {
         const [, icon, col] = bCat(r.b.category), d = bDays(r.due, today);
         const [pc, pt] = r.status === 'paid' ? ['pill-low', 'Paid'] : r.status === 'overdue' ? ['pill-high', `Overdue ${-d}d`] : r.status === 'today' ? ['pill-med', 'Due today'] : [d <= 7 ? 'pill-med' : 'pill-blue', `${d} day${d === 1 ? '' : 's'}`];
-        const rep = r.b.recurrence === 'once' ? '' : r.b.recurrence === 'monthly' ? ' · monthly' : ' · yearly';
+        const rep = r.b.recurrence === 'once' ? '' : ' · ' + r.b.recurrence;
         return `<div class="lrow b-row ${r.status === 'paid' ? 'is-paid' : ''}" data-id="${r.b.id}" data-due="${r.due}"><div class="licon" style="color:${col};background:${col}22;border-color:${col}33"><i class="fa-solid ${icon}"></i></div>
           <div class="lmain"><div class="lt">${escapeHtml(r.b.name)}</div><div class="ls">Due ${bLabel(r.due)}${rep}${r.b.note ? ' · ' + escapeHtml(r.b.note) : ''}</div></div>
           <span class="pill ${pc}">${pt}</span><span class="lright">${bRM(r.amount)}</span>
@@ -4009,21 +4017,27 @@
     const billErr = m => { docEl('billError').textContent = m; docEl('billError').style.display = m ? 'flex' : 'none'; };
     function paintBillForm() {
       docEl('billCats').innerHTML = B_CATS.map(([n, i, c]) => `<button type="button" data-c="${n}" class="${n === bForm.category ? 'on' : ''}" style="--gc:${c}"><i class="fa-solid ${i}" style="color:${c}"></i>${n}</button>`).join('');
-      const isSub = bForm.category === 'Subscription';
-      if (isSub && bForm.recurrence === 'once') bForm.recurrence = 'monthly'; // subscriptions renew: monthly or yearly
+      const isSub = bForm.category === 'Subscription', subMode = bForm.mode === 'sub';
+      if (isSub && bForm.recurrence === 'once') bForm.recurrence = 'monthly'; // subscriptions renew: weekly, monthly or yearly
+      docEl('billCatsWrap').style.display = subMode ? 'none' : ''; // opened from Subscriptions: always a subscription, no category to pick
       docEl('billRepeat').innerHTML = B_REPEAT.filter(([v]) => !isSub || v !== 'once').map(([v, l]) => `<button type="button" data-r="${v}" class="${v === bForm.recurrence ? 'on' : ''}">${l}</button>`).join('');
       docEl('billTypeWrap').style.display = isSub ? '' : 'none';
       docEl('billTypes').innerHTML = S_TYPES.map(([n, i, c]) => `<button type="button" class="h-chip sm ${docEl('billNote').value.trim().toLowerCase() === n.toLowerCase() ? 'on' : ''}" data-t="${n}"><i class="fa-solid ${i}" style="color:${c}"></i>${n}</button>`).join('');
       docEl('billTpls').innerHTML = B_PRESETS.map((p, i) => `<button type="button" class="h-chip sm" data-bpreset="${i}"><i class="fa-solid ${bCat(p.category)[1]}" style="color:${bCat(p.category)[2]}"></i>${p.name}</button>`).join('');
-      docEl('billDueLbl').innerHTML = (isSub ? `Next renewal date (renews every ${bForm.recurrence === 'yearly' ? 'year' : 'month'} on this day)` : bForm.recurrence === 'once' ? 'Due date' : bForm.recurrence === 'monthly' ? 'First due date (repeats on this day each month)' : 'First due date (repeats on this day each year)') + ' <span style="color:#fca5a5">*</span>';
+      docEl('billDueLbl').innerHTML = (isSub ? `Next renewal date (renews every ${bForm.recurrence === 'yearly' ? 'year' : bForm.recurrence === 'weekly' ? 'week' : 'month'} on this ${bForm.recurrence === 'weekly' ? 'weekday' : 'day'})` : bForm.recurrence === 'once' ? 'Due date' : bForm.recurrence === 'weekly' ? 'First due date (repeats every 7 days)' : bForm.recurrence === 'monthly' ? 'First due date (repeats on this day each month)' : 'First due date (repeats on this day each year)') + ' <span style="color:#fca5a5">*</span>';
     }
-    function openBillModal(b, preset) {
-      const src = b || preset || {};
-      bForm.id = b ? b.id : null; bForm.category = src.category || 'Other'; bForm.recurrence = src.recurrence || 'monthly';
-      docEl('billModalTitle').textContent = b ? 'Edit bill' : 'Add bill';
+    function openBillModal(b, preset, mode) {
+      const src = b || preset || {}, sub = mode === 'sub';
+      bForm.mode = sub ? 'sub' : 'bill'; bForm.id = b ? b.id : null; bForm.category = sub ? 'Subscription' : src.category || 'Other'; bForm.recurrence = src.recurrence || 'monthly';
+      const word = sub ? 'subscription' : 'bill';
+      bForm.saveLabel = 'Save ' + word; docEl('billSave').textContent = bForm.saveLabel;
+      docEl('billModalTitle').textContent = (b ? 'Edit ' : 'Add ') + word;
+      docEl('billNameLbl').innerHTML = (sub ? 'Subscription name' : 'Bill name') + ' <span style="color:#fca5a5">*</span>';
+      docEl('billName').placeholder = sub ? 'e.g. Netflix' : 'e.g. Internet (Unifi)';
+      docEl('billDelete').title = docEl('billDelete').ariaLabel = 'Delete ' + word;
       docEl('billName').value = src.name || ''; docEl('billAmount').value = b ? b.amount : ''; docEl('billNote').value = b ? b.note || '' : src.note || '';
       docEl('billDue').value = b ? b.due_date : mytDayKey(Date.now()); if (docEl('billDue')._luDateRefresh) docEl('billDue')._luDateRefresh();
-      docEl('billDelete').style.display = b ? '' : 'none'; docEl('billTplWrap').style.display = b ? 'none' : '';
+      docEl('billDelete').style.display = b ? '' : 'none'; docEl('billTplWrap').style.display = b || sub ? 'none' : ''; // no quick-start list for subscriptions
       billErr(''); paintBillForm();
       docEl('billOverlay').classList.add('open'); setTimeout(() => docEl('billName').focus(), 50);
     }
@@ -4045,8 +4059,8 @@
       const fields = { name, amount, category: bForm.category, recurrence: bForm.recurrence, due_date: due, note: docEl('billNote').value.trim() };
       const btn = docEl('billSave'); btn.disabled = true; btn.textContent = 'Saving…';
       const { data, error } = bForm.id ? await LumaBills.update(bForm.id, fields) : await LumaBills.add(fields);
-      btn.disabled = false; btn.textContent = 'Save bill';
-      if (error) return billErr(/bills|schema cache|does not exist/i.test(error.message) ? 'Bills aren\'t set up yet — run supabase/migrations/020_bills.sql in the SQL Editor.' : error.message);
+      btn.disabled = false; btn.textContent = bForm.saveLabel;
+      if (error) return billErr(/recurrence|check constraint/i.test(error.message) ? 'Weekly needs a database update — run supabase/migrations/022_bill_weekly.sql in the SQL Editor.' : /bills|schema cache|does not exist/i.test(error.message) ? 'Bills aren\'t set up yet — run supabase/migrations/020_bills.sql in the SQL Editor.' : error.message);
       const row = { ...data, amount: Number(data.amount) }, i = BILLS.findIndex(x => x.id === row.id);
       if (i >= 0) BILLS[i] = row; else BILLS.push(row);
       closeBillModal(); paintBills(); paintSubs();
@@ -4083,9 +4097,10 @@
     ];
     const sType = b => S_TYPES.find(t => t[0].toLowerCase() === (b.note || '').trim().toLowerCase()) || S_TYPES[S_TYPES.length - 1];
     const sList = () => BILLS.filter(b => b.category === 'Subscription');
-    const sMonthly = b => b.recurrence === 'yearly' ? b.amount / 12 : b.amount; // monthly cost
+    const sMonthly = b => b.recurrence === 'yearly' ? b.amount / 12 : b.recurrence === 'weekly' ? b.amount * 52 / 12 : b.amount; // monthly cost
     function bNext(b, today) { // the next renewal / due date on or after today (null if a one-off has passed)
       if (b.recurrence === 'once') return b.due_date >= today ? b.due_date : null;
+      if (b.recurrence === 'weekly') return b.due_date >= today ? b.due_date : bAddDays(b.due_date, Math.ceil(bDays(today, b.due_date) / 7) * 7);
       for (let k = 0; k < 14; k++) { const d = bCycle(b, bAddMonths(bFirst(today), k)); if (d && d >= today) return d; }
       return null;
     }
@@ -4117,7 +4132,7 @@
         const [pc, pt] = !on ? ['', 'Paused'] : n == null ? ['', 'Ended'] : d === 0 ? ['pill-med', 'Renews today'] : [d <= 7 ? 'pill-med' : 'pill-blue', `Renews ${d} day${d === 1 ? '' : 's'}`];
         return card(`<div class="s-top"><div class="licon" style="color:${col};background:${col}22"><i class="fa-solid ${icon}"></i></div><div style="flex:1;min-width:0"><div class="lt">${escapeHtml(b.name)}</div><div class="ls">${escapeHtml((b.note || '').trim() || 'Subscription')}</div></div>
           <button type="button" class="hedit s-edit" title="Edit"><i class="fa-solid fa-pen"></i></button><button type="button" class="switch s-toggle ${on ? 'on' : ''}" title="${on ? 'Pause' : 'Resume'}"><span class="knob"></span></button></div>
-          <div class="s-bottom"><div><div class="m-value" style="font-size:1.2rem;color:#fff">${bRM(b.amount)}</div><div class="ls">${b.recurrence === 'yearly' ? 'Yearly' : b.recurrence === 'once' ? 'One-off' : 'Monthly'}</div></div><span class="pill ${pc}" style="${pc ? '' : 'color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.08)'}">${pt}</span></div>`, `s-card ${on ? '' : 'paused'}" data-id="${b.id}`);
+          <div class="s-bottom"><div><div class="m-value" style="font-size:1.2rem;color:#fff">${bRM(b.amount)}</div><div class="ls">${b.recurrence === 'yearly' ? 'Yearly' : b.recurrence === 'weekly' ? 'Weekly' : b.recurrence === 'once' ? 'One-off' : 'Monthly'}</div></div><span class="pill ${pc}" style="${pc ? '' : 'color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.08)'}">${pt}</span></div>`, `s-card ${on ? '' : 'paused'}" data-id="${b.id}`);
       }).join('');
       root.innerHTML = `<div class="grid-4" style="margin-bottom:0.9rem">${[['Monthly total', bRM(monthly)], ['Yearly est.', bRM(monthly * 12)], ['Active', active.length], ['Renews soon', soon]].map(m => card(`<div class="metric"><div class="m-label" style="color:#fff">${m[0]}</div><div class="m-value">${m[1]}</div></div>`)).join('')}</div>
         <div class="grid-3 s-list">${cards}</div>`;
@@ -4131,12 +4146,12 @@
     }
 
     async function loadSubs(pg) {
-      pg.querySelector('#addSubBtn').addEventListener('click', () => openBillModal(null, { category: 'Subscription', recurrence: 'monthly' }));
+      pg.querySelector('#addSubBtn').addEventListener('click', () => openBillModal(null, { category: 'Subscription', recurrence: 'monthly' }, 'sub'));
       pg.querySelector('#subsRoot').addEventListener('click', e => {
-        const pre = e.target.closest('[data-spreset]'); if (pre) { const p = S_PRESETS[+pre.dataset.spreset]; return openBillModal(null, { ...p, category: 'Subscription', recurrence: 'monthly' }); }
+        const pre = e.target.closest('[data-spreset]'); if (pre) { const p = S_PRESETS[+pre.dataset.spreset]; return openBillModal(null, { ...p, category: 'Subscription', recurrence: 'monthly' }, 'sub'); }
         const c = e.target.closest('.s-card'); if (!c) return;
         const b = BILLS.find(x => x.id === c.dataset.id); if (!b) return;
-        if (e.target.closest('.s-edit')) return openBillModal(b);
+        if (e.target.closest('.s-edit')) return openBillModal(b, null, 'sub');
         if (e.target.closest('.s-toggle')) toggleSubscription(b);
       });
       paintSubs();
