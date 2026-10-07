@@ -861,7 +861,7 @@
     /* habits */
     .habit-grid { display:grid; grid-template-columns:1fr 320px; gap:0.9rem; }
     @media (max-width:1024px){ .habit-grid{ grid-template-columns:1fr; } }
-    .hrow { display:flex; align-items:center; gap:14px; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,0.04); }
+    .hrow { display:flex; align-items:center; gap:10px; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,0.04); }
     .hrow:last-child { border-bottom:none; }
     /* fit layout (like Documents / Notes): the page header stays put. The habit card is exactly as tall as the right column
        (contain:size makes the row height come from the side cards only) and its list scrolls inside it. */
@@ -910,8 +910,8 @@
     .hbtn { width:38px; height:38px; flex:none; border-radius:50%; border:2px solid rgba(255,255,255,0.18); background:transparent; color:transparent; cursor:pointer; display:grid; place-items:center; transition:0.18s; font-size:0.9rem; }
     .hbtn:hover { border-color:rgba(255,255,255,0.5); }
     .hbtn.on { color:#fff; border-color:transparent; }
-    .hedit { width:30px; height:30px; flex:none; border-radius:9px; border:none; background:transparent; color:rgba(255,255,255,0.3); cursor:pointer; font-size:0.78rem; }
-    .hedit:hover { background:rgba(255,255,255,0.08); color:#fff; }
+    .hedit { width:38px; height:38px; flex:none; border-radius:50%; border:2px solid transparent; background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.45); cursor:pointer; font-size:0.8rem; display:grid; place-items:center; padding:0; transition:0.18s; } /* same size and shape as the tick button */
+    .hedit:hover { background:rgba(255,255,255,0.12); color:#fff; }
     .h-empty { display:flex; flex-direction:column; align-items:center; text-align:center; padding:44px 20px 40px; }
     .h-empty-ico { width:68px; height:68px; border-radius:50%; display:grid; place-items:center; font-size:1.7rem; color:#86efac; background:radial-gradient(circle at 30% 25%, rgba(74,222,128,0.28), rgba(74,222,128,0.07)); border:1px solid rgba(74,222,128,0.22); margin-bottom:18px; }
     .h-empty-t { font-size:1.05rem; font-weight:600; color:#fff; }
