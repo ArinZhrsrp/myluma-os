@@ -3825,7 +3825,7 @@
       if (pg) pg.classList.add('active');
       pageTitle.textContent = titles[key];
       document.querySelectorAll('.menu').forEach(i => i.classList.toggle('active', i.dataset.page === key));
-      if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); rendered[key] = true; wireModule(key); }
+      if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); rendered[key] = true; LumaLoader.run(wireModule(key)); } else LumaLoader.run();
       const mc = document.querySelector('.main-content');
       mc.classList.toggle('fit', FIT_PAGES.has(key));
       if (key === 'calendar') calOnShow();
@@ -6668,6 +6668,7 @@
     }
 
     function wireModule(key) {
+      let wp = null; // the page's data load, so the loading cover can wait for it
       const pg = document.getElementById('page-' + key);
       // toggle switches
       pg.querySelectorAll('.switch').forEach(s => s.addEventListener('click', () => s.classList.toggle('on')));
@@ -6705,16 +6706,16 @@
         pg.querySelector('#addContactBtn')?.addEventListener('click', openAddContactModal);
         loadContactsData();
       }
-      if (key === 'tasks') loadTasks(pg);
-      if (key === 'habits') loadHabits(pg);
-      if (key === 'goals') loadGoals(pg);
-      if (key === 'bills') loadBills(pg);
-      if (key === 'subscriptions') loadSubs(pg);
-      if (key === 'money') loadMoney(pg);
-      if (key === 'analytics') loadAnalytics(pg);
-      if (key === 'documents') loadDocuments(pg);
-      if (key === 'notes') loadNotes(pg);
-      if (key === 'health') loadHealth(pg);
+      if (key === 'tasks') wp = loadTasks(pg);
+      if (key === 'habits') wp = loadHabits(pg);
+      if (key === 'goals') wp = loadGoals(pg);
+      if (key === 'bills') wp = loadBills(pg);
+      if (key === 'subscriptions') wp = loadSubs(pg);
+      if (key === 'money') wp = loadMoney(pg);
+      if (key === 'analytics') wp = loadAnalytics(pg);
+      if (key === 'documents') wp = loadDocuments(pg);
+      if (key === 'notes') wp = loadNotes(pg);
+      if (key === 'health') wp = loadHealth(pg);
       if (key === 'notifications') {
         renderNotifPage();
         pg.querySelector('#notifReadAll').onclick = markAllNotifsRead;
@@ -6799,6 +6800,7 @@
           ic.style.transform = open ? 'none' : 'rotate(90deg)';
         }));
       }
+      return wp;
     }
 
     // =====================================================

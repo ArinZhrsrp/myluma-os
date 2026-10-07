@@ -30,21 +30,39 @@
   el.querySelector("button").onclick = function () { location.reload(); };
   root.appendChild(el);
 
+  // one cover at a time; every show() restarts the 1-second minimum and the 3-minute limit
+  var token = 0, failTimer = null;
+  function show() {
+    token++; gone = false; failed = false; start = Date.now();
+    el.classList.remove("out", "fail");
+    if (!el.parentNode) root.appendChild(el);
+    clearTimeout(failTimer);
+    var t = token;
+    failTimer = setTimeout(function () { if (!gone && t === token) { failed = true; el.classList.add("fail"); } }, MAX_MS);
+  }
   function pending() { for (var k in holds) if (holds[k]) return true; return false; }
   function check() {
     if (gone || failed || pending()) return;
     var wait = MIN_MS - (Date.now() - start);
     if (wait > 0) return setTimeout(check, wait);
-    gone = true; el.classList.add("out");
-    setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 450);
+    gone = true; clearTimeout(failTimer); el.classList.add("out");
+    var t = token;
+    setTimeout(function () { if (t === token && el.parentNode) el.parentNode.removeChild(el); }, 450);
   }
 
-  setTimeout(function () { if (gone) return; failed = true; el.classList.add("fail"); }, MAX_MS);
+  failTimer = setTimeout(function () { if (!gone) { failed = true; el.classList.add("fail"); } }, MAX_MS);
   if (document.readyState === "complete") { holds.load = false; check(); }
   else window.addEventListener("load", function () { holds.load = false; check(); });
 
   window.LumaLoader = {
     hold: function (n) { holds[n] = true; },
-    release: function (n) { holds[n] = false; check(); }
+    release: function (n) { holds[n] = false; check(); },
+    // cover the screen while `work` (a promise) is loading, for at least 1 second
+    run: function (work) {
+      if (pending()) return; // the first-load cover is still up
+      show(); var n = "run" + token; holds[n] = true;
+      var done = function () { delete holds[n]; check(); };
+      Promise.resolve(work).then(done, done);
+    }
   };
 })();
