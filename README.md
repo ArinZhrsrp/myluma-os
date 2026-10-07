@@ -265,6 +265,7 @@ supabase/migrations/
   017_habit_periods.sql        daily / weekly / monthly habits, amounts (5 pages, 30 min), sleep habit from Health
   018_habit_reminders.sql      per-habit reminder time (pg_cron job → notification → push)
   019_goals.sql                goals with a target, progress, deadline and category
+  020_bills.sql                bills (once / monthly / yearly) and their payments
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:
