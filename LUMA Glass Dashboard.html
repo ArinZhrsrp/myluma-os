@@ -863,6 +863,12 @@
 
 
 
+    /* tasks: the page header stays put and each status column scrolls on its own */
+    .main-content.fit #taskBoard { flex:1 1 auto; min-height:0; grid-template-rows:minmax(0,1fr); align-items:stretch; padding-bottom:24px; }
+    .main-content.fit #taskBoard > div { display:flex; flex-direction:column; min-height:0; }
+    .main-content.fit #taskBoard .kcol-head { flex:none; }
+    .main-content.fit #taskBoard .kcol-body { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:-8px; padding-right:8px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    @media (max-width:1024px){ .main-content.fit #taskBoard { overflow-y:auto; display:block; } .main-content.fit #taskBoard > div { display:block; margin-bottom:1rem; } .main-content.fit #taskBoard .kcol-body { overflow:visible; margin-right:0; padding-right:0; } }
     /* tasks: notes preview, status pill + quick status menu */
     .kcard { cursor:pointer; transition:border-color 0.2s; }
     .kcard:hover { border-color:rgba(255,255,255,0.22); }
@@ -3621,7 +3627,7 @@
       analytics:'Analytics', settings:'Settings', support:'Support', notifications:'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
     const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money']);
@@ -3917,13 +3923,14 @@
       const sub = pg.querySelector('#tasksSub');
 
       const render = taskRender = () => {
-        const today = mytDayKey(Date.now());
+        const today = mytDayKey(Date.now()), oldTops = {};
+        board.querySelectorAll('[data-status]').forEach(c => { oldTops[c.dataset.status] = (c.querySelector('.kcol-body') || {}).scrollTop || 0; }); // keep each column where it was
         const open = TASKS.filter(t => t.status !== 'done');
         const dueToday = open.filter(t => t.due_date === today).length, overdue = open.filter(t => t.due_date && t.due_date < today).length;
         sub.textContent = `${open.length} open · ${dueToday} due today` + (overdue ? ` · ${overdue} overdue` : '');
         board.innerHTML = TASK_COLS.map(col => {
           const items = TASKS.filter(t => t.status === col.status).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999')); // soonest due first
-          return `<div data-status="${col.status}"><div class="kcol-head"><span class="dot" style="background:${col.dot}"></span><span class="t">${col.name}</span><span class="c">${items.length}</span></div>
+          return `<div data-status="${col.status}"><div class="kcol-head"><span class="dot" style="background:${col.dot}"></span><span class="t">${col.name}</span><span class="c">${items.length}</span></div><div class="kcol-body h-list">
             ${items.map(t => `<div class="card kcard" data-id="${t.id}">
               <div class="kt" style="${t.status==='done'?'text-decoration:line-through;opacity:.55':''}">${escapeHtml(t.title)}</div>
               ${t.notes ? `<div class="knote"><i class="fa-regular fa-note-sticky"></i>${escapeHtml(t.notes)}</div>` : ''}
@@ -3932,8 +3939,13 @@
                 ${t.due_date?`<span style="margin-left:auto" class="${t.status!=='done' && t.due_date < today ? 't-due-over' : ''}"><i class="fa-regular fa-clock"></i> ${taskDue(t)}</span>`:'<span style="margin-left:auto"></span>'}
                 <i class="fa-solid ${t.status==='done'?'fa-rotate-left':'fa-arrow-right'} task-advance" title="${t.status==='done'?'Reopen':'Move forward'}" style="cursor:pointer"></i>
                 <i class="fa-regular fa-trash-can task-delete" title="Delete" style="cursor:pointer"></i></div></div>`).join('')}
-            ${col.status==='todo'?'<div class="add-card task-add"><i class="fa-solid fa-plus"></i> Add task</div>':''}</div>`;
+            ${col.status==='todo'?'<div class="add-card task-add"><i class="fa-solid fa-plus"></i> Add task</div>':''}</div></div>`;
         }).join('');
+        board.querySelectorAll('.kcol-body').forEach(body => {
+          body.scrollTop = oldTops[body.parentElement.dataset.status] || 0;
+          const fade = () => body.classList.toggle('more', body.scrollTop + body.clientHeight < body.scrollHeight - 4); // soft fade = more tasks below
+          body.addEventListener('scroll', fade); requestAnimationFrame(fade);
+        });
       };
 
       const setStatus = async (t, status) => {
