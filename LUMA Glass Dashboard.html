@@ -2589,6 +2589,8 @@
         if (!txt || !btn) return;
         txt.textContent = T[0]; btn.style.display = T[1] ? '' : 'none'; if (T[1]) btn.textContent = T[1]; btn.dataset.st = st;
       });
+      // once notifications are on, the Reminders modal doesn't need the box (turn them off in Settings)
+      const dev = document.getElementById('remDevice'); if (dev) dev.style.display = (st === 'on' || st === 'tab-on') ? 'none' : '';
       return st;
     }
     async function togglePush(btn, errId) {
