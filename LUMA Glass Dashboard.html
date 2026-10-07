@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="assets/luma-loader.js"></script>
+<script>LumaLoader.hold('app');</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LUMA · Glass Dashboard</title>
@@ -1846,9 +1848,6 @@
 <body>
 
   <!-- ===== AUTH GATE (removed once a signed-in session is confirmed) ===== -->
-  <div id="authGate" style="position:fixed;inset:0;z-index:9999;background:#0a0e1a;display:flex;align-items:center;justify-content:center;">
-    <i class="fa-solid fa-circle-notch fa-spin" style="color:#3b82f6;font-size:1.6rem;"></i>
-  </div>
 
   <!-- ===== MOBILE OVERLAY ===== -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -3334,10 +3333,9 @@
       if (error) console.info("LUMA: luma.profiles not reachable yet (run supabase/migrations/001_profiles_contacts_chat.sql and expose the schema) — using signup metadata instead.", error.message);
 
       applyUserUI();
-      document.getElementById("authGate").remove();
       initNotifications(session.user.id);
       initReminders();
-      refreshHabits().then(paintHabits);
+      refreshHabits().then(paintHabits).catch(() => {}).then(() => LumaLoader.release('app'));
       resyncPush();
       maybePromptPush();
     })();
