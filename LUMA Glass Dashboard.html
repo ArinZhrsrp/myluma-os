@@ -2152,6 +2152,7 @@
         <span class="chip">How is my spending?</span>
         <span class="chip">Log 500ml water</span>
       </div>
+      <div class="lumi-left" style="font-size:0.68rem;color:rgba(255,255,255,0.6);text-align:right;margin:2px 4px 6px;">15 questions per day</div>
       <div class="chat-input" style="margin-top:0;">
         <input id="popInput" placeholder="Message Lumi…" autocomplete="off">
         <button class="chat-send" id="popSend"><i class="fa-solid fa-arrow-up"></i></button>
@@ -3922,9 +3923,9 @@
         `<div style="display:grid;grid-template-columns:1fr 300px;gap:0.9rem;align-items:start">
           ${card(`<div id="chatScroll" class="chat-scroll"><div class="bubble ai">Hi ${firstName}! I can add events, tasks and notes, log your health and expenses, and answer questions about your LUMA data. I can't delete things or help with topics outside the app.</div></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:0.8rem">${cmds.slice(0,3).map(c=>`<span class="chat-chip suggestion-badge" style="font-size:0.62rem;padding:0.25rem 0.8rem;background:rgba(59,130,246,0.12);color:#93c5fd;border-color:rgba(59,130,246,0.25)">${c}</span>`).join('')}</div>
-            <div class="chat-input"><input id="chatInput" placeholder="Message Lumi…" autocomplete="off"><button class="chat-send" id="chatSend"><i class="fa-solid fa-arrow-up"></i></button></div>`)}
+            <div class="lumi-left" style="font-size:0.7rem;color:rgba(255,255,255,0.6);text-align:right;margin-top:0.6rem">15 questions per day</div><div class="chat-input" style="margin-top:0.4rem"><input id="chatInput" placeholder="Message Lumi…" autocomplete="off"><button class="chat-send" id="chatSend"><i class="fa-solid fa-arrow-up"></i></button></div>`)}
           <div style="display:flex;flex-direction:column;gap:0.9rem">
-            ${card(`<div class="section-title"><i class="fa-solid fa-brain"></i> What Lumi can do</div><div class="ls" id="lumiLeftPage" style="margin:-4px 0 8px"></div>${mem.map(m=>`<div style="display:flex;gap:10px;align-items:center;font-size:0.75rem;color:rgba(255,255,255,0.8);padding:6px 0"><i class="fa-solid fa-check" style="color:#6ee7b7"></i> ${m}</div>`).join('')}`)}
+            ${card(`<div class="section-title"><i class="fa-solid fa-brain"></i> What Lumi can do</div>${mem.map(m=>`<div style="display:flex;gap:10px;align-items:center;font-size:0.75rem;color:rgba(255,255,255,0.8);padding:6px 0"><i class="fa-solid fa-check" style="color:#6ee7b7"></i> ${m}</div>`).join('')}`)}
             ${card(`<div class="section-title"><i class="fa-solid fa-terminal"></i> Quick commands</div>${cmds.slice(2).map(c=>`<div class="chat-chip add-card" style="justify-content:flex-start;margin-bottom:0.5rem;font-size:0.72rem">${c}</div>`).join('')}`)}
           </div>
         </div>`;
@@ -6771,7 +6772,7 @@
           const t = (val || input.value).trim(); if (!t) return;
           input.value = ''; lumiSend(t, (r, x) => { const b = push(r, x); scroll.scrollTop = scroll.scrollHeight; return b; });
         };
-        lumiCheckLeft().then(lumiPaintLeft);
+        lumiPaintLeft(); lumiCheckLeft();
         send.addEventListener('click', () => submit());
         input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
         pg.querySelectorAll('.chat-chip').forEach(c => c.addEventListener('click', () => submit(c.textContent.trim())));
@@ -6894,8 +6895,9 @@
       } catch (e) { return { error: 'Lumi could not be reached. Please check your connection.' }; }
     }
     function lumiPaintLeft() {
-      const txt = lumiLeft == null ? 'Online · ready to help' : `${lumiLeft} of ${lumiLimit} questions left today`;
-      document.querySelectorAll('#chatPop .chat-pop-head .s, #lumiLeftPage').forEach(el => { el.innerHTML = el.id === 'lumiLeftPage' ? txt : `<span class="dot"></span> ${txt}`; });
+      const known = lumiLeft != null, txt = known ? `${lumiLeft} of ${lumiLimit} questions left today` : `${lumiLimit} questions per day`;
+      document.querySelectorAll('#chatPop .chat-pop-head .s').forEach(el => { el.innerHTML = `<span class="dot"></span> Online · ${txt}`; });
+      document.querySelectorAll('.lumi-left').forEach(el => { el.textContent = txt; el.style.color = known && lumiLeft === 0 ? '#fca5a5' : known && lumiLeft <= 3 ? '#fcd34d' : ''; });
     }
     async function lumiCheckLeft() { if (lumiLeft != null) return; const r = await lumiCall({ mode: 'chat', check: true }); if (r && r.left != null) { lumiLeft = r.left; lumiLimit = r.limit || 15; lumiPaintLeft(); } }
     // push(role, text) must return the bubble element
@@ -7117,7 +7119,7 @@
     const chatPop = document.getElementById('chatPop');
     const popBody = document.getElementById('popBody');
     const popInput = document.getElementById('popInput');
-    function openChat(){ chatPop.classList.add('open'); setTimeout(()=>popInput.focus(),100); lumiCheckLeft(); }
+    function openChat(){ chatPop.classList.add('open'); setTimeout(()=>popInput.focus(),100); lumiPaintLeft(); lumiCheckLeft(); }
     function closeChat(){ chatPop.classList.remove('open'); }
     function toggleChat(){ chatPop.classList.contains('open') ? closeChat() : openChat(); }
     function popPush(role, text){
