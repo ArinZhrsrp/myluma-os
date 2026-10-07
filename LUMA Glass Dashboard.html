@@ -896,6 +896,29 @@
     .cal-lhead { font-size:0.68rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin:14px 0 8px; }
     .cal-lhead:first-child { margin-top:0; }
 
+
+    /* calendar header: always a single row — things shrink as the card gets narrower */
+    .calendar-card { container-type:inline-size; container-name:calcard; }
+    #page-calendar .cal-head { flex-wrap:nowrap; gap:0.6rem; }
+    #page-calendar .cal-title { flex:0 1 auto; min-width:0; gap:0.45rem; }
+    #page-calendar .cal-title h2 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+    #page-calendar .cal-title .chevron, #page-calendar .cal-today { flex:none; }
+    #page-calendar .view-tabs, #page-calendar #calCreate { flex:none; white-space:nowrap; }
+    @container calcard (max-width: 880px) {
+      #page-calendar .cal-title h2 { font-size:1rem; }
+      #page-calendar .view-tabs span { padding:6px 11px; font-size:0.72rem; }
+      #page-calendar #calCreate { padding:9px 13px; }
+    }
+    @container calcard (max-width: 720px) {
+      #page-calendar .cal-title h2 { font-size:0.92rem; }
+      #page-calendar .cal-today { display:none; }
+      #page-calendar .view-tabs span { padding:6px 8px; }
+      #page-calendar #calCreate .l1 { display:none; }
+    }
+    @container calcard (max-width: 560px) {
+      #page-calendar .cal-head { flex-wrap:wrap; }
+    }
+
     /* calendar: header fixed, the calendar body and the side column scroll on their own */
     .main-content.fit #page-calendar .cal-layout { flex:1 1 auto; min-height:0; align-items:stretch; padding-bottom:0; } /* the calendar card ends exactly where the sidebar ends */
     .main-content.fit #page-calendar .calendar-card { display:flex; flex-direction:column; min-height:0; }
@@ -2057,7 +2080,7 @@
               <div class="view-tabs" id="calViews">
                 <span data-v="day">Day</span><span data-v="week">Week</span><span data-v="month" class="active">Month</span><span data-v="year">Year</span>
               </div>
-              <button class="create-btn" id="calCreate"><i class="fa-solid fa-plus"></i> Create Event</button>
+              <button class="create-btn" id="calCreate"><i class="fa-solid fa-plus"></i> <span class="l1">Create </span>Event</button>
             </div>
 
             <div class="weekday-row" id="calWd">
