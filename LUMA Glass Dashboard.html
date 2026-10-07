@@ -861,9 +861,17 @@
 
 
     /* bills */
-    .main-content.fit #billsRoot { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; }
-    .bills-grid { display:grid; grid-template-columns:340px 1fr; gap:0.9rem; align-items:start; }
-    @media (max-width:1024px){ .bills-grid{ grid-template-columns:1fr; } }
+    /* only the bill list scrolls: the summary card stays put, the list card fills the page height */
+    .main-content.fit #billsRoot { flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; padding:2px 6px 24px 0; }
+    .bills-grid { display:grid; grid-template-columns:340px 1fr; gap:0.9rem; align-items:start; flex:1 1 auto; min-height:0; grid-template-rows:minmax(0,1fr); }
+    .bills-grid > .b-main { align-self:stretch; min-height:0; overflow:hidden; display:flex; flex-direction:column; }
+    .b-main > .b-list { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:-8px; padding-right:8px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    @media (max-width:1024px){ /* one column on small screens: the whole area scrolls instead */
+      .main-content.fit #billsRoot { overflow-y:auto; display:block; }
+      .bills-grid { grid-template-columns:1fr; grid-template-rows:auto; }
+      .bills-grid > .b-main { overflow:visible; }
+      .b-main > .b-list { overflow:visible; margin-right:0; padding-right:0; }
+    }
     .b-row .licon { flex:none; }
     .b-row .lright { width:92px; text-align:right; color:#fff; font-weight:600; font-variant-numeric:tabular-nums; }
     .b-row .pill { white-space:nowrap; }
@@ -3912,6 +3920,7 @@
 
     function paintBills() {
       const root = docEl('billsRoot'), sub = docEl('billsSub'); if (!root) return;
+      const oldTop = (root.querySelector('.b-list') || {}).scrollTop || 0; // keep the list where it was when something is ticked
       if (BILLS_ERR) {
         sub.textContent = 'Could not load bills';
         root.innerHTML = card('<div class="ls">Has <b>supabase/migrations/020_bills.sql</b> been run in the Supabase SQL Editor?</div>');
@@ -3953,7 +3962,13 @@
           ${overdue.length ? `<div class="b-alert"><i class="fa-solid fa-circle-exclamation"></i><div>${overdue.length} bill${overdue.length === 1 ? ' is' : 's are'} overdue (${bRM(overdueTotal)}).</div></div>` : ''}
           <div class="b-stat"><span>Paid</span><b>${bRM(paidTotal)}</b></div>
           <button class="create-btn b-payall" style="width:100%;justify-content:center;margin-top:16px" ${unpaid.length ? '' : 'disabled'}><i class="fa-solid fa-check-double"></i> Mark all as paid</button>`)}
-        ${card(list)}</div>`;
+        ${card(`<div class="b-list h-list">${list}</div>`, 'b-main')}</div>`;
+      const bl = root.querySelector('.b-list');
+      if (bl) {
+        bl.scrollTop = oldTop;
+        const fade = () => bl.classList.toggle('more', bl.scrollTop + bl.clientHeight < bl.scrollHeight - 4); // soft fade = more bills below
+        bl.addEventListener('scroll', fade); requestAnimationFrame(fade);
+      }
     }
 
     async function loadBillsData() {
