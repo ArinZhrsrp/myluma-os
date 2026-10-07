@@ -2705,17 +2705,17 @@
 
 
     // ---------- Ask to enable push after login ----------
-    // Shown when this device isn't subscribed yet; "Not now" snoozes it for a day (Settings / Health → Reminders still work).
+    // Shown on each login while this device isn't subscribed; "Not now" hides it for this session only (Settings / Health → Reminders still work).
     async function maybePromptPush() {
       try {
         if (!('Notification' in window) || Notification.permission === 'denied') return;
         const st = await pushStatus();
         if (st !== 'off' && st !== 'tab') return;
-        let until = 0; try { until = +localStorage.getItem('luma_push_snooze') || 0; } catch (e) {}
-        if (Date.now() < until) return;
+        let skipped = false; try { skipped = !!sessionStorage.getItem('luma_push_skip'); } catch (e) {}
+        if (skipped) return;
         const ov = document.getElementById('pushPromptOverlay'), yes = document.getElementById('pushPromptYes'), err = document.getElementById('pushPromptError');
         const close = () => ov.classList.remove('open');
-        document.getElementById('pushPromptLater').onclick = () => { try { localStorage.setItem('luma_push_snooze', String(Date.now() + 864e5)); } catch (e) {} close(); };
+        document.getElementById('pushPromptLater').onclick = () => { try { sessionStorage.setItem('luma_push_skip', '1'); } catch (e) {} close(); };
         yes.onclick = async () => {
           yes.disabled = true; err.style.display = 'none';
           try { await enablePush(); close(); paintPushControls(); }
@@ -2802,6 +2802,7 @@
     logoutConfirmBtn.addEventListener('click', async () => {
       logoutConfirmBtn.disabled = true;
       logoutConfirmBtn.textContent = 'Logging out…';
+      try { sessionStorage.removeItem('luma_push_skip'); } catch (e) {}
       await LumaAuth.signOut();
       window.location.href = 'LUMA Login.html';
     });
