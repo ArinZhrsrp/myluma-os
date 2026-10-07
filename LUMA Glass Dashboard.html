@@ -866,7 +866,8 @@
 
 
     /* calendar month: the original table look, filling the card so it never scrolls */
-    #calBody.cal-nosc { overflow-x:hidden; overflow-y:auto; }
+    #calBody.cal-nosc { overflow-x:hidden; overflow-y:auto; display:flex; flex-direction:column; }
+    #calBody.cal-nosc > .cal-grid { flex:1 1 auto; height:auto; } /* every month (4, 5 or 6 weeks) fills the whole card with equal rows */
     #calBody.cal-nosc .cal-cell { min-height:0 !important; overflow:hidden; padding:8px 10px; }
 
     /* calendar month: one-line items (dot · time · title) like a real calendar app */
@@ -4111,7 +4112,7 @@
         title = cFmt(first, { month: 'long', year: 'numeric' });
         // same look as always (one table with thin lines); the rows split the card's height evenly so the month never scrolls
         const gridH = Math.max(weeks * 64, body.clientHeight - 4), cellH = gridH / weeks, cap = Math.max(2, Math.floor((cellH - 38) / 21)); // rows shrink to fit (min 64px); one line per item
-        html = `<div class="cal-grid" style="grid-template-rows:repeat(${weeks},1fr);height:${gridH}px">` + Array.from({ length: weeks * 7 }, (_, i) => {
+        html = `<div class="cal-grid" style="grid-template-rows:repeat(${weeks},minmax(0,1fr));min-height:${weeks * 64}px">` + Array.from({ length: weeks * 7 }, (_, i) => {
           const k = bAddDays(start, i), items = cItemsOn(k), muted = k.slice(0, 7) !== first.slice(0, 7), shown = items.length > cap ? cap - 1 : items.length; // when it doesn't all fit, the last line becomes "+N more"
           return `<div class="cal-cell ${muted ? 'muted' : ''} ${k === today ? 'today' : ''}" data-d="${k}"><div class="num">${+k.slice(8)}</div>${items.slice(0, shown).map(it => cChip(it, k)).join('')}${items.length > shown ? `<div class="cal-more" data-d="${k}">+${items.length - shown} more</div>` : ''}</div>`;
         }).join('') + '</div>';
