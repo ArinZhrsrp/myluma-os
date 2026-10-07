@@ -3910,7 +3910,8 @@
       }).join('');
       const heat = Array.from({ length: 35 }, (_, i) => {
         const k = hKeyAdd(today, i - 34), r = hDayRatio(k);
-        const bg = r == null ? 'rgba(255,255,255,0.03)' : r >= 0.99 ? '#3b82f6' : r >= 0.5 ? 'rgba(59,130,246,0.55)' : r > 0 ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.06)';
+        // one blue for every day (today and past days alike); it gets more opaque the more of that day's habits were ticked
+        const bg = r == null ? 'rgba(255,255,255,0.03)' : r > 0 ? `rgba(59,130,246,${(0.18 + 0.82 * r).toFixed(2)})` : 'rgba(255,255,255,0.06)';
         return `<span title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}" style="background:${bg}"></span>`;
       }).join('');
       const best = Math.max(0, ...HABITS.map(h => hRuns(h, today).best));
