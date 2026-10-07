@@ -860,6 +860,18 @@
 
 
 
+
+    /* subscriptions */
+    .main-content.fit #subsRoot { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:2px 6px 0 0; }
+    .main-content.fit #subsRoot > .grid-4 { flex:none; }
+    .main-content.fit #subsRoot > .s-list { flex:1 1 auto; min-height:0; overflow-y:auto; align-content:start; padding:2px 6px 24px 0; }
+    .s-card.paused { opacity:.55; }
+    .s-top { display:flex; align-items:center; gap:12px; margin-bottom:0.9rem; }
+    .s-top .licon { flex:none; width:40px; height:40px; border-radius:12px; display:grid; place-items:center; font-size:0.95rem; }
+    .s-top .lt { color:#fff; }
+    .s-top .ls { color:rgba(255,255,255,0.6); }
+    .s-bottom { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; }
+
     /* bills */
     /* only the bill list scrolls: the summary card stays put, the list card fills the page height */
     .main-content.fit #billsRoot { flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; padding:2px 6px 24px 0; }
@@ -2055,6 +2067,7 @@
       <div class="pem-field"><label>Bill name <span style="color:#fca5a5">*</span></label><input id="billName" type="text" maxlength="80" placeholder="e.g. Internet (Unifi)" autocomplete="off"></div>
       <div class="pem-field"><label>Amount (RM) <span style="color:#fca5a5">*</span></label><input id="billAmount" type="text" inputmode="decimal" placeholder="e.g. 129" autocomplete="off"></div>
       <div class="pem-field"><label>Category</label><div class="g-cats" id="billCats"></div></div>
+      <div class="pem-field" id="billTypeWrap" style="display:none"><label>Type <span style="color:rgba(255,255,255,0.35);font-weight:400">(shown under the name)</span></label><div class="h-tpls" id="billTypes"></div></div>
       <div class="pem-field"><label>Repeats</label><div class="h-days" id="billRepeat"></div></div>
       <div class="pem-field"><label id="billDueLbl">Due date <span style="color:#fca5a5">*</span></label><input id="billDue" type="text"></div>
       <div class="pem-field"><label>Note <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="billNote" type="text" maxlength="120" placeholder="e.g. Account 1234-567" autocomplete="off"></div>
@@ -3479,10 +3492,10 @@
       analytics:'Analytics', settings:'Settings', support:'Support', notifications:'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
-    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills']);
+    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions']);
 
     function goTo(key) {
       if (!key || !titles[key]) return;
@@ -3599,16 +3612,8 @@
       },
       // ---------------- SUBSCRIPTIONS ----------------
       subscriptions() {
-        const subs = [['Netflix','Streaming',55,'2 days','fa-film','#ef4444'],['Spotify','Music',18,'11 days','fa-music','#22c55e'],['iCloud+','Storage',13,'18 days','fa-cloud','#3b82f6'],['Adobe CC','Creative',89,'22 days','fa-pen-nib','#ec4899'],['ChatGPT Plus','AI',92,'5 days','fa-robot','#8b5cf6'],['Notion','Productivity',38,'28 days','fa-file-lines','#94a3b8']];
-        const total = subs.reduce((s,x)=>s+x[2],0);
-        return head('Subscriptions',`${subs.length} active · RM${total}/mo`, btn('Add subscription','fa-plus')) +
-        `<div class="grid-4" style="margin-bottom:0.9rem">
-          ${[['Monthly total','RM'+total],['Yearly est.','RM'+total*12],['Active',subs.length],['Renews soon','2']].map(m=>card(`<div class="metric"><div class="m-label" style="color:#fff">${m[0]}</div><div class="m-value">${m[1]}</div></div>`)).join('')}
-        </div>
-        <div class="grid-3">
-          ${subs.map(s=>card(`<div style="display:flex;align-items:center;gap:12px;margin-bottom:0.9rem"><div class="licon" style="color:${s[5]};background:${s[5]}22"><i class="fa-solid ${s[4]}"></i></div><div style="flex:1"><div class="lt">${s[0]}</div><div class="ls">${s[1]}</div></div><button class="switch on"><span class="knob"></span></button></div>
-            <div style="display:flex;align-items:flex-end;justify-content:space-between"><div><div class="m-value" style="font-size:1.2rem;color:#fff">RM${s[2]}</div><div class="ls">Monthly</div></div><span class="pill ${['2 days','5 days'].includes(s[3])?'pill-med':'pill-blue'}">Renews ${s[3]}</span></div>`)).join('')}
-        </div>`;
+        return head('Subscriptions','<span id="subsSub">Loading…</span>', '<button class="create-btn" id="addSubBtn"><i class="fa-solid fa-plus"></i> Add subscription</button>') +
+        '<div id="subsRoot"></div>';
       },
       // ---------------- GOALS ----------------
       goals() {
@@ -3903,7 +3908,7 @@
     // every bill cycle shown for a month: that month's cycles, plus (for the current month) unpaid ones from earlier months
     function bRows(mFirst) {
       const today = mytDayKey(Date.now()), thisFirst = bFirst(today), rows = [];
-      BILLS.forEach(b => {
+      BILLS.filter(b => b.active !== false).forEach(b => {
         const due = bCycle(b, mFirst);
         if (due) rows.push({ b, due, paid: bPaidAmt(b, due) });
         if (mFirst === thisFirst) {
@@ -4004,15 +4009,19 @@
     const billErr = m => { docEl('billError').textContent = m; docEl('billError').style.display = m ? 'flex' : 'none'; };
     function paintBillForm() {
       docEl('billCats').innerHTML = B_CATS.map(([n, i, c]) => `<button type="button" data-c="${n}" class="${n === bForm.category ? 'on' : ''}" style="--gc:${c}"><i class="fa-solid ${i}" style="color:${c}"></i>${n}</button>`).join('');
-      docEl('billRepeat').innerHTML = B_REPEAT.map(([v, l]) => `<button type="button" data-r="${v}" class="${v === bForm.recurrence ? 'on' : ''}">${l}</button>`).join('');
+      const isSub = bForm.category === 'Subscription';
+      if (isSub && bForm.recurrence === 'once') bForm.recurrence = 'monthly'; // subscriptions renew: monthly or yearly
+      docEl('billRepeat').innerHTML = B_REPEAT.filter(([v]) => !isSub || v !== 'once').map(([v, l]) => `<button type="button" data-r="${v}" class="${v === bForm.recurrence ? 'on' : ''}">${l}</button>`).join('');
+      docEl('billTypeWrap').style.display = isSub ? '' : 'none';
+      docEl('billTypes').innerHTML = S_TYPES.map(([n, i, c]) => `<button type="button" class="h-chip sm ${docEl('billNote').value.trim().toLowerCase() === n.toLowerCase() ? 'on' : ''}" data-t="${n}"><i class="fa-solid ${i}" style="color:${c}"></i>${n}</button>`).join('');
       docEl('billTpls').innerHTML = B_PRESETS.map((p, i) => `<button type="button" class="h-chip sm" data-bpreset="${i}"><i class="fa-solid ${bCat(p.category)[1]}" style="color:${bCat(p.category)[2]}"></i>${p.name}</button>`).join('');
-      docEl('billDueLbl').innerHTML = (bForm.recurrence === 'once' ? 'Due date' : bForm.recurrence === 'monthly' ? 'First due date (repeats on this day each month)' : 'First due date (repeats on this day each year)') + ' <span style="color:#fca5a5">*</span>';
+      docEl('billDueLbl').innerHTML = (isSub ? `Next renewal date (renews every ${bForm.recurrence === 'yearly' ? 'year' : 'month'} on this day)` : bForm.recurrence === 'once' ? 'Due date' : bForm.recurrence === 'monthly' ? 'First due date (repeats on this day each month)' : 'First due date (repeats on this day each year)') + ' <span style="color:#fca5a5">*</span>';
     }
     function openBillModal(b, preset) {
       const src = b || preset || {};
       bForm.id = b ? b.id : null; bForm.category = src.category || 'Other'; bForm.recurrence = src.recurrence || 'monthly';
       docEl('billModalTitle').textContent = b ? 'Edit bill' : 'Add bill';
-      docEl('billName').value = src.name || ''; docEl('billAmount').value = b ? b.amount : ''; docEl('billNote').value = b ? b.note || '' : '';
+      docEl('billName').value = src.name || ''; docEl('billAmount').value = b ? b.amount : ''; docEl('billNote').value = b ? b.note || '' : src.note || '';
       docEl('billDue').value = b ? b.due_date : mytDayKey(Date.now()); if (docEl('billDue')._luDateRefresh) docEl('billDue')._luDateRefresh();
       docEl('billDelete').style.display = b ? '' : 'none'; docEl('billTplWrap').style.display = b ? 'none' : '';
       billErr(''); paintBillForm();
@@ -4023,6 +4032,8 @@
     docEl('billOverlay').onclick = e => { if (e.target === docEl('billOverlay')) closeBillModal(); };
     docEl('billCats').onclick = e => { const b = e.target.closest('button'); if (b) { bForm.category = b.dataset.c; paintBillForm(); } };
     docEl('billRepeat').onclick = e => { const b = e.target.closest('button'); if (b) { bForm.recurrence = b.dataset.r; paintBillForm(); } };
+    docEl('billTypes').onclick = e => { const b = e.target.closest('button'); if (!b) return; docEl('billNote').value = docEl('billNote').value.trim().toLowerCase() === b.dataset.t.toLowerCase() ? '' : b.dataset.t; paintBillForm(); };
+    docEl('billNote').addEventListener('input', () => { if (bForm.category === 'Subscription') paintBillForm(); });
     docEl('billTpls').onclick = e => { const b = e.target.closest('button'); if (b) openBillModal(null, B_PRESETS[+b.dataset.bpreset]); };
     docEl('billAmount').addEventListener('input', () => { const c = cleanDecimal(docEl('billAmount').value); if (c !== docEl('billAmount').value) docEl('billAmount').value = c; }); // numbers only
     docEl('billName').addEventListener('keydown', e => { if (e.key === 'Enter') docEl('billSave').click(); });
@@ -4038,14 +4049,14 @@
       if (error) return billErr(/bills|schema cache|does not exist/i.test(error.message) ? 'Bills aren\'t set up yet — run supabase/migrations/020_bills.sql in the SQL Editor.' : error.message);
       const row = { ...data, amount: Number(data.amount) }, i = BILLS.findIndex(x => x.id === row.id);
       if (i >= 0) BILLS[i] = row; else BILLS.push(row);
-      closeBillModal(); paintBills();
+      closeBillModal(); paintBills(); paintSubs();
     };
     docEl('billDelete').onclick = async () => {
       const b = BILLS.find(x => x.id === bForm.id); if (!b) return;
       if (!await luConfirm({ title: `Delete “${b.name}”?`, message: 'The bill and its payment history are removed. This can\'t be undone.' })) return;
       const { error } = await LumaBills.remove(b.id);
       if (error) return billErr(error.message);
-      BILLS = BILLS.filter(x => x !== b); BPAY.delete(b.id); closeBillModal(); paintBills();
+      BILLS = BILLS.filter(x => x !== b); BPAY.delete(b.id); closeBillModal(); paintBills(); paintSubs();
     };
 
     async function loadBills(pg) {
@@ -4062,6 +4073,74 @@
       });
       paintBills();
       await loadBillsData(); paintBills();
+    }
+
+    // ---------- Subscriptions: bills in the 'Subscription' category, so they appear on both pages ----------
+    const S_TYPES = [['Streaming', 'fa-film', '#f87171'], ['Music', 'fa-music', '#4ade80'], ['Storage', 'fa-cloud', '#60a5fa'], ['Creative', 'fa-pen-nib', '#f472b6'], ['AI', 'fa-robot', '#a78bfa'], ['Productivity', 'fa-file-lines', '#cbd5e1'], ['Gaming', 'fa-gamepad', '#fb923c'], ['Other', 'fa-repeat', '#94a3b8']];
+    const S_PRESETS = [
+      { name: 'Netflix', note: 'Streaming' }, { name: 'Spotify', note: 'Music' }, { name: 'YouTube Premium', note: 'Streaming' }, { name: 'iCloud+', note: 'Storage' },
+      { name: 'ChatGPT Plus', note: 'AI' }, { name: 'Adobe CC', note: 'Creative' }, { name: 'Notion', note: 'Productivity' }, { name: 'Disney+', note: 'Streaming' },
+    ];
+    const sType = b => S_TYPES.find(t => t[0].toLowerCase() === (b.note || '').trim().toLowerCase()) || S_TYPES[S_TYPES.length - 1];
+    const sList = () => BILLS.filter(b => b.category === 'Subscription');
+    const sMonthly = b => b.recurrence === 'yearly' ? b.amount / 12 : b.amount; // monthly cost
+    function bNext(b, today) { // the next renewal / due date on or after today (null if a one-off has passed)
+      if (b.recurrence === 'once') return b.due_date >= today ? b.due_date : null;
+      for (let k = 0; k < 14; k++) { const d = bCycle(b, bAddMonths(bFirst(today), k)); if (d && d >= today) return d; }
+      return null;
+    }
+
+    function paintSubs() {
+      const root = docEl('subsRoot'), sub = docEl('subsSub'); if (!root) return;
+      if (BILLS_ERR) {
+        sub.textContent = 'Could not load subscriptions';
+        root.innerHTML = card('<div class="ls">Has <b>supabase/migrations/020_bills.sql</b> been run in the Supabase SQL Editor?</div>');
+        return;
+      }
+      const all = sList();
+      if (!all.length) {
+        sub.textContent = 'Keep track of what renews';
+        root.innerHTML = card(`<div class="h-empty">
+          <div class="h-empty-ico"><i class="fa-solid fa-repeat"></i></div>
+          <div class="h-empty-t">Add your first subscription</div>
+          <div class="h-empty-s">Track what you pay for each month or year and when it renews. Subscriptions also show up on your <b>Bills</b> page, so you can tick them off when paid. Start from a popular one or tap <b>Add subscription</b>.</div>
+          <div class="h-empty-chips">${S_PRESETS.map((p, i) => `<button type="button" class="h-chip" data-spreset="${i}"><i class="fa-solid ${sType(p)[1]}" style="color:${sType(p)[2]}"></i>${p.name}</button>`).join('')}</div>
+        </div>`);
+        return;
+      }
+      const today = mytDayKey(Date.now()), active = all.filter(b => b.active !== false);
+      const monthly = active.reduce((t, b) => t + sMonthly(b), 0);
+      const soon = active.filter(b => { const n = bNext(b, today); return n && bDays(n, today) <= 7; }).length;
+      sub.textContent = `${active.length} active · ${bRM(monthly)}/mo`;
+      const cards = [...all].sort((a, c) => ((a.active === false) - (c.active === false)) || ((bNext(a, today) || '9999').localeCompare(bNext(c, today) || '9999'))).map(b => {
+        const [, icon, col] = sType(b), n = bNext(b, today), d = n ? bDays(n, today) : null, on = b.active !== false;
+        const [pc, pt] = !on ? ['', 'Paused'] : n == null ? ['', 'Ended'] : d === 0 ? ['pill-med', 'Renews today'] : [d <= 7 ? 'pill-med' : 'pill-blue', `Renews ${d} day${d === 1 ? '' : 's'}`];
+        return card(`<div class="s-top"><div class="licon" style="color:${col};background:${col}22"><i class="fa-solid ${icon}"></i></div><div style="flex:1;min-width:0"><div class="lt">${escapeHtml(b.name)}</div><div class="ls">${escapeHtml((b.note || '').trim() || 'Subscription')}</div></div>
+          <button type="button" class="hedit s-edit" title="Edit"><i class="fa-solid fa-pen"></i></button><button type="button" class="switch s-toggle ${on ? 'on' : ''}" title="${on ? 'Pause' : 'Resume'}"><span class="knob"></span></button></div>
+          <div class="s-bottom"><div><div class="m-value" style="font-size:1.2rem;color:#fff">${bRM(b.amount)}</div><div class="ls">${b.recurrence === 'yearly' ? 'Yearly' : b.recurrence === 'once' ? 'One-off' : 'Monthly'}</div></div><span class="pill ${pc}" style="${pc ? '' : 'color:rgba(255,255,255,0.6);background:rgba(255,255,255,0.08)'}">${pt}</span></div>`, `s-card ${on ? '' : 'paused'}" data-id="${b.id}`);
+      }).join('');
+      root.innerHTML = `<div class="grid-4" style="margin-bottom:0.9rem">${[['Monthly total', bRM(monthly)], ['Yearly est.', bRM(monthly * 12)], ['Active', active.length], ['Renews soon', soon]].map(m => card(`<div class="metric"><div class="m-label" style="color:#fff">${m[0]}</div><div class="m-value">${m[1]}</div></div>`)).join('')}</div>
+        <div class="grid-3 s-list">${cards}</div>`;
+    }
+
+    async function toggleSubscription(b) {
+      const was = b.active !== false;
+      b.active = !was; paintSubs(); paintBills(); // optimistic
+      const { error } = await LumaBills.update(b.id, { active: !was });
+      if (error) { b.active = was; paintSubs(); paintBills(); luAlert(/active|schema cache/i.test(error.message) ? 'Pausing needs one more database step — run supabase/migrations/021_bill_active.sql in the SQL Editor.' : 'Could not save: ' + error.message); }
+    }
+
+    async function loadSubs(pg) {
+      pg.querySelector('#addSubBtn').addEventListener('click', () => openBillModal(null, { category: 'Subscription', recurrence: 'monthly' }));
+      pg.querySelector('#subsRoot').addEventListener('click', e => {
+        const pre = e.target.closest('[data-spreset]'); if (pre) { const p = S_PRESETS[+pre.dataset.spreset]; return openBillModal(null, { ...p, category: 'Subscription', recurrence: 'monthly' }); }
+        const c = e.target.closest('.s-card'); if (!c) return;
+        const b = BILLS.find(x => x.id === c.dataset.id); if (!b) return;
+        if (e.target.closest('.s-edit')) return openBillModal(b);
+        if (e.target.closest('.s-toggle')) toggleSubscription(b);
+      });
+      paintSubs();
+      await loadBillsData(); paintSubs();
     }
 
     // ---------- Goals (luma.goals) ----------
@@ -5670,6 +5749,7 @@
       if (key === 'habits') loadHabits(pg);
       if (key === 'goals') loadGoals(pg);
       if (key === 'bills') loadBills(pg);
+      if (key === 'subscriptions') loadSubs(pg);
       if (key === 'documents') loadDocuments(pg);
       if (key === 'notes') loadNotes(pg);
       if (key === 'health') loadHealth(pg);

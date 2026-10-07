@@ -8,11 +8,17 @@
   }
 
   const db = () => window.LumaAuth.client.schema("luma");
-  const COLS = "id, name, amount, category, recurrence, due_date, note, created_at";
+  const BASE_COLS = "id, name, amount, category, recurrence, due_date, note, created_at";
+  const COLS = BASE_COLS + ", active"; // `active` comes from migration 021 — fall back to the base columns until it has run
+  const NO_ACTIVE = /active|schema cache/i;
+  async function withCols(query) {
+    const res = await query(COLS);
+    return res.error && NO_ACTIVE.test(res.error.message) ? query(BASE_COLS) : res;
+  }
 
   window.LumaBills = {
     async list() {
-      return db().from("bills").select(COLS).order("created_at", { ascending: true });
+      return withCols((cols) => db().from("bills").select(cols).order("created_at", { ascending: true }));
     },
 
     // every payment (due_date of the cycle that was paid, and the amount paid)
@@ -22,11 +28,11 @@
 
     // user_id defaults to auth.uid() in the database
     async add(fields) {
-      return db().from("bills").insert(fields).select(COLS).single();
+      return withCols((cols) => db().from("bills").insert(fields).select(cols).single());
     },
 
     async update(id, fields) {
-      return db().from("bills").update(fields).eq("id", id).select(COLS).single();
+      return withCols((cols) => db().from("bills").update(fields).eq("id", id).select(cols).single());
     },
 
     async remove(id) {

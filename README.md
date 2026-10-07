@@ -266,6 +266,7 @@ supabase/migrations/
   018_habit_reminders.sql      per-habit reminder time (pg_cron job → notification → push)
   019_goals.sql                goals with a target, progress, deadline and category
   020_bills.sql                bills (once / monthly / yearly) and their payments
+  021_bill_active.sql          pause a subscription (hides it from Bills)
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:
