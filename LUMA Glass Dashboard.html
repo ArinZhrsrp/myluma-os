@@ -886,7 +886,7 @@
     .cal-pop .po:hover { background:rgba(255,255,255,0.12); }
 
     /* calendar: header fixed, the calendar body and the side column scroll on their own */
-    .main-content.fit #page-calendar .cal-layout { flex:1 1 auto; min-height:0; align-items:stretch; padding-bottom:24px; }
+    .main-content.fit #page-calendar .cal-layout { flex:1 1 auto; min-height:0; align-items:stretch; padding-bottom:0; } /* the calendar card ends exactly where the sidebar ends */
     .main-content.fit #page-calendar .calendar-card { display:flex; flex-direction:column; min-height:0; }
     .main-content.fit #page-calendar .calendar-card > .cal-head, .main-content.fit #page-calendar .calendar-card > .weekday-row { flex:none; }
     .main-content.fit #page-calendar #calBody { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:-8px; padding-right:8px; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
