@@ -5408,7 +5408,8 @@
       const row = e.target.closest('#dashTasks .check-row');
       if (row) {
         const t = dashTasks.find(x => String(x.id) === row.dataset.id); if (!t) return;
-        const status = t.status === 'done' ? 'todo' : 'done', old = { status: t.status, completed_at: t.completed_at };
+        const status = t.status === 'done' ? (t._was && t._was !== 'done' ? t._was : 'todo') : 'done', old = { status: t.status, completed_at: t.completed_at };
+        if (status === 'done') t._was = t.status; // un-ticking puts it back where it was (To do / In progress)
         t.status = status; t.completed_at = status === 'done' ? new Date().toISOString() : null; paintDashboard();
         const { data, error } = await LumaTasks.update(t.id, { status });
         if (error) { Object.assign(t, old); paintDashboard(); return luAlert('Could not update the task: ' + error.message); }
