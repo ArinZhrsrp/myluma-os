@@ -863,10 +863,18 @@
     @media (max-width:1024px){ .habit-grid{ grid-template-columns:1fr; } }
     .hrow { display:flex; align-items:center; gap:14px; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,0.04); }
     .hrow:last-child { border-bottom:none; }
-    /* fit layout (like Documents / Notes): the page header stays put; the habit list and the side cards scroll together as one area */
+    /* fit layout (like Documents / Notes): the page header stays put. The habit card is exactly as tall as the right column
+       (contain:size makes the row height come from the side cards only) and its list scrolls inside it. */
     .main-content.fit #habitsRoot { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; }
-    .main-content.fit #habitsRoot .habit-grid { align-items:stretch; } /* the habit list card is as tall as the right column (down to the bottom of This week) */
-    .main-content.fit #habitsRoot .h-side > .card:last-child { flex:1 1 auto; }
+    .main-content.fit #habitsRoot .habit-grid { align-items:stretch; }
+    .main-content.fit #habitsRoot .h-main { display:flex; flex-direction:column; min-height:0; overflow:hidden; contain:size; }
+    .main-content.fit #habitsRoot .h-main > * { flex:none; }
+    .main-content.fit #habitsRoot .h-main > .h-list { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:-8px; padding-right:8px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    .h-list.more { -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 34px), transparent); mask-image:linear-gradient(to bottom, #000 calc(100% - 34px), transparent); } /* soft fade = more habits below */
+    @media (max-width:1024px) { /* one column on small screens: the list gets a fixed height and scrolls inside it */
+      .main-content.fit #habitsRoot .h-main { contain:none; overflow:visible; }
+      .main-content.fit #habitsRoot .h-main > .h-list { flex:none; max-height:460px; }
+    }
     .h-daynav { display:flex; align-items:center; gap:8px; margin:2px 0 8px; }
     .h-daynav .lbl { flex:1; text-align:center; font-size:0.78rem; color:rgba(255,255,255,0.7); }
     .h-daynav button { height:30px; min-width:30px; padding:0 10px; border-radius:9px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.8); cursor:pointer; font-size:0.72rem; font-family:inherit; }
@@ -3931,12 +3939,19 @@
       const best = Math.max(0, ...HABITS.map(h => hRuns(h, today).best));
       const mon = hKeyAdd(today, -((hDow(today) + 6) % 7)); // this week's Monday
       const bars = Array.from({ length: 7 }, (_, i) => { const k = hKeyAdd(mon, i), r = k > today ? null : hDayRatio(k); return `<div class="bcol" title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}"><div class="bbar" style="height:${Math.max(r || 0, 0.04) * 100}%;${k > today ? 'opacity:.25' : ''}"></div><div class="blbl">${'MTWTFSS'[i]}</div></div>`; }).join('');
+      const oldTop = (root.querySelector('.h-list') || {}).scrollTop || 0;
       root.innerHTML = `<div class="habit-grid">
         ${card(`<div class="section-title"><i class="fa-solid fa-circle-check"></i> ${showGroups ? 'Habits' : isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}</div>` + `<div class="h-daynav"><button type="button" class="h-dprev" ${day <= hKeyAdd(today, -H_BACK) ? 'disabled' : ''} title="Previous day"><i class="fa-solid fa-chevron-left"></i></button><span class="lbl">${isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}${isToday ? '' : ' · editing past day'}</span><button type="button" class="h-dnext" ${isToday ? 'disabled' : ''} title="Next day"><i class="fa-solid fa-chevron-right"></i></button>${isToday ? '' : '<button type="button" class="h-dtoday">Back to today</button>'}</div>` + (hSelecting ? `<div class="h-selbar"><button type="button" class="h-selall">${hSel.size === HABITS.length ? 'Deselect all' : 'Select all'}</button><span class="cnt">${hSel.size} selected</span><button type="button" class="del h-seldel" ${hSel.size ? '' : 'disabled'}><i class="fa-regular fa-trash-can"></i> Delete${hSel.size ? ' (' + hSel.size + ')' : ''}</button></div>` : '') + `<div class="h-list">${rows}</div>`, 'h-main')}
         <div class="h-side" style="display:flex;flex-direction:column;gap:0.9rem">
           ${card(`<div class="section-title"><i class="fa-solid fa-table-cells"></i> Consistency</div><div class="h-mnav"><button type="button" class="h-mprev" ${mFirst <= earliest ? 'disabled' : ''} title="Previous month"><i class="fa-solid fa-chevron-left"></i></button><span>${mLabel}</span><button type="button" class="h-mnext" ${mFirst >= thisMonth ? 'disabled' : ''} title="Next month"><i class="fa-solid fa-chevron-right"></i></button></div><div class="heat cal"><b>M</b><b>T</b><b>W</b><b>T</b><b>F</b><b>S</b><b>S</b>${heat}</div><div style="display:flex;justify-content:space-between;margin-top:12px;font-size:0.72rem"><span style="color:rgba(255,255,255,0.4)">Best streak</span><span style="color:#fff;font-weight:600">${best}</span></div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-arrow-trend-up"></i> This week</div><div class="barchart" style="height:90px">${bars}</div>`)}
         </div></div>`;
+      const list = root.querySelector('.h-list');
+      if (list) {
+        list.scrollTop = oldTop;
+        const fade = () => list.classList.toggle('more', list.scrollTop + list.clientHeight < list.scrollHeight - 4);
+        list.addEventListener('scroll', fade); requestAnimationFrame(fade);
+      }
     }
 
     // tap on a habit's check button (day = today) or on one of its small squares (day = that period's first day)
