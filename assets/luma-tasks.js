@@ -8,22 +8,33 @@
   }
 
   const db = () => window.LumaAuth.client.schema("luma");
-  const COLS = "id, title, status, priority, tag, due_date, completed_at, created_at";
+  const BASE_COLS = "id, title, status, priority, tag, due_date, completed_at, created_at";
+  const COLS = BASE_COLS + ", notes"; // notes comes from migration 026 — fall back to the base columns until it has run
+  const NO_NOTES = /notes|schema cache/i;
+  async function withCols(query) {
+    const res = await query(COLS);
+    return res.error && NO_NOTES.test(res.error.message) ? query(BASE_COLS) : res;
+  }
 
   window.LumaTasks = {
     STATUSES: ["todo", "in_progress", "done"],
 
     async list() {
-      return db().from("tasks").select(COLS).order("created_at", { ascending: true });
+      return withCols((cols) => db().from("tasks").select(cols).order("created_at", { ascending: true }));
     },
 
     // user_id defaults to auth.uid() in the database
-    async add({ title, status = "todo", priority = "med", tag = "Personal", dueDate = null }) {
-      return db().from("tasks").insert({ title, status, priority, tag, due_date: dueDate }).select(COLS).single();
+    async add({ title, status = "todo", priority = "med", tag = "Personal", dueDate = null, notes = "" }) {
+      const row = { title, status, priority, tag, due_date: dueDate };
+      if (notes) row.notes = notes; // an empty note is the column default, so tasks still save before 026 has run
+      return withCols((cols) => db().from("tasks").insert(row).select(cols).single());
     },
 
     async update(id, fields) {
-      return db().from("tasks").update(fields).eq("id", id).select(COLS).single();
+      const run = (f) => withCols((cols) => db().from("tasks").update(f).eq("id", id).select(cols).single());
+      const res = await run(fields);
+      if (res.error && NO_NOTES.test(res.error.message) && "notes" in fields) { const f = { ...fields }; delete f.notes; return fields.notes ? res : run(f); } // 026 missing: keep saving everything else
+      return res;
     },
 
     async remove(id) {

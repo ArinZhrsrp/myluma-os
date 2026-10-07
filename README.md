@@ -271,6 +271,7 @@ supabase/migrations/
   023_money_country.sql        Money (income, budget, entries) + country on profiles
   024_money_pcb.sql            use the PCB amount from your own payslip
   025_subscription_reminders.sql  daily job: notification / push 3 days before a subscription renews
+  026_task_notes.sql           notes on tasks
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:

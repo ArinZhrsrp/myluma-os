@@ -862,6 +862,24 @@
 
 
 
+
+    /* tasks: notes preview, status pill + quick status menu */
+    .kcard { cursor:pointer; transition:border-color 0.2s; }
+    .kcard:hover { border-color:rgba(255,255,255,0.22); }
+    .kcard .knote { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:pre-wrap; margin-top:0.5rem; font-size:0.7rem; line-height:1.45; color:rgba(255,255,255,0.6); }
+    .kcard .knote i { margin-right:5px; color:rgba(255,255,255,0.4); }
+    .kcard .kmeta { flex-wrap:wrap; }
+    .kcard .kmeta .pill { font-size:0.6rem; }
+    .t-status { cursor:pointer; display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:0.6rem; font-weight:600; background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.75); border:1px solid rgba(255,255,255,0.08); }
+    .t-status:hover { background:rgba(255,255,255,0.14); color:#fff; }
+    .t-status .d { width:7px; height:7px; border-radius:50%; }
+    .t-due-over { color:#fca5a5 !important; }
+    .t-menu { position:fixed; z-index:260; min-width:170px; padding:6px; border-radius:14px; background:rgba(20,26,44,0.97); backdrop-filter:blur(24px); border:1px solid rgba(255,255,255,0.14); box-shadow:0 18px 50px rgba(0,0,0,0.55); }
+    .t-menu button { display:flex; align-items:center; gap:10px; width:100%; padding:9px 11px; border:none; border-radius:9px; background:transparent; color:rgba(255,255,255,0.85); font-size:0.78rem; font-family:inherit; cursor:pointer; text-align:left; }
+    .t-menu button:hover { background:rgba(255,255,255,0.09); }
+    .t-menu button.cur { color:#fff; background:rgba(59,130,246,0.2); }
+    .t-menu .d { width:9px; height:9px; border-radius:50%; flex:none; }
+
     /* money */
     .main-content.fit #moneyRoot { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; padding:2px 6px 24px 0; }
     .main-content.fit #moneyRoot > .grid-4, .main-content.fit #moneyRoot > .m-nav { flex:none; }
@@ -2092,6 +2110,28 @@
       <div class="ls" style="margin-bottom:10px">Taken off your list. They don't count in Consistency and don't send reminders.</div>
       <div id="goneList"></div>
       <div class="pem-actions"><button class="confirm-btn cancel" id="goneClear" style="flex:1">Clear all deleted</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="taskOverlay">
+    <div class="profile-edit-modal" style="width:500px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="tkModalTitle">New task</div>
+        <button class="x" id="tkClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="tkError"></div>
+      <div class="pem-field"><label>Task <span style="color:#fca5a5">*</span></label><input id="tkTitle" type="text" maxlength="200" placeholder="What needs doing?" autocomplete="off"></div>
+      <div class="pem-field"><label>Status</label><div class="h-days" id="tkStatus"></div></div>
+      <div class="pem-row">
+        <div class="pem-field"><label>Due date <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="tkDue" type="text"><button type="button" class="g-nodeadline" id="tkNoDue" style="display:none">Remove due date</button></div>
+        <div class="pem-field"><label>Priority</label><div class="h-days" id="tkPriority"></div></div>
+      </div>
+      <div class="pem-field"><label>Tag</label><input id="tkTag" type="text" maxlength="30" placeholder="e.g. Work, Personal" autocomplete="off"><div class="h-tpls" id="tkTags" style="margin-top:8px"></div></div>
+      <div class="pem-field"><label>Notes <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><textarea id="tkNotes" maxlength="2000" placeholder="e.g. Done on my side — waiting for team lead review, then director approval, then testing." style="min-height:110px"></textarea></div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="tkDelete" title="Delete task" aria-label="Delete task" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="tkSave" style="flex:1">Save task</button>
+      </div>
     </div>
   </div>
 
@@ -3862,61 +3902,71 @@
       { status:'done', name:'Done', dot:'#22c55e' },
     ];
 
+    let TASKS = [], taskRender = null; // shared with the task popup (defined after docEl) so it can refresh the board
+    const taskStatusInfo = st => TASK_COLS.find(c => c.status === st) || TASK_COLS[0];
+    // "Today" / "Tomorrow" / "12 Oct"; past due dates are flagged overdue instead of just saying "Overdue"
+    function taskDue(t) {
+      if (!t.due_date) return '';
+      const today = mytDayKey(Date.now()), d = Math.round((Date.parse(t.due_date) - Date.parse(today)) / 864e5);
+      const dl = new Date(t.due_date + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+      return d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : d < 0 && t.status !== 'done' ? `Overdue · ${dl}` : dl;
+    }
+
     async function loadTasks(pg) {
       const board = pg.querySelector('#taskBoard');
       const sub = pg.querySelector('#tasksSub');
-      let tasks = [];
 
-      const render = () => {
-        const open = tasks.filter(t => t.status !== 'done');
-        const dueToday = open.filter(t => LumaTasks.dueLabel(t.due_date) === 'Today').length;
-        sub.textContent = `${open.length} open · ${dueToday} due today`;
+      const render = taskRender = () => {
+        const today = mytDayKey(Date.now());
+        const open = TASKS.filter(t => t.status !== 'done');
+        const dueToday = open.filter(t => t.due_date === today).length, overdue = open.filter(t => t.due_date && t.due_date < today).length;
+        sub.textContent = `${open.length} open · ${dueToday} due today` + (overdue ? ` · ${overdue} overdue` : '');
         board.innerHTML = TASK_COLS.map(col => {
-          const items = tasks.filter(t => t.status === col.status);
+          const items = TASKS.filter(t => t.status === col.status).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999')); // soonest due first
           return `<div data-status="${col.status}"><div class="kcol-head"><span class="dot" style="background:${col.dot}"></span><span class="t">${col.name}</span><span class="c">${items.length}</span></div>
             ${items.map(t => `<div class="card kcard" data-id="${t.id}">
               <div class="kt" style="${t.status==='done'?'text-decoration:line-through;opacity:.55':''}">${escapeHtml(t.title)}</div>
+              ${t.notes ? `<div class="knote"><i class="fa-regular fa-note-sticky"></i>${escapeHtml(t.notes)}</div>` : ''}
               <div class="kmeta"><span class="pill pill-${t.priority}">${t.priority==='high'?'High':t.priority==='med'?'Medium':'Low'}</span><span>${escapeHtml(t.tag)}</span>
-                ${t.due_date?`<span style="margin-left:auto"><i class="fa-regular fa-clock"></i> ${LumaTasks.dueLabel(t.due_date)}</span>`:'<span style="margin-left:auto"></span>'}
+                <span class="t-status" title="Change status"><span class="d" style="background:${col.dot}"></span>${col.name}<i class="fa-solid fa-chevron-down" style="font-size:0.5rem"></i></span>
+                ${t.due_date?`<span style="margin-left:auto" class="${t.status!=='done' && t.due_date < today ? 't-due-over' : ''}"><i class="fa-regular fa-clock"></i> ${taskDue(t)}</span>`:'<span style="margin-left:auto"></span>'}
                 <i class="fa-solid ${t.status==='done'?'fa-rotate-left':'fa-arrow-right'} task-advance" title="${t.status==='done'?'Reopen':'Move forward'}" style="cursor:pointer"></i>
                 <i class="fa-regular fa-trash-can task-delete" title="Delete" style="cursor:pointer"></i></div></div>`).join('')}
             ${col.status==='todo'?'<div class="add-card task-add"><i class="fa-solid fa-plus"></i> Add task</div>':''}</div>`;
         }).join('');
       };
 
-      const addTask = async () => {
-        const title = ((await luPrompt({ title: 'New task', message: 'What needs doing?', placeholder: 'Task title', ok: 'Add task' })) || '').trim();
-        if (!title) return;
-        const { data, error } = await LumaTasks.add({ title });
-        if (error) return luAlert('Could not add task: ' + error.message);
-        tasks.push(data); render();
+      const setStatus = async (t, status) => {
+        if (t.status === status) return;
+        const { data, error } = await LumaTasks.update(t.id, { status });
+        if (error) return luAlert('Could not update task: ' + error.message);
+        Object.assign(t, data); render();
       };
 
       board.addEventListener('click', async e => {
-        if (e.target.closest('.task-add')) return addTask();
+        if (e.target.closest('.task-add')) return openTaskModal(null, 'todo');
         const el = e.target.closest('.kcard'); if (!el) return;
-        const t = tasks.find(x => x.id === el.dataset.id); if (!t) return;
+        const t = TASKS.find(x => x.id === el.dataset.id); if (!t) return;
         if (e.target.closest('.task-advance')) {
-          const next = t.status === 'done' ? 'todo' : t.status === 'todo' ? 'in_progress' : 'done';
-          const { data, error } = await LumaTasks.update(t.id, { status: next });
-          if (error) return luAlert('Could not update task: ' + error.message);
-          Object.assign(t, data); render();
+          setStatus(t, t.status === 'done' ? 'todo' : t.status === 'todo' ? 'in_progress' : 'done');
         } else if (e.target.closest('.task-delete')) {
+          if (!await luConfirm({ title: `Delete “${t.title}”?`, message: 'This task is removed. This can\'t be undone.' })) return;
           const { error } = await LumaTasks.remove(t.id);
           if (error) return luAlert('Could not delete task: ' + error.message);
-          tasks = tasks.filter(x => x !== t); render();
-        }
+          TASKS = TASKS.filter(x => x !== t); render();
+        } else if (e.target.closest('.t-status')) { // jump straight to any status
+          openTaskStatusMenu(e.target.closest('.t-status'), t, st => setStatus(t, st));
+        } else openTaskModal(t); // click anywhere else on the card to open it
       });
-      pg.querySelector('#addTaskBtn').addEventListener('click', addTask);
+      pg.querySelector('#addTaskBtn').addEventListener('click', () => openTaskModal(null, 'todo'));
 
       const { data, error } = await LumaTasks.list();
       if (error) {
         sub.textContent = 'Could not load tasks — has supabase/migrations/002_tasks.sql been run?';
         return;
       }
-      tasks = data; render();
+      TASKS = data; render();
     }
-
 
     // ---------- Documents (Supabase Storage + luma.documents) ----------
     // 10 selectable colours for categories and tags
@@ -3954,6 +4004,70 @@
     }
     const catColor = id => { let h = 0; for (const ch of String(id || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return CAT_COLORS[h % CAT_COLORS.length]; };
     const docEl = id => document.getElementById(id);
+
+    // ---------- Task popup (add / edit) + quick status menu ----------
+    const T_PRIO = [['low', 'Low'], ['med', 'Medium'], ['high', 'High']];
+    const T_TAGS = ['Personal', 'Work', 'Study', 'Errand'];
+    const tkForm = { id: null, status: 'todo', priority: 'med' };
+    const tkErr = m => { docEl('tkError').textContent = m; docEl('tkError').style.display = m ? 'flex' : 'none'; };
+    function paintTaskForm() {
+      docEl('tkStatus').innerHTML = TASK_COLS.map(c => `<button type="button" data-s="${c.status}" class="${c.status === tkForm.status ? 'on' : ''}">${c.name}</button>`).join('');
+      docEl('tkPriority').innerHTML = T_PRIO.map(([v, l]) => `<button type="button" data-p="${v}" class="${v === tkForm.priority ? 'on' : ''}">${l}</button>`).join('');
+      docEl('tkTags').innerHTML = T_TAGS.map(t => `<button type="button" class="h-chip sm ${docEl('tkTag').value.trim().toLowerCase() === t.toLowerCase() ? 'on' : ''}" data-t="${t}">${t}</button>`).join('');
+      docEl('tkNoDue').style.display = docEl('tkDue').value ? '' : 'none';
+    }
+    function openTaskModal(t, status) {
+      tkForm.id = t ? t.id : null; tkForm.status = t ? t.status : status || 'todo'; tkForm.priority = t ? t.priority : 'med';
+      docEl('tkModalTitle').textContent = t ? 'Edit task' : 'New task'; docEl('tkSave').textContent = t ? 'Save changes' : 'Add task';
+      docEl('tkTitle').value = t ? t.title : ''; docEl('tkTag').value = t ? t.tag : 'Personal'; docEl('tkNotes').value = t ? t.notes || '' : '';
+      docEl('tkDue').value = t && t.due_date ? t.due_date : ''; if (docEl('tkDue')._luDateRefresh) docEl('tkDue')._luDateRefresh();
+      docEl('tkDelete').style.display = t ? '' : 'none'; tkErr(''); paintTaskForm();
+      docEl('taskOverlay').classList.add('open'); setTimeout(() => docEl('tkTitle').focus(), 50);
+    }
+    const closeTaskModal = () => docEl('taskOverlay').classList.remove('open');
+    docEl('tkClose').onclick = closeTaskModal;
+    docEl('taskOverlay').onclick = e => { if (e.target === docEl('taskOverlay')) closeTaskModal(); };
+    docEl('tkStatus').onclick = e => { const b = e.target.closest('button'); if (b) { tkForm.status = b.dataset.s; paintTaskForm(); } };
+    docEl('tkPriority').onclick = e => { const b = e.target.closest('button'); if (b) { tkForm.priority = b.dataset.p; paintTaskForm(); } };
+    docEl('tkTags').onclick = e => { const b = e.target.closest('button'); if (b) { docEl('tkTag').value = b.dataset.t; paintTaskForm(); } };
+    docEl('tkTag').addEventListener('input', paintTaskForm);
+    docEl('tkDue').addEventListener('change', paintTaskForm);
+    docEl('tkNoDue').onclick = () => { docEl('tkDue').value = ''; docEl('tkDue')._luDateRefresh(); paintTaskForm(); };
+    docEl('tkTitle').addEventListener('keydown', e => { if (e.key === 'Enter') docEl('tkSave').click(); });
+    docEl('tkSave').onclick = async () => {
+      const title = docEl('tkTitle').value.trim();
+      if (!title) return tkErr('Give the task a name.');
+      const fields = { title, status: tkForm.status, priority: tkForm.priority, tag: docEl('tkTag').value.trim() || 'Personal', due_date: docEl('tkDue').value || null, notes: docEl('tkNotes').value.trim() };
+      const btn = docEl('tkSave'), label = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+      const { data, error } = tkForm.id ? await LumaTasks.update(tkForm.id, fields) : await LumaTasks.add({ title, status: fields.status, priority: fields.priority, tag: fields.tag, dueDate: fields.due_date, notes: fields.notes });
+      btn.disabled = false; btn.textContent = label;
+      if (error) return tkErr(/notes|schema cache/i.test(error.message) ? 'Notes need one more database step — run supabase/migrations/026_task_notes.sql in the SQL Editor (or clear the notes to save).' : error.message);
+      const i = TASKS.findIndex(x => x.id === data.id); if (i >= 0) TASKS[i] = data; else TASKS.push(data);
+      closeTaskModal(); if (taskRender) taskRender();
+    };
+    docEl('tkDelete').onclick = async () => {
+      const t = TASKS.find(x => x.id === tkForm.id); if (!t) return;
+      if (!await luConfirm({ title: `Delete “${t.title}”?`, message: 'This task is removed. This can\'t be undone.' })) return;
+      const { error } = await LumaTasks.remove(t.id);
+      if (error) return tkErr(error.message);
+      TASKS = TASKS.filter(x => x !== t); closeTaskModal(); if (taskRender) taskRender();
+    };
+
+    // small menu to move a task to any status in one click
+    function openTaskStatusMenu(anchor, task, onPick) {
+      document.querySelectorAll('.t-menu').forEach(m => m.remove());
+      const menu = document.createElement('div'); menu.className = 't-menu';
+      menu.innerHTML = TASK_COLS.map(c => `<button type="button" data-s="${c.status}" class="${c.status === task.status ? 'cur' : ''}"><span class="d" style="background:${c.dot}"></span>${c.name}${c.status === task.status ? '<i class="fa-solid fa-check" style="margin-left:auto;font-size:0.65rem"></i>' : ''}</button>`).join('');
+      document.body.appendChild(menu);
+      const r = anchor.getBoundingClientRect(), mh = menu.offsetHeight, mw = menu.offsetWidth;
+      menu.style.left = Math.max(8, Math.min(window.innerWidth - mw - 8, r.left)) + 'px';
+      menu.style.top = (window.innerHeight - r.bottom < mh + 12 && r.top > mh + 12 ? r.top - mh - 6 : r.bottom + 6) + 'px';
+      const close = () => { menu.remove(); document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', onKey, true); document.removeEventListener('scroll', close, true); };
+      const outside = e => { if (!menu.contains(e.target)) close(); };
+      const onKey = e => { if (e.key === 'Escape') close(); };
+      menu.onclick = e => { const b = e.target.closest('button'); if (b) { close(); onPick(b.dataset.s); } };
+      document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', onKey, true); document.addEventListener('scroll', close, true);
+    }
 
     // ---------- Money (income, spending, budget) ----------
     // ===== Malaysian payroll estimate (employee side), rules as of 2026 =====
@@ -6278,6 +6392,7 @@
     skinDate(document.getElementById('goalDeadline'));
     skinDate(document.getElementById('billDue'));
     skinDate(document.getElementById('mEntryDate'));
+    skinDate(document.getElementById('tkDue'));
 
     // Themed time picker (hour / minute / AM-PM). The hidden input holds a 24-hour 'HH:MM' value and fires
     // "input" + "change" when it changes; opts.clear adds a Clear link for optional fields.
