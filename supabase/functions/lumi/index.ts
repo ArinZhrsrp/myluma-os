@@ -132,11 +132,11 @@ async function chat(messages: unknown[], tools?: unknown[]) {
         method: "POST", headers: { Authorization: `Bearer ${p.key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model: p.model, messages, ...(tools ? { tools, tool_choice: "auto" } : {}), temperature: 0.3, max_tokens: 700 }),
       });
-      if (!r.ok) { lastErr = `${p.name} ${r.status}`; continue; }
+      if (!r.ok) { lastErr = `${p.name} (${p.model}) ${r.status}: ${(await r.text()).replace(/\s+/g, " ").slice(0, 300)}`; console.error("lumi:", lastErr); continue; }
       const d = await r.json();
       const m = d?.choices?.[0]?.message; if (m) return m;
       lastErr = `${p.name} empty`;
-    } catch (e) { lastErr = `${p.name}: ${(e as Error).message}`; }
+    } catch (e) { lastErr = `${p.name}: ${(e as Error).message}`; console.error("lumi:", lastErr); }
   }
   throw new Error(lastErr);
 }
@@ -205,6 +205,7 @@ Deno.serve(async (req) => {
     return json({ reply: "I got a bit tangled on that one. Could you say it a different way?", actions, left, limit });
   } catch (e) {
     await client.rpc("refund_assistant", { p_kind: mode }); // a failed answer doesn't cost a question
-    return json({ error: "Lumi couldn't reach the AI service just now. Please try again in a moment.", left: left + 1, limit }, 502);
+    console.error("lumi failed:", (e as Error).message);
+    return json({ error: "Lumi couldn't reach the AI service just now. Please try again in a moment.", detail: (e as Error).message, left: left + 1, limit }, 502);
   }
 });
