@@ -998,6 +998,7 @@
        ===================================================== */
     .modal-overlay { position:fixed; inset:0; z-index:200; background:rgba(6,10,20,0.6); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); display:none; align-items:flex-start; justify-content:center; padding:24px; overflow-y:auto; }
     .modal-overlay.open { display:flex; }
+    .confirm-modal { max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px); overflow-y:auto; } /* small dialogs scroll too, never overflow */
     .focus-modal { width:420px; max-width:100%; margin:auto; border-radius:26px; padding:30px; background:rgba(20,26,44,0.86); backdrop-filter:blur(40px) saturate(1.5); -webkit-backdrop-filter:blur(40px) saturate(1.5); border:1px solid rgba(255,255,255,0.12); box-shadow:0 28px 80px rgba(0,0,0,0.6); animation:popIn 0.25s cubic-bezier(0.22,1,0.36,1); }
     .fm-head { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
     .fm-head .ic { width:42px; height:42px; border-radius:13px; background:linear-gradient(135deg,#2563eb,#7c3aed); display:grid; place-items:center; color:#fff; font-size:1.05rem; }
@@ -1092,10 +1093,14 @@
     /* ===== EDIT PROFILE MODAL ===== */
     .profile-edit-modal { width:420px; max-width:100%; margin:auto; border-radius:26px; padding:28px; background:rgba(20,26,44,0.86); backdrop-filter:blur(40px) saturate(1.5); -webkit-backdrop-filter:blur(40px) saturate(1.5); border:1px solid rgba(255,255,255,0.12); box-shadow:0 28px 80px rgba(0,0,0,0.6); animation:popIn 0.25s cubic-bezier(0.22,1,0.36,1); }
     /* Fixed-size modals: header, messages and action buttons stay put; only .pem-body scrolls */
-    .fixed-modal { display:flex; flex-direction:column; max-height:calc(100vh - 48px); overflow:hidden; }
+    .fixed-modal { display:flex; flex-direction:column; max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px); overflow:hidden; }
     .fixed-modal > .pem-head, .fixed-modal > .pem-actions, .fixed-modal > .pem-msg { flex:none; }
     .fixed-modal > .pem-body { flex:1 1 auto; min-height:0; overflow-y:auto; margin:0 -10px; padding:2px 10px 4px; }
     .fixed-modal > .pem-actions { margin-top:14px; }
+    /* contact chat: the message list takes the remaining height, header and input stay visible */
+    #contactChatOverlay .profile-edit-modal { display:flex; flex-direction:column; max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px); }
+    #contactChatOverlay .profile-edit-modal > * { flex:none; }
+    #contactChatOverlay #contactChatScroll { flex:1 1 auto; min-height:120px !important; max-height:min(400px, 100%) !important; overflow-y:auto; }
     #noteOverlay .fixed-modal { height:min(760px, calc(100vh - 48px)); }
     #attachOverlay .fixed-modal { height:min(520px, calc(100vh - 48px)); }
     #nvBody { max-height:none !important; overflow:visible !important; }
@@ -5303,10 +5308,10 @@
     }
     [['hBed', true], ['hWake', true], ['rWFrom'], ['rWTo'], ['rSFrom'], ['rSTo'], ['rAFrom'], ['rATo'], ['rBed'], ['rWake']].forEach(([id, clear]) => skinTime(document.getElementById(id), { clear: !!clear }));
 
-    // Fixed-size modals: wrap each modal's fields in a scrollable body so the header and
-    // action buttons never scroll away (messages stay pinned under the header too).
-    ['healthOverlay', 'remindersOverlay', 'goalsOverlay', 'profileEditOverlay', 'addContactOverlay', 'docOverlay', 'noteViewOverlay', 'noteOverlay', 'attachOverlay', 'shareOverlay', 'catOverlay'].forEach(id => {
-      const m = document.querySelector('#' + id + ' .profile-edit-modal'); if (!m) return;
+    // Fixed-size modals: wrap every popup that has a header + action buttons so only its fields scroll; the header and
+    // buttons never scroll away (messages stay pinned under the header too). New popups get this automatically.
+    document.querySelectorAll('.modal-overlay .profile-edit-modal:not(.viewer-box)').forEach(m => {
+      if (m.classList.contains('fixed-modal') || !m.querySelector(':scope > .pem-head') || !m.querySelector(':scope > .pem-actions')) return;
       m.classList.add('fixed-modal');
       const body = document.createElement('div'); body.className = 'pem-body';
       [...m.children].filter(c => !c.matches('.pem-head, .pem-actions, .pem-msg')).forEach(c => body.appendChild(c));
