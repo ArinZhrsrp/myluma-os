@@ -3915,7 +3915,9 @@
         }
       });
       rows.forEach(r => { r.status = r.paid != null ? 'paid' : r.due < today ? 'overdue' : r.due === today ? 'today' : 'upcoming'; r.amount = r.paid != null ? r.paid : r.b.amount; });
-      return rows.sort((a, c) => (a.status === 'paid') - (c.status === 'paid') || a.due.localeCompare(c.due)); // unpaid first, soonest first
+      // unpaid first; then the due date closest to today first (whether just passed or coming up) — on a tie the overdue one goes first
+      const gap = r => Math.abs(bDays(r.due, today));
+      return rows.sort((a, c) => (a.status === 'paid') - (c.status === 'paid') || gap(a) - gap(c) || a.due.localeCompare(c.due));
     }
 
     function paintBills() {
