@@ -924,10 +924,11 @@
 
     /* calendar week: Sunday–Saturday time grid */
     .cal-tg { position:relative; }
-    .tg-top { position:sticky; top:0; z-index:4; background:rgba(26,32,50,0.94); backdrop-filter:blur(14px); border-bottom:1px solid rgba(255,255,255,0.1); }
+    .tg-top { position:sticky; top:0; z-index:10; background:#1a2033; border-bottom:1px solid rgba(255,255,255,0.1); border-radius:12px 12px 0 0; } /* fully solid so the scrolling hours never show through */
     .tg-row { display:grid; grid-template-columns:62px repeat(7, minmax(0,1fr)); }
     .tg-corner { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:0.62rem; color:rgba(255,255,255,0.55); padding:6px 0; }
     .tg-corner span { color:#fbbf24; }
+    .tg-adrow .tg-corner span { color:rgba(255,255,255,0.55); }
     .tg-dh { display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 6px; border-left:1px solid rgba(255,255,255,0.08); }
     .tg-dh .dn { font-size:1.3rem; font-weight:500; color:#fff; line-height:1; min-width:30px; text-align:center; }
     .tg-dh .dw { font-size:0.78rem; color:rgba(255,255,255,0.6); }
@@ -940,7 +941,7 @@
     .tg-ad .cchip .tt { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; }
     .tg-ad .cchip.done .tt { text-decoration:line-through; opacity:.6; }
     .tg-body { position:relative; }
-    .tg-hours { position:relative; }
+    .tg-hours { position:relative; z-index:0; }
     .tg-hl { position:absolute; right:10px; transform:translateY(-50%); font-size:0.66rem; color:rgba(255,255,255,0.55); white-space:nowrap; }
     .tg-col { position:relative; border-left:1px solid rgba(255,255,255,0.08); cursor:pointer;
       background-image:repeating-linear-gradient(to bottom, transparent 0, transparent 51px, rgba(255,255,255,0.09) 51px, rgba(255,255,255,0.09) 52px); }
