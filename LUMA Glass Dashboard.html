@@ -885,6 +885,16 @@
     .cal-pop .po { margin-top:8px; height:34px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#93c5fd; font-size:0.76rem; font-family:inherit; cursor:pointer; }
     .cal-pop .po:hover { background:rgba(255,255,255,0.12); }
 
+
+    .cal-det .r { display:flex; gap:14px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.06); font-size:0.82rem; }
+    .cal-det .r:last-child { border-bottom:none; }
+    .cal-det .k { width:84px; flex:none; color:rgba(255,255,255,0.5); }
+    .cal-det .v { color:#fff; min-width:0; overflow-wrap:anywhere; white-space:pre-wrap; }
+    .cal-tagpill { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:0.68rem; font-weight:600; background:rgba(255,255,255,0.08); color:#fff; }
+    .cal-tagpill i { font-size:0.45rem; }
+    .cal-lhead { font-size:0.68rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.5); margin:14px 0 8px; }
+    .cal-lhead:first-child { margin-top:0; }
+
     /* calendar: header fixed, the calendar body and the side column scroll on their own */
     .main-content.fit #page-calendar .cal-layout { flex:1 1 auto; min-height:0; align-items:stretch; padding-bottom:0; } /* the calendar card ends exactly where the sidebar ends */
     .main-content.fit #page-calendar .calendar-card { display:flex; flex-direction:column; min-height:0; }
@@ -2155,6 +2165,29 @@
       <div class="ls" style="margin-bottom:10px">Taken off your list. They don't count in Consistency and don't send reminders.</div>
       <div id="goneList"></div>
       <div class="pem-actions"><button class="confirm-btn cancel" id="goneClear" style="flex:1">Clear all deleted</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="calListOverlay">
+    <div class="profile-edit-modal" style="width:520px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Upcoming events</div>
+        <button class="x" id="calListClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="ls" style="margin-bottom:10px">Everything coming up in the next 90 days — events, tasks that are due and bills.</div>
+      <div id="calListBody"></div>
+      <div class="pem-actions"><button class="confirm-btn cancel" id="calListDone" style="flex:1">Close</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="calDetailOverlay">
+    <div class="profile-edit-modal" style="width:460px;max-width:100%">
+      <div class="pem-head">
+        <div style="min-width:0"><div class="pem-title" id="calDetTitle" style="overflow-wrap:anywhere"></div><div id="calDetSub" style="margin-top:6px"></div></div>
+        <button class="x" id="calDetClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="calDetBody"></div>
+      <div class="pem-actions" id="calDetActions" style="gap:10px"></div>
     </div>
   </div>
 
@@ -4109,8 +4142,8 @@
     function paintCalSide() {
       const today = mytDayKey(Date.now()), rows = [];
       for (let i = 0; i < 31; i++) { const k = bAddDays(today, i); cItemsOn(k).forEach(it => rows.push({ it, k })); }
-      const shown = rows.slice(0, cAllUp ? 40 : 5);
-      docEl('calViewAll').textContent = cAllUp ? 'Show less' : 'View all'; docEl('calViewAll').style.display = rows.length > 5 ? '' : 'none';
+      const shown = rows.slice(0, 5);
+      docEl('calViewAll').textContent = 'View all'; docEl('calViewAll').style.display = rows.length ? '' : 'none';
       docEl('calUpcoming').innerHTML = shown.length ? shown.map(({ it, k }) => {
         const d = bDays(k, today), when = d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : cFmt(k, { weekday: 'short', day: 'numeric', month: 'short' });
         return `<div class="upcoming-item" data-d="${k}" data-type="${it.type}" data-id="${it.id}"><div class="dot" style="background:${it.color}"></div><div><div class="up-title">${escapeHtml(it.title)}</div><div class="up-time">${when} · ${cTimeLabel(it)}</div></div></div>`;
@@ -4190,10 +4223,75 @@
     }
 
     // ----- page wiring -----
-    function calOpenItem(type, id, dateKey) {
-      if (type === 'event') return openCalModal(CEV.find(x => x.id === id), dateKey);
-      goTo(type === 'task' ? 'tasks' : 'bills');
+    const C_REP = { none: 'Does not repeat', daily: 'Repeats every day', weekly: 'Repeats every week', monthly: 'Repeats every month', yearly: 'Repeats every year' };
+    const cPill = (name, col) => `<span class="cal-tagpill"><i class="fa-solid fa-circle" style="color:${col}"></i>${name}</span>`;
+
+    // details popup for an event, a task that is due or a bill (clicking an item opens this instead of leaving the page)
+    function calShowDetail(type, id, k) {
+      let title = '', sub = '', rows = [], actions = '';
+      if (type === 'event') {
+        const e = CEV.find(x => x.id === id); if (!e) return;
+        title = e.title; sub = cPill(e.category, cColor(e.category));
+        rows = [['Date', cFmt(k || e.event_date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })], ['Time', e.all_day ? 'All day' : t12(e.start_time) + (e.end_time ? ' – ' + t12(e.end_time) : '')], ['Repeats', e.repeats === 'none' ? 'Does not repeat' : C_REP[e.repeats].replace('Repeats ', '')]];
+        if (e.note) rows.push(['Note', escapeHtml(e.note)]);
+        actions = '<button type="button" class="h-del" data-a="del" title="Delete event" aria-label="Delete event"><i class="fa-regular fa-trash-can"></i></button><button type="button" class="confirm-btn save" data-a="edit" style="flex:1">Edit event</button>';
+      } else if (type === 'task') {
+        const t = CTASKS.find(x => x.id === id); if (!t) return;
+        const st = taskStatusInfo(t.status), over = t.status !== 'done' && t.due_date < mytDayKey(Date.now());
+        title = t.title; sub = cPill('Task due', cColor('Tasks'));
+        rows = [['Due', cFmt(t.due_date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + (over ? ' — overdue' : '')], ['Status', `<span class="cal-tagpill"><i class="fa-solid fa-circle" style="color:${st.dot}"></i>${st.name}</span>`], ['Priority', t.priority === 'high' ? 'High' : t.priority === 'med' ? 'Medium' : 'Low'], ['Tag', escapeHtml(t.tag)]];
+        if (t.notes) rows.push(['Notes', escapeHtml(t.notes)]);
+        actions = '<button type="button" class="confirm-btn cancel" data-a="close" style="flex:1">Close</button><button type="button" class="confirm-btn save" data-a="gotask" style="flex:1">Open in Tasks</button>';
+      } else {
+        const b = BILLS.find(x => x.id === id); if (!b) return;
+        const paid = bPaidAmt(b, k) != null;
+        title = b.name; sub = cPill(b.category === 'Subscription' ? 'Subscription' : 'Bill', cColor('Bills'));
+        rows = [['Amount', bRM(paid ? bPaidAmt(b, k) : b.amount)], ['Due', cFmt(k, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })], ['Status', paid ? 'Paid' : k < mytDayKey(Date.now()) ? 'Overdue' : 'Not paid yet'], ['Repeats', b.recurrence === 'once' ? 'One-off' : b.recurrence.charAt(0).toUpperCase() + b.recurrence.slice(1)], ['Category', b.category]];
+        if (b.note) rows.push(['Note', escapeHtml(b.note)]);
+        actions = `<button type="button" class="confirm-btn ${paid ? 'cancel' : 'save'}" data-a="pay" style="flex:1">${paid ? 'Undo paid' : 'Mark as paid'}</button><button type="button" class="confirm-btn cancel" data-a="gobill" style="flex:1">Open in Bills</button>`;
+      }
+      docEl('calDetTitle').textContent = title; docEl('calDetSub').innerHTML = sub;
+      docEl('calDetBody').innerHTML = `<div class="cal-det">${rows.map(([key, v]) => `<div class="r"><div class="k">${key}</div><div class="v">${v}</div></div>`).join('')}</div>`;
+      docEl('calDetActions').innerHTML = actions; docEl('calDetActions').dataset.type = type; docEl('calDetActions').dataset.id = id; docEl('calDetActions').dataset.d = k || '';
+      docEl('calDetailOverlay').classList.add('open');
     }
+    const closeCalDetail = () => docEl('calDetailOverlay').classList.remove('open');
+    docEl('calDetClose').onclick = closeCalDetail;
+    docEl('calDetailOverlay').onclick = e => { if (e.target === docEl('calDetailOverlay')) closeCalDetail(); };
+    docEl('calDetActions').onclick = async e => {
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      const { type, id, d } = docEl('calDetActions').dataset;
+      if (b.dataset.a === 'close') return closeCalDetail();
+      if (b.dataset.a === 'edit') { closeCalDetail(); return openCalModal(CEV.find(x => x.id === id), d); }
+      if (b.dataset.a === 'del') { // delete from here (asks first)
+        const ev = CEV.find(x => x.id === id); if (!ev) return;
+        if (!await luConfirm({ title: `Delete “${ev.title}”?`, message: ev.repeats !== 'none' ? 'Every occurrence of this repeating event is removed.' : 'This event is removed. This can\'t be undone.' })) return;
+        const { error } = await LumaEvents.remove(ev.id); if (error) return luAlert('Could not delete: ' + error.message);
+        CEV = CEV.filter(x => x !== ev); closeCalDetail(); return paintCalendar();
+      }
+      if (b.dataset.a === 'gotask') { closeCalDetail(); closeCalList(); return goTo('tasks'); }
+      if (b.dataset.a === 'gobill') { closeCalDetail(); closeCalList(); return goTo('bills'); }
+      if (b.dataset.a === 'pay') { const bill = BILLS.find(x => x.id === id); if (bill) { await toggleBillPaid(bill, d); calShowDetail('bill', id, d); paintCalendar(); } }
+    };
+    function calOpenItem(type, id, dateKey) { calShowDetail(type, id, dateKey); }
+
+    // "View all": a popup with the whole list of what's coming up
+    function openCalList() {
+      const today = mytDayKey(Date.now()), groups = []; let total = 0;
+      for (let i = 0; i < 90 && total < 300; i++) { const k = bAddDays(today, i), items = cItemsOn(k); if (items.length) { groups.push([k, items]); total += items.length; } }
+      docEl('calListBody').innerHTML = groups.length ? groups.map(([k, items]) => {
+        const d = bDays(k, today), label = d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : cFmt(k, { weekday: 'long' });
+        return `<div class="cal-lhead">${label} · ${cFmt(k, { day: 'numeric', month: 'short', year: 'numeric' })}</div>${items.map(it => cRow(it, k)).join('')}`;
+      }).join('') : '<div class="cal-empty">Nothing coming up in the next 90 days.</div>';
+      docEl('calListOverlay').classList.add('open');
+    }
+    const closeCalList = () => docEl('calListOverlay').classList.remove('open');
+    docEl('calListClose').onclick = docEl('calListDone').onclick = closeCalList;
+    docEl('calListOverlay').onclick = e => {
+      if (e.target === docEl('calListOverlay')) return closeCalList();
+      const it = e.target.closest('[data-type]'); if (it) calShowDetail(it.dataset.type, it.dataset.id, it.dataset.d);
+    };
+
     function calMove(dir) {
       const d = cDate || mytDayKey(Date.now());
       cDate = cView === 'month' ? bAddMonths(bFirst(d), dir) : cView === 'week' ? bAddDays(d, 7 * dir) : cView === 'day' ? bAddDays(d, dir) : bAddMonths(bFirst(d), 12 * dir);
@@ -4206,7 +4304,7 @@
       docEl('calToday').onclick = () => { cDate = mytDayKey(Date.now()); paintCalendar(); };
       docEl('calCreate').onclick = () => openCalModal(null, cView === 'month' || cView === 'year' ? mytDayKey(Date.now()) : cDate);
       docEl('calViews').onclick = e => { const sp = e.target.closest('span[data-v]'); if (sp) { cView = sp.dataset.v; paintCalendar(); } };
-      docEl('calViewAll').onclick = e => { e.preventDefault(); cAllUp = !cAllUp; paintCalSide(); };
+      docEl('calViewAll').onclick = e => { e.preventDefault(); openCalList(); };
       docEl('calCats').onclick = e => { const c = e.target.closest('[data-cat]'); if (!c) return; cHidden.has(c.dataset.cat) ? cHidden.delete(c.dataset.cat) : cHidden.add(c.dataset.cat); paintCalendar(); };
       docEl('calUpcoming').onclick = e => { const u = e.target.closest('.upcoming-item'); if (u) calOpenItem(u.dataset.type, u.dataset.id, u.dataset.d); };
       docEl('calBody').onclick = e => {
