@@ -11,14 +11,24 @@ self.addEventListener("push", (event) => {
   event.waitUntil((async () => {
     // If a LUMA window is open and visible the in-app toast already covers it.
     const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    if (wins.some((c) => c.visibilityState === "visible")) return;
+    const visible = wins.some((c) => c.visibilityState === "visible");
 
+    // iOS requires every push to show a notification — a push that shows nothing counts
+    // as "silent" and, after a few, iOS cancels the subscription (no more push once the
+    // app is closed). So when LUMA is on screen (the in-app toast already covers it) we
+    // still show one, silently, and dismiss it straight away.
     await self.registration.showNotification(d.title || "LUMA", {
       body: d.body || "",
       tag: d.id || undefined,
       icon: "assets/luma-mark.svg",
+      silent: visible,
       data: { link: d.link || "" },
     });
+    if (visible) {
+      await new Promise((r) => setTimeout(r, 400));
+      const shown = await self.registration.getNotifications({ tag: d.id || undefined });
+      shown.forEach((x) => x.close());
+    }
   })());
 });
 
