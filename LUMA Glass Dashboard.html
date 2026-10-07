@@ -6895,7 +6895,10 @@
         'Add Task': () => openTaskModal(null),
         'Log Expense': () => openEntryModal(null, 'expense'),
         'New Event': () => openCalModal(null, mytDayKey(Date.now())),
-        'Add Note': () => { goTo('notes'); when(() => document.getElementById('newNoteBtn'), () => document.getElementById('newNoteBtn').click()); },
+        'Add Note': () => { // set the Notes page up in the background (not shown) so its editor opens right here
+          const pg = document.getElementById('page-notes'); pg.innerHTML = MODULES.notes(); rendered.notes = true; wireModule('notes');
+          when(() => pg.querySelector('#newNoteBtn') && pg.querySelector('#newNoteBtn').onclick, () => pg.querySelector('#newNoteBtn').click(), 80);
+        },
         'AI Chat': () => openChat()
       };
       document.querySelectorAll('#page-dashboard .quick-btn').forEach(q => q.addEventListener('click', () => { const a = acts[q.textContent.trim()]; if (a) a(); }));
