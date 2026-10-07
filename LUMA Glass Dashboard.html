@@ -3795,6 +3795,7 @@
     const H_GROUPS = [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']];
     const H_PUNIT = { daily: 'day', weekly: 'week', monthly: 'month' };
     const H_WINDOW = 365; // days of history loaded (for streaks)
+    let hResetScroll = false; // set when you change day, so the habit list starts at the top again
     let hMonth = null; // first day of the month shown in Consistency (null = this month)
     let hDay = null; // the day the check buttons apply to (null = today); you can go back up to 14 days to tick something you forgot
     const H_BACK = 14;
@@ -3948,7 +3949,8 @@
       const best = Math.max(0, ...HABITS.map(h => hRuns(h, today).best));
       const mon = hKeyAdd(today, -((hDow(today) + 6) % 7)); // this week's Monday
       const bars = Array.from({ length: 7 }, (_, i) => { const k = hKeyAdd(mon, i), r = k > today ? null : hDayRatio(k); return `<div class="bcol" title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}"><div class="bbar" style="height:${Math.max(r || 0, 0.04) * 100}%;${k > today ? 'opacity:.25' : ''}"></div><div class="blbl">${'MTWTFSS'[i]}</div></div>`; }).join('');
-      const oldTop = (root.querySelector('.h-list') || {}).scrollTop || 0;
+      const oldTop = hResetScroll ? 0 : (root.querySelector('.h-list') || {}).scrollTop || 0;
+      if (hResetScroll) { root.scrollTop = 0; hResetScroll = false; }
       root.innerHTML = `<div class="habit-grid">
         ${card(`<div class="section-title"><i class="fa-solid fa-circle-check"></i> ${showGroups ? 'Habits' : isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}</div>` + `<div class="h-daynav"><button type="button" class="h-dprev" ${day <= hKeyAdd(today, -H_BACK) ? 'disabled' : ''} title="Previous day"><i class="fa-solid fa-chevron-left"></i></button><span class="lbl">${isToday ? 'Today' : day === hKeyAdd(today, -1) ? 'Yesterday' : hKeyLabel(day)}${isToday ? '' : ' · editing past day'}</span><button type="button" class="h-dnext" ${isToday ? 'disabled' : ''} title="Next day"><i class="fa-solid fa-chevron-right"></i></button>${isToday ? '' : '<button type="button" class="h-dtoday">Back to today</button>'}</div>` + (hSelecting ? `<div class="h-selbar"><button type="button" class="h-selall">${hSel.size === HABITS.length ? 'Deselect all' : 'Select all'}</button><span class="cnt">${hSel.size} selected</span><button type="button" class="del h-seldel" ${hSel.size ? '' : 'disabled'}><i class="fa-regular fa-trash-can"></i> Delete${hSel.size ? ' (' + hSel.size + ')' : ''}</button></div>` : '') + `<div class="h-list">${rows}</div>`, 'h-main')}
         <div class="h-side" style="display:flex;flex-direction:column;gap:0.9rem">
@@ -4150,6 +4152,7 @@
           const t0 = hToday(), cur = hDay || t0;
           hDay = e.target.closest('.h-dtoday') ? null : (e.target.closest('.h-dprev') ? hKeyAdd(cur, -1) : hKeyAdd(cur, 1));
           if (hDay === t0) hDay = null;
+          hResetScroll = true;
           return paintHabits();
         }
         if (e.target.closest('.h-mprev') || e.target.closest('.h-mnext')) {
