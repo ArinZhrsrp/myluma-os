@@ -890,6 +890,8 @@
     .h-mnav button { width:26px; height:26px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.8); cursor:pointer; font-size:0.62rem; padding:0; }
     .h-mnav button:hover:not(:disabled) { background:rgba(255,255,255,0.12); }
     .h-mnav button:disabled { opacity:0.3; cursor:default; }
+    .h-del { width:46px; height:44px; flex:none; border-radius:13px; border:1px solid rgba(248,113,113,0.3); background:transparent; color:#f87171; cursor:pointer; display:grid; place-items:center; font-size:0.95rem; transition:0.18s; padding:0; } /* quiet icon button — the confirmation dialog guards against accidents */
+    .h-del:hover { background:rgba(239,68,68,0.14); border-color:rgba(248,113,113,0.6); color:#fca5a5; }
     .hrow .licon { flex:none; width:40px; height:40px; display:grid; place-items:center; }
     .hrow.selecting { cursor:pointer; border-radius:12px; }
     .hrow.selecting:hover { background:rgba(255,255,255,0.04); }
@@ -2007,7 +2009,7 @@
       <div class="pem-field"><label>Icon</label><div class="h-icons" id="habitIcons"></div></div>
       <div class="pem-field"><label>Colour</label><div class="h-colors" id="habitColors"></div></div>
       <div class="pem-actions" style="gap:10px">
-        <button class="confirm-btn danger" id="habitDelete" style="flex:none;padding:0 18px;display:none">Delete</button>
+        <button type="button" class="h-del" id="habitDelete" title="Delete habit" aria-label="Delete habit" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
         <button class="confirm-btn save" id="habitSave" style="flex:1">Save habit</button>
       </div>
     </div>
