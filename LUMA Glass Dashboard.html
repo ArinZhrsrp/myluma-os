@@ -5312,7 +5312,7 @@
       btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Thinking…';
       const r = await lumiCall({ mode: 'insights', metrics });
       if (r.insights && r.insights.length) { try { localStorage.setItem(anAiKey(), JSON.stringify(r.insights)); } catch (e) {} paintAnalytics(); }
-      else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Get AI insights'; luAlert((r.error || 'Lumi could not write insights just now.') + (r.detail ? '\n\n' + r.detail.slice(0, 220) : '')); }
+      else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Get AI insights'; luAlert((r.error || 'Lumi could not write insights just now.') + (r.detail ? '\n\n' + r.detail.slice(0, 600) : '')); }
     }
 
     async function loadAnalytics(pg) {
@@ -6904,7 +6904,7 @@
       push('me', text); LUMI_HIST.push({ role: 'user', content: text });
       const bub = push('ai', 'Lumi is thinking…'); bub.style.opacity = '0.6';
       const r = await lumiCall({ mode: 'chat', messages: LUMI_HIST });
-      bub.style.opacity = ''; bub.textContent = r.reply || r.error || 'Something went wrong.'; if (r.detail) console.warn('Lumi detail:', r.detail), bub.textContent += '\n(' + r.detail.slice(0, 220) + ')';
+      bub.style.opacity = ''; bub.textContent = r.reply || r.error || 'Something went wrong.'; if (r.detail) console.warn('Lumi detail:', r.detail), bub.textContent += '\n(' + r.detail.slice(0, 600) + ')';
       if (r.reply) LUMI_HIST.push({ role: 'assistant', content: r.reply }); else LUMI_HIST.pop();
       if (LUMI_HIST.length > 12) LUMI_HIST.splice(0, LUMI_HIST.length - 12);
       if (r.left != null) { lumiLeft = r.left; lumiLimit = r.limit || lumiLimit; lumiPaintLeft(); }

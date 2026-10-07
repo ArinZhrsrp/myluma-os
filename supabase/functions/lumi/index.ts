@@ -7,7 +7,7 @@
 //
 // Secrets (supabase secrets set …):
 //   GEMINI_API_KEY and/or GROQ_API_KEY   (at least one)
-//   optional: GEMINI_MODEL (default gemini-2.0-flash), GROQ_MODEL (default llama-3.3-70b-versatile),
+//   optional: GEMINI_MODEL / GROQ_MODEL (tried first; otherwise a built-in list of current free models is tried in order),
 //             LUMI_DAILY_LIMIT (default 15 chat questions per user per day), LUMI_INSIGHTS_LIMIT (default 10)
 // Deploy:  supabase functions deploy lumi      (JWT verification stays ON)
 
@@ -24,9 +24,11 @@ const json = (body: unknown, status = 200) =>
 const CHAT_LIMIT = Number(Deno.env.get("LUMI_DAILY_LIMIT") || 15);
 const INSIGHT_LIMIT = Number(Deno.env.get("LUMI_INSIGHTS_LIMIT") || 10);
 
+// Each provider lists models to try in order (free-tier model names change often, so a missing/retired one just falls through to the next).
+const modelList = (env: string | undefined, defaults: string[]) => [...(env ? [env] : []), ...defaults.filter((m) => m !== env)];
 const PROVIDERS = [
-  { name: "gemini", key: Deno.env.get("GEMINI_API_KEY"), url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", model: Deno.env.get("GEMINI_MODEL") || "gemini-2.0-flash" },
-  { name: "groq", key: Deno.env.get("GROQ_API_KEY"), url: "https://api.groq.com/openai/v1/chat/completions", model: Deno.env.get("GROQ_MODEL") || "llama-3.3-70b-versatile" },
+  { name: "gemini", key: Deno.env.get("GEMINI_API_KEY"), url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", models: modelList(Deno.env.get("GEMINI_MODEL"), ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.1-flash-lite"]) },
+  { name: "groq", key: Deno.env.get("GROQ_API_KEY"), url: "https://api.groq.com/openai/v1/chat/completions", models: modelList(Deno.env.get("GROQ_MODEL"), ["llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant"]) },
 ].filter((p) => p.key);
 
 const EXPENSE_CATS = ["Housing", "Food & dining", "Groceries", "Transport", "Bills & utilities", "Subscriptions", "Shopping", "Health", "Entertainment", "Education", "Insurance", "Debt", "Other"];
@@ -125,20 +127,27 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
 
 // ---- LLM -------------------------------------------------------------------
 async function chat(messages: unknown[], tools?: unknown[]) {
-  let lastErr = "No AI provider is configured.";
+  const errs: string[] = [];
   for (const p of PROVIDERS) {
-    try {
-      const r = await fetch(p.url, {
-        method: "POST", headers: { Authorization: `Bearer ${p.key}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: p.model, messages, ...(tools ? { tools, tool_choice: "auto" } : {}), temperature: 0.3, max_tokens: 700 }),
-      });
-      if (!r.ok) { lastErr = `${p.name} (${p.model}) ${r.status}: ${(await r.text()).replace(/\s+/g, " ").slice(0, 300)}`; console.error("lumi:", lastErr); continue; }
-      const d = await r.json();
-      const m = d?.choices?.[0]?.message; if (m) return m;
-      lastErr = `${p.name} empty`;
-    } catch (e) { lastErr = `${p.name}: ${(e as Error).message}`; console.error("lumi:", lastErr); }
+    for (const model of p.models) {
+      try {
+        const r = await fetch(p.url, {
+          method: "POST", headers: { Authorization: `Bearer ${p.key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ model, messages, ...(tools ? { tools, tool_choice: "auto" } : {}), temperature: 0.3, max_tokens: 700 }),
+        });
+        if (!r.ok) {
+          const msg = `${p.name}/${model} ${r.status}: ${(await r.text()).replace(/\s+/g, " ").slice(0, 160)}`;
+          errs.push(msg); console.error("lumi:", msg);
+          if (r.status === 401 || r.status === 403 && /api key|permission denied/i.test(msg)) break; // bad key: other models won't help
+          continue; // wrong/retired model or rate limit: try the next model, then the next provider
+        }
+        const d = await r.json();
+        const m = d?.choices?.[0]?.message; if (m) return m;
+        errs.push(`${p.name}/${model} empty`);
+      } catch (e) { errs.push(`${p.name}/${model}: ${(e as Error).message}`); }
+    }
   }
-  throw new Error(lastErr);
+  throw new Error(errs.join(" | ") || "No AI provider is configured.");
 }
 
 const SYSTEM = (now: string, tz: string, name: string) => `You are Lumi, the assistant inside the LUMA personal-OS app. The user is ${name || "the user"}.
