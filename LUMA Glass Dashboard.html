@@ -3779,7 +3779,7 @@
       const mc = document.querySelector('.main-content');
       mc.classList.toggle('fit', FIT_PAGES.has(key));
       if (key === 'calendar') calOnShow();
-      if (key === 'dashboard' && typeof LumaLoader !== 'undefined') LumaLoader.page(pg, key, loadDashboard());
+      if (key === 'dashboard' && typeof LumaLoader !== 'undefined') LumaLoader.page(pg, key, loadDashboard().catch(() => {}));
       mc.scrollTop = 0;
       // remember the page in the URL so a browser refresh lands back here
       try { history.replaceState(null, '', '#' + key); } catch (e) {}
