@@ -1032,26 +1032,32 @@
     .fm-sound span { font-size:0.66rem; color:rgba(255,255,255,0.75); }
     /* the popup always fits the screen: header, mode tabs, timer and controls stay put; durations + sounds scroll if the screen is short */
     #focusOverlay { overflow:hidden; align-items:center; }
-    .focus-modal { display:flex; flex-direction:column; max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px); padding:24px 26px 22px; }
+    .focus-modal { display:flex; flex-direction:column; max-height:calc(100vh - 48px); max-height:calc(100dvh - 48px); padding:34px 30px 32px; }
     .focus-modal > * { flex:none; }
     .focus-modal .fm-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; margin:0 -10px; padding:2px 10px 4px; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent; }
-    .fm-head { margin-bottom:16px; }
-    .fm-modes { margin-bottom:16px; }
-    .fm-timer { margin:0 0 14px; }
-    .fm-time { font-size:2.9rem; }
-    .fm-ring { margin-top:14px; }
-    .fm-controls { margin-bottom:18px; gap:12px; }
+    .fm-head { margin-bottom:24px; }
+    .fm-modes { margin-bottom:26px; }
+    .fm-timer { margin:0 0 22px; }
+    .fm-time { font-size:3rem; }
+    .fm-ring { margin-top:20px; }
+    .fm-controls { margin-bottom:30px; gap:14px; }
     .fm-btn { width:44px; height:44px; }
     .fm-btn.play { width:58px; height:58px; font-size:1.2rem; }
-    .fm-section-lbl { margin-bottom:8px; }
-    .fm-adjust { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
-    .fm-adj-row { flex-direction:column; align-items:stretch; gap:6px; padding:9px 6px; border-radius:13px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); }
+    .fm-section-lbl { margin-bottom:12px; }
+    .fm-adjust { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:26px; }
+    .fm-adj-row { flex-direction:column; align-items:stretch; gap:9px; padding:13px 8px; border-radius:13px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); }
     .fm-adj-row .lbl { flex:none; text-align:center; font-size:0.72rem; white-space:nowrap; }
     .fm-adj-row .lbl i { margin-right:5px !important; }
     .fm-stepper { justify-content:space-between; }
     .fm-stepper button { width:26px; }
     .fm-stepper .val { width:auto; flex:1; }
-    .fm-sound { padding:9px 6px; gap:4px; }
+    .fm-sounds { gap:10px; }
+    .fm-sound { padding:13px 6px; gap:6px; }
+    @media (max-height:860px) {
+      .focus-modal { padding:26px 26px 24px; }
+      .fm-head { margin-bottom:18px; } .fm-modes { margin-bottom:18px; } .fm-timer { margin-bottom:16px; }
+      .fm-controls { margin-bottom:22px; } .fm-adjust { margin-bottom:18px; } .fm-sound { padding:10px 6px; } .fm-adj-row { padding:10px 8px; }
+    }
     @media (max-height:700px) {
       .focus-modal { padding:18px 20px 16px; border-radius:22px; }
       .fm-head { margin-bottom:12px; } .fm-head .ic { width:36px; height:36px; font-size:0.95rem; }
