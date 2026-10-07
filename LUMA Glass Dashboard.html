@@ -863,19 +863,9 @@
     @media (max-width:1024px){ .habit-grid{ grid-template-columns:1fr; } }
     .hrow { display:flex; align-items:center; gap:14px; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,0.04); }
     .hrow:last-child { border-bottom:none; }
-    /* fit layout (like Documents / Notes): the page doesn't scroll — the habit list does, header and day switcher stay put */
-    .main-content.fit #habitsRoot { flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; padding:2px 6px 24px 0; }
-    .main-content.fit #habitsRoot .habit-grid { flex:1 1 auto; min-height:0; grid-template-rows:minmax(0,1fr); }
-    .main-content.fit #habitsRoot .h-main { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
-    .main-content.fit #habitsRoot .h-main > * { flex:none; }
-    .main-content.fit #habitsRoot .h-main > .h-list { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:-6px; padding-right:6px; }
-    .main-content.fit #habitsRoot .h-side { min-height:0; overflow-y:auto; }
-    @media (max-width:1024px) { /* one column on small screens: let the whole area scroll instead */
-      .main-content.fit #habitsRoot .habit-grid { flex:none; grid-template-rows:auto; }
-      .main-content.fit #habitsRoot .h-main { overflow:visible; }
-      .main-content.fit #habitsRoot .h-main > .h-list { overflow:visible; margin-right:0; padding-right:0; }
-      .main-content.fit #habitsRoot .h-side { overflow:visible; }
-    }
+    /* fit layout (like Documents / Notes): the page header stays put; the habit list and the side cards scroll together as one area */
+    .main-content.fit #habitsRoot { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; }
+    .main-content.fit #habitsRoot .habit-grid { align-items:start; }
     .h-daynav { display:flex; align-items:center; gap:8px; margin:2px 0 8px; }
     .h-daynav .lbl { flex:1; text-align:center; font-size:0.78rem; color:rgba(255,255,255,0.7); }
     .h-daynav button { height:30px; min-width:30px; padding:0 10px; border-radius:9px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.8); cursor:pointer; font-size:0.72rem; font-family:inherit; }
@@ -3775,7 +3765,7 @@
     let hDay = null; // the day the check buttons apply to (null = today); you can go back up to 14 days to tick something you forgot
     const H_BACK = 14;
     let hSelecting = false; const hSel = new Set(); // multi-select mode (to delete several habits at once)
-    let HABITS = [], HLOGS = new Map(), HSLEEP = new Map(), HABITS_ERR = null; // HLOGS: habit id → Map(day → amount | null); HSLEEP: day → hours slept
+    let HABITS = [], HGONE = [], HLOGS = new Map(), HSLEEP = new Map(), HABITS_ERR = null; // HGONE: deleted habits — kept only so their completed days still count in the charts // HLOGS: habit id → Map(day → amount | null); HSLEEP: day → hours slept
 
     const hToday = () => mytDayKey(Date.now());
     const hKeyAdd = (key, n) => new Date(Date.parse(key + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
@@ -3819,13 +3809,13 @@
     }
     // share of the daily habits due on `key` that were done (null when none were due)
     function hDayRatio(key) {
-      const due = HABITS.filter(h => h.period === 'daily' && hSched(h, key) && hBorn(h) <= key);
+      const due = [...HABITS, ...HGONE].filter(h => h.period === 'daily' && hSched(h, key) && hBorn(h) <= key && (!h.archived || key < mytDayKey(h.updated_at)));
       return due.length ? due.filter(h => hLogged(h, key)).length / due.length : null;
     }
 
     async function loadSleep() {
       HSLEEP = new Map();
-      if (!HABITS.some(h => h.source === 'sleep')) return;
+      if (![...HABITS, ...HGONE].some(h => h.source === 'sleep')) return;
       const { data } = await LumaHealth.listLogs(hKeyAdd(hToday(), -H_WINDOW));
       (data || []).forEach(r => { if (r.sleep_hours != null) HSLEEP.set(r.log_date, Number(r.sleep_hours)); });
     }
@@ -3834,7 +3824,8 @@
       const [l, g] = await Promise.all([LumaHabits.list(), LumaHabits.logsSince(hKeyAdd(hToday(), -H_WINDOW))]);
       HABITS_ERR = l.error || g.error || null;
       if (HABITS_ERR) return;
-      HABITS = l.data.map(hRow);
+      const all = l.data.map(hRow);
+      HABITS = all.filter(h => !h.archived); HGONE = all.filter(h => h.archived);
       HLOGS = new Map();
       (g.data || []).forEach(r => { if (!HLOGS.has(r.habit_id)) HLOGS.set(r.habit_id, new Map()); HLOGS.get(r.habit_id).set(r.log_date, r.value == null ? null : Number(r.value)); });
       await loadSleep();
@@ -3912,7 +3903,7 @@
         const bg = r == null ? 'rgba(255,255,255,0.03)' : r >= 0.99 ? '#3b82f6' : r >= 0.5 ? 'rgba(59,130,246,0.55)' : r > 0 ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.06)';
         return `<span title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}" style="background:${bg}"></span>`;
       }).join('');
-      const best = Math.max(0, ...HABITS.map(h => hRuns(h, today).best));
+      const best = Math.max(0, ...[...HABITS, ...HGONE].map(h => hRuns(h, today).best));
       const mon = hKeyAdd(today, -((hDow(today) + 6) % 7)); // this week's Monday
       const bars = Array.from({ length: 7 }, (_, i) => { const k = hKeyAdd(mon, i), r = k > today ? null : hDayRatio(k); return `<div class="bcol" title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}"><div class="bbar" style="height:${Math.max(r || 0, 0.04) * 100}%;${k > today ? 'opacity:.25' : ''}"></div><div class="blbl">${'MTWTFSS'[i]}</div></div>`; }).join('');
       root.innerHTML = `<div class="habit-grid">
@@ -4061,10 +4052,10 @@
     };
     docEl('habitDelete').onclick = async () => {
       const h = HABITS.find(x => x.id === habitForm.id); if (!h) return;
-      if (!await luConfirm({ title: `Delete “${h.name}”?`, message: 'Its streak and history will be removed too. This can\'t be undone.' })) return;
+      if (!await luConfirm({ title: `Delete “${h.name}”?`, message: 'It disappears from your list and stops reminding you. The days you already completed still count in your Consistency chart and best streak.' })) return;
       const { error } = await LumaHabits.remove(h.id);
       if (error) return habitErr(error.message);
-      HABITS = HABITS.filter(x => x !== h); HLOGS.delete(h.id); closeHabitModal(); paintHabits();
+      HGONE.push({ ...h, archived: true, updated_at: new Date().toISOString() }); HABITS = HABITS.filter(x => x !== h); closeHabitModal(); paintHabits();
     };
 
     async function loadHabits(pg) {
@@ -4081,10 +4072,12 @@
         if (e.target.closest('.h-selall')) { hSel.size === HABITS.length ? hSel.clear() : HABITS.forEach(h => hSel.add(h.id)); return paintHabits(); }
         if (e.target.closest('.h-seldel')) {
           const ids = [...hSel]; if (!ids.length) return;
-          if (!await luConfirm({ title: `Delete ${ids.length} habit${ids.length === 1 ? '' : 's'}?`, message: 'Their streaks and history will be removed too. This can\'t be undone.', ok: 'Delete' })) return;
+          if (!await luConfirm({ title: `Delete ${ids.length} habit${ids.length === 1 ? '' : 's'}?`, message: 'They disappear from your list and stop reminding you. The days you already completed still count in your Consistency chart and best streak.', ok: 'Delete' })) return;
           const { error } = await LumaHabits.removeMany(ids);
           if (error) return luAlert('Could not delete: ' + error.message);
-          HABITS = HABITS.filter(h => !hSel.has(h.id)); ids.forEach(id => HLOGS.delete(id)); hSel.clear(); hSelecting = false;
+          const now = new Date().toISOString();
+          HABITS.filter(h => hSel.has(h.id)).forEach(h => HGONE.push({ ...h, archived: true, updated_at: now }));
+          HABITS = HABITS.filter(h => !hSel.has(h.id)); hSel.clear(); hSelecting = false;
           return paintHabits();
         }
         const selRow = hSelecting && e.target.closest('.hrow');

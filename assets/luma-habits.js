@@ -8,7 +8,7 @@
   }
 
   const db = () => window.LumaAuth.client.schema("luma");
-  const BASE_COLS = "id, name, icon, color, target, days, created_at";
+  const BASE_COLS = "id, name, icon, color, target, days, archived, created_at, updated_at";
   // period / per_period / goal_value / unit / source come from migration 017, reminder_time from 018
   const COLS_017 = BASE_COLS + ", period, per_period, goal_value, unit, source";
   const COLS = COLS_017 + ", reminder_time";
@@ -32,7 +32,8 @@
     ALL_DAYS,
 
     async list() {
-      return withCols((cols) => db().from("habits").select(cols).eq("archived", false).order("created_at", { ascending: true }));
+      // includes deleted habits (archived = true): they're hidden from the list but their completed days still count in the charts
+      return withCols((cols) => db().from("habits").select(cols).order("created_at", { ascending: true }));
     },
 
     // every "done" day on or after sinceKey (YYYY-MM-DD) → [{ habit_id, log_date }]
@@ -59,13 +60,15 @@
       return res.error && MISSING.test(res.error.message) ? run(trimDefaults(fields)) : res;
     },
 
+    // "Delete" hides the habit and keeps its check-ins (so past charts and best streak don't change). Reminders stop
+    // because the reminder job skips archived habits.
     async remove(id) {
-      return db().from("habits").delete().eq("id", id);
+      return db().from("habits").update({ archived: true }).eq("id", id);
     },
 
-    // delete several habits (and, via cascade, their check-ins)
+    // delete several habits at once (same soft delete as remove)
     async removeMany(ids) {
-      return db().from("habits").delete().in("id", ids);
+      return db().from("habits").update({ archived: true }).in("id", ids);
     },
 
     // mark a habit done (or not done) on a calendar day; `value` = the amount for measurable habits
