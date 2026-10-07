@@ -4914,7 +4914,12 @@
     });
 
     // restore the page from the URL hash after a refresh (e.g. #documents)
+    // A fresh launch (app killed and reopened, or a new tab) opens on the Dashboard home; only a refresh
+    // keeps the page. A tapped push notification opens with ?from=push and goes to its page.
     (function () {
+      let fresh = true; try { fresh = !sessionStorage.getItem('luma_booted'); sessionStorage.setItem('luma_booted', '1'); } catch (e) {}
+      const fromPush = /[?&]from=push\b/.test(location.search);
+      if (fresh && !fromPush) { if (location.hash) history.replaceState(null, '', location.pathname + location.search); return; }
       const key = decodeURIComponent(location.hash.slice(1));
       if (key && key !== 'dashboard' && titles[key]) goTo(key);
     })();

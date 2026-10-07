@@ -46,6 +46,6 @@ self.addEventListener("notificationclick", (event) => {
         return;
       }
     }
-    await self.clients.openWindow(base + (link ? "#" + link : ""));
+    await self.clients.openWindow(link ? base + "?from=push#" + link : base);
   })());
 });
