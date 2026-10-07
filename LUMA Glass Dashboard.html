@@ -3859,7 +3859,9 @@
       if (hDay && (hDay > today || hDay < hKeyAdd(today, -H_BACK))) hDay = null;
       const day = hDay || today, isToday = day === today;
       const dayWord = isToday ? 'today' : day === hKeyAdd(today, -1) ? 'yesterday' : 'on ' + hKeyLabel(day);
-      const daily = HABITS.filter(h => h.period === 'daily' && hSched(h, day)), longer = HABITS.filter(h => h.period !== 'daily');
+      // habits you deleted still appear on the days they existed (read-only), so past days keep your ticks
+      const dayHabits = [...HABITS, ...(hSelecting ? [] : HGONE.filter(h => h.period === 'daily' && hBorn(h) <= day && day < mytDayKey(h.updated_at)))];
+      const daily = dayHabits.filter(h => h.period === 'daily' && hSched(h, day)), longer = HABITS.filter(h => h.period !== 'daily');
       sub.textContent = HABITS.length
         ? `${daily.filter(h => hLogged(h, day)).length} of ${daily.length} done ${dayWord}` + (longer.length ? ` · ${longer.filter(h => hPeriodDone(h, hPeriodKey(h, day), today)).length} of ${longer.length} weekly & monthly` : '')
         : 'Build routines that stick';
@@ -3873,7 +3875,12 @@
         return;
       }
       const showGroups = HABITS.some(h => h.period !== 'daily');
+      const goneRow = h => {
+        const d = hLogged(h, day);
+        return `<div class="hrow gone" data-id="${h.id}"><div class="licon" style="color:${h.color};background:${h.color}22;opacity:.7"><i class="fa-solid ${h.icon}"></i></div><div style="flex:1;min-width:0"><div class="lt" style="opacity:.8">${escapeHtml(h.name)}</div><div class="ls">Deleted ${hKeyLabel(mytDayKey(h.updated_at))} · kept in your history</div></div><span class="hbtn ${d ? 'on' : ''}" title="${d ? 'Done that day' : 'Not done that day'}" style="${d ? `background:${h.color};` : ''}cursor:default;opacity:.8"><i class="fa-solid fa-check"></i></span></div>`;
+      };
       const rowHtml = h => {
+        if (h.archived) return goneRow(h);
         const pk = hPeriodKey(h, day), curPk = hPeriodKey(h, today), cnt = hCount(h, pk, today), done = cnt >= hNeed(h), { cur } = hRuns(h, today), sleep = h.source === 'sleep';
         let detail = '';
         if (sleep) { const v = HSLEEP.get(day); detail = (v != null ? `slept ${v}h` : 'no sleep logged') + ` · goal ${h.goal_value || 6}h+`; }
@@ -3895,7 +3902,7 @@
           <button type="button" class="hbtn ${done ? 'on' : ''}" data-day="${day}" title="${sleep ? 'Counted from your sleep log in Health' : done ? 'Done — tap to undo' : h.goal_value ? 'Log amount' : 'Mark done'}" style="${done ? `background:${h.color}` : ''}"><i class="fa-solid fa-check"></i></button>`}</div>`;
       };
       const rows = H_GROUPS.map(([per, label]) => {
-        const hs = HABITS.filter(h => h.period === per); if (!hs.length) return '';
+        const hs = dayHabits.filter(h => h.period === per); if (!hs.length) return '';
         return (showGroups ? `<div class="h-group">${label}</div>` : '') + hs.map(rowHtml).join('');
       }).join('');
       const heat = Array.from({ length: 35 }, (_, i) => {
