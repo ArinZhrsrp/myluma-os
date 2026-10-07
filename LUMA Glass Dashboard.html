@@ -929,7 +929,7 @@
     #calBody.cal-wk > .cal-tg { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
     .tg-top { flex:none; border-bottom:1px solid rgba(255,255,255,0.14); }
     .tg-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:calc(-1 * var(--sbw, 0px)); scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
-    .tg-row { display:grid; grid-template-columns:62px repeat(7, minmax(0,1fr)); }
+    .tg-row { display:grid; grid-template-columns:62px repeat(var(--n, 7), minmax(0,1fr)); }
     .tg-corner { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; font-size:0.62rem; color:rgba(255,255,255,0.55); padding:6px 0; }
     .tg-corner span { color:#fbbf24; }
     .tg-adrow .tg-corner span { color:rgba(255,255,255,0.55); }
@@ -947,9 +947,12 @@
     .tg-ad .cchip.done .tt { text-decoration:line-through; opacity:.6; }
     .tg-body { position:relative; }
     .tg-hours { position:relative; z-index:0; }
-    .tg-hl { position:absolute; right:10px; transform:translateY(-50%); font-size:0.66rem; color:rgba(255,255,255,0.55); white-space:nowrap; }
-    .tg-col { position:relative; border-left:1px solid rgba(255,255,255,0.08); cursor:pointer;
-      background-image:repeating-linear-gradient(to bottom, transparent 0, transparent 51px, rgba(255,255,255,0.09) 51px, rgba(255,255,255,0.09) 52px); }
+    .tg-hl { position:absolute; right:10px; transform:translateY(calc(-100% - 1px)); font-size:0.66rem; line-height:1.2; color:rgba(255,255,255,0.55); white-space:nowrap; } /* sits just above its line so the line stays unbroken */
+    .tg-col { position:relative; border-left:1px solid rgba(255,255,255,0.08); cursor:pointer; }
+    /* hour lines run the whole width, from the left edge to the right edge — they're drawn once on the row, not per column */
+    .tg-body { background-image:repeating-linear-gradient(to bottom, transparent 0, transparent 51px, rgba(255,255,255,0.1) 51px, rgba(255,255,255,0.1) 52px); border-right:1px solid rgba(255,255,255,0.08); border-bottom:1px solid rgba(255,255,255,0.1); }
+    .tg-dh:last-child, .tg-ad:last-child { border-right:1px solid rgba(255,255,255,0.08); }
+    .cal-tg[style*="--n:1"] .tg-dh { justify-content:flex-start; padding-left:18px; }
     .tg-ev { position:absolute; box-sizing:border-box; overflow:hidden; padding:4px 7px; border-radius:8px; border-left:3px solid var(--ic,#3b82f6); background:color-mix(in srgb, var(--ic,#3b82f6) 30%, rgba(26,32,50,0.95)); cursor:pointer; z-index:1; }
     .tg-ev:hover { z-index:2; filter:brightness(1.2); }
     .tg-ev .t { font-size:0.74rem; font-weight:600; color:#fff; line-height:1.3; overflow:hidden; text-overflow:ellipsis; }
@@ -4180,13 +4183,40 @@
     const cChip = (it, k) => `<div class="cchip ${it.done ? 'done' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}"><span class="dot" style="background:${it.color}"></span>${it.time ? `<span class="tm">${t12(it.time)}</span>` : ''}${it.done ? '<i class="fa-solid fa-check ck"></i>' : ''}<span class="tt">${escapeHtml(it.title)}</span></div>`;
     const cRow = (it, k) => `<div class="cal-it ${it.done ? 'done' : ''}" style="--ic:${it.color}" data-type="${it.type}" data-id="${it.id}" data-d="${k}"><div><div class="t">${escapeHtml(it.title)}</div><div class="m">${cTimeLabel(it)}${it.type === 'event' ? ' · ' + it.cat : ''}</div></div></div>`;
 
+    // Week (7 columns) and Day (1 wide column) share one time grid: hours down the left, each timed item placed at its time
+    // and sized by its length; all-day items / tasks / bills are the first row of the list.
+    function cTimeGrid(ds, today) {
+      const nowMin = (() => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; })();
+      const single = ds.length === 1, hourH = C_HOUR_H;
+      const toMin = t => +t.slice(0, 2) * 60 + +t.slice(3, 5), hr12 = h => h === 0 ? '12 am' : h < 12 ? h + ' am' : h === 12 ? '12 pm' : (h - 12) + ' pm';
+      const cols = ds.map(k => {
+        const items = cItemsOn(k), timed = items.filter(it => it.time), loose = items.filter(it => !it.time);
+        // side-by-side lanes for overlapping items
+        const evs = timed.map(it => { const sMin = toMin(it.time); return { it, s: sMin, e: Math.min(1440, Math.max(sMin + 25, it.end ? toMin(it.end) : sMin + 60)) }; }).sort((a, c) => a.s - c.s || c.e - a.e);
+        let cluster = [], clusterEnd = 0; const laid = [];
+        const flush = () => { const lanes = []; cluster.forEach(ev => { let l = lanes.findIndex(end => end <= ev.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = ev.e; ev.lane = l; }); cluster.forEach(ev => { ev.lanes = lanes.length; laid.push(ev); }); cluster = []; };
+        evs.forEach(ev => { if (cluster.length && ev.s >= clusterEnd) { flush(); clusterEnd = 0; } cluster.push(ev); clusterEnd = Math.max(clusterEnd, ev.e); }); if (cluster.length) flush();
+        return { k, loose, laid };
+      });
+      const headCells = ds.map(k => `<div class="tg-dh ${k === today ? 'today' : ''}"><span class="dn">${+k.slice(8)}</span><span class="dw">${cFmt(k, { weekday: 'short' })}</span></div>`).join('');
+      const adCells = cols.map(c => `<div class="tg-ad" data-d="${c.k}">${c.loose.map(it => cChip(it, c.k)).join('')}</div>`).join('');
+      const dayCols = cols.map(c => `<div class="tg-col" data-d="${c.k}">${c.laid.map(ev => {
+        const top = ev.s / 60 * hourH, h = Math.max(20, (ev.e - ev.s) / 60 * hourH - 2), w = 100 / ev.lanes, it = ev.it;
+        return `<div class="tg-ev ${h < 36 ? 'tiny' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${c.k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}" style="top:${top}px;height:${h}px;left:calc(${ev.lane * w}% + 2px);width:calc(${w}% - 4px);--ic:${it.color}"><div class="t">${escapeHtml(it.title)}</div><div class="m">${t12(it.time)}${it.end ? ' – ' + t12(it.end) : ''}${single ? ' · ' + it.cat : ''}</div></div>`;
+      }).join('')}${c.k === today ? `<div class="tg-now" style="top:${nowMin / 60 * hourH}px"></div>` : ''}</div>`).join('');
+      const labels = Array.from({ length: 24 }, (_, h) => h ? `<div class="tg-hl" style="top:${h * hourH}px">${hr12(h)}</div>` : '').join('');
+      const html = `<div class="cal-tg" style="--n:${ds.length}"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>${tzOffsetLabel().replace('GMT', '')}</span></div>${headCells}</div></div>`
+        + `<div class="tg-scroll"><div class="tg-row tg-adrow"><div class="tg-corner"><span>all-day</span></div>${adCells}</div><div class="tg-row tg-body" style="height:${24 * hourH}px"><div class="tg-hours">${labels}</div>${dayCols}</div></div></div>`;
+      return { html, wkTop: cols.some(c => c.loose.length) ? 0 : 7 * hourH }; // with all-day items the list opens at the top (where they are); otherwise around 7 am
+    }
+
     function paintCalendar() {
       const body = docEl('calBody'); if (!body) return;
       const today = mytDayKey(Date.now()); if (!cDate) cDate = today;
       document.querySelectorAll('#calViews span').forEach(sp => sp.classList.toggle('active', sp.dataset.v === cView));
       docEl('calWd').style.display = cView === 'month' ? '' : 'none'; body.classList.remove('cal-nosc', 'cal-wk');
       if (CERR) { docEl('calTitle').textContent = 'Calendar'; body.innerHTML = '<div class="cal-empty">Could not load events — has <b>supabase/migrations/027_events.sql</b> been run in the Supabase SQL Editor?</div>'; paintCalSide(); return; }
-      const keepScroll = body.dataset.v === 'week' && cView === 'week' ? (body.querySelector('.tg-scroll') || {}).scrollTop : null; // stay where you were when changing week
+      const keepScroll = body.dataset.v === cView && (cView === 'week' || cView === 'day') ? (body.querySelector('.tg-scroll') || {}).scrollTop : null; // stay where you were when changing week / day
       let title = '', html = '', wkTop = 7 * C_HOUR_H;
       if (cView === 'month') {
         const first = bFirst(cDate), lead = cDow(first), n = cLast(first), weeks = Math.ceil((lead + n) / 7), start = bAddDays(first, -lead);
@@ -4199,34 +4229,12 @@
         }).join('') + '</div>';
         body.classList.add('cal-nosc');
       } else if (cView === 'week') {
-        // Sunday–Saturday time grid: hours down the side, each timed item placed at its time and sized by its length
-        const mon = bAddDays(cDate, -cDow(cDate)), ds = Array.from({ length: 7 }, (_, i) => bAddDays(mon, i)), nowMin = (() => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; })();
-        title = `${cFmt(mon, { day: 'numeric', month: mon.slice(0, 7) === ds[6].slice(0, 7) ? undefined : 'short' })} – ${cFmt(ds[6], { day: 'numeric', month: 'short', year: 'numeric' })}`;
-        const toMin = t => +t.slice(0, 2) * 60 + +t.slice(3, 5), hr12 = h => h === 0 ? '12 am' : h < 12 ? h + ' am' : h === 12 ? '12 pm' : (h - 12) + ' pm';
-        const cols = ds.map(k => {
-          const items = cItemsOn(k), timed = items.filter(it => it.time), loose = items.filter(it => !it.time);
-          // side-by-side lanes for overlapping items
-          const evs = timed.map(it => { const sMin = toMin(it.time); return { it, s: sMin, e: Math.min(1440, Math.max(sMin + 25, it.end ? toMin(it.end) : sMin + 60)) }; }).sort((a, c) => a.s - c.s || c.e - a.e);
-          let cluster = [], clusterEnd = 0; const laid = [];
-          const flush = () => { const lanes = []; cluster.forEach(ev => { let l = lanes.findIndex(end => end <= ev.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = ev.e; ev.lane = l; }); cluster.forEach(ev => { ev.lanes = lanes.length; laid.push(ev); }); cluster = []; };
-          evs.forEach(ev => { if (cluster.length && ev.s >= clusterEnd) { flush(); clusterEnd = 0; } cluster.push(ev); clusterEnd = Math.max(clusterEnd, ev.e); }); if (cluster.length) flush();
-          return { k, loose, laid };
-        });
-        const hourH = C_HOUR_H, headCells = ds.map(k => `<div class="tg-dh ${k === today ? 'today' : ''}"><span class="dn">${+k.slice(8)}</span><span class="dw">${cFmt(k, { weekday: 'short' })}</span></div>`).join('');
-        const adCells = cols.map(c => `<div class="tg-ad" data-d="${c.k}">${c.loose.map(it => cChip(it, c.k)).join('')}</div>`).join('');
-        const dayCols = cols.map(c => `<div class="tg-col" data-d="${c.k}">${c.laid.map(ev => {
-          const top = ev.s / 60 * hourH, h = Math.max(20, (ev.e - ev.s) / 60 * hourH - 2), w = 100 / ev.lanes, it = ev.it;
-          return `<div class="tg-ev ${h < 36 ? 'tiny' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${c.k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}" style="top:${top}px;height:${h}px;left:calc(${ev.lane * w}% + 2px);width:calc(${w}% - 4px);--ic:${it.color}"><div class="t">${escapeHtml(it.title)}</div><div class="m">${t12(it.time)}${it.end ? ' – ' + t12(it.end) : ''}</div></div>`;
-        }).join('')}${c.k === today ? `<div class="tg-now" style="top:${nowMin / 60 * hourH}px"></div>` : ''}</div>`).join('');
-        const labels = Array.from({ length: 24 }, (_, h) => h ? `<div class="tg-hl" style="top:${h * hourH}px">${hr12(h)}</div>` : '').join('');
-        html = `<div class="cal-tg"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>${tzOffsetLabel().replace('GMT', '')}</span></div>${headCells}</div></div>`
-          + `<div class="tg-scroll"><div class="tg-row tg-adrow"><div class="tg-corner"><span>all-day</span></div>${adCells}</div><div class="tg-row tg-body" style="height:${24 * hourH}px"><div class="tg-hours">${labels}</div>${dayCols}</div></div></div>`;
-        body.classList.add('cal-wk');
-        wkTop = cols.some(c => c.loose.length) ? 0 : 7 * C_HOUR_H; // with all-day items the list opens at the top (where they are); otherwise around 7 am
+        const sun = bAddDays(cDate, -cDow(cDate)), ds = Array.from({ length: 7 }, (_, i) => bAddDays(sun, i));
+        title = `${cFmt(sun, { day: 'numeric', month: sun.slice(0, 7) === ds[6].slice(0, 7) ? undefined : 'short' })} – ${cFmt(ds[6], { day: 'numeric', month: 'short', year: 'numeric' })}`;
+        ({ html, wkTop } = cTimeGrid(ds, today)); body.classList.add('cal-wk');
       } else if (cView === 'day') {
-        const items = cItemsOn(cDate);
         title = cFmt(cDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        html = items.length ? `<div class="cal-day">${items.map(it => cRow(it, cDate)).join('')}</div>` : '<div class="cal-empty">Nothing planned for this day.<br><br><button type="button" class="create-btn" id="calEmptyAdd" style="margin:0 auto"><i class="fa-solid fa-plus"></i> Create event</button></div>';
+        ({ html, wkTop } = cTimeGrid([cDate], today)); body.classList.add('cal-wk');
       } else {
         const y = +cDate.slice(0, 4); title = String(y);
         html = '<div class="cal-year">' + Array.from({ length: 12 }, (_, m) => {
@@ -4238,7 +4246,7 @@
       const sun = k => bAddDays(k, -cDow(k)), here = cView === 'month' ? bFirst(cDate) === bFirst(today) : cView === 'week' ? sun(cDate) === sun(today) : cView === 'day' ? cDate === today : cDate.slice(0, 4) === today.slice(0, 4);
       docEl('calToday').style.display = here ? 'none' : ''; // already looking at today: no need for the Today button
       docEl('calTitle').textContent = title; body.innerHTML = html; body.dataset.v = cView;
-      if (cView === 'week') {
+      if (cView === 'week' || cView === 'day') {
         const sc = body.querySelector('.tg-scroll');
         if (sc) {
           body.style.setProperty('--sbw', (sc.offsetWidth - sc.clientWidth) + 'px'); // width of the scrollbar: it goes into the card's right padding so the columns stay as wide as the header's
