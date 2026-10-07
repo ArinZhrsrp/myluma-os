@@ -2020,7 +2020,7 @@
           <!-- Today's Priorities -->
           <div class="card">
             <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-list-check"></i> Today's Priorities</span><span class="wgt-link nav-tasks">All tasks</span></div>
-            <div class="dash-checks" id="dashTasks" style="max-height:260px;overflow-y:auto;"><div class="wgt-sub">Loading…</div></div>
+            <div class="dash-checks" id="dashTasks"><div class="wgt-sub">Loading…</div></div>
           </div>
 
           <!-- Finance -->
@@ -5351,10 +5351,9 @@
       // schedule
       dashSet('dashSched', todayItems.length ? todayItems.map(it => `<div data-cal="${it.type}:${it.id}" style="display:flex;gap:11px;cursor:pointer;"><span class="wgt-time" style="width:56px;flex-shrink:0;padding-top:9px;">${it.time ? t12(it.time) : it.type === 'event' ? 'All day' : it.type === 'bill' ? 'Bill' : 'Task'}</span><span style="width:3px;border-radius:3px;background:${it.color};margin:3px 0;"></span><div style="flex:1;min-width:0;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">${escapeHtml(it.title)}</div><div class="wgt-sub" style="margin-top:2px;">${escapeHtml(cTimeLabel(it))}${it.type === 'event' ? ' · ' + escapeHtml(it.cat) : ''}</div></div></div>`).join('') : '<div class="wgt-sub">Nothing scheduled today. Add an event on the Calendar.</div>');
 
-      // priorities: overdue / due today / high priority, then what you finished today
-      const pr = open.filter(t => (t.due_date && t.due_date <= today) || t.priority === 'high').sort((a, b) => (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9').localeCompare(b.due_date || '9')).slice(0, 8);
-      const doneToday = T.filter(t => t.status === 'done' && t.completed_at && mytDayKey(t.completed_at) === today).slice(0, 4);
-      dashSet('dashTasks', pr.length || doneToday.length ? [...pr, ...doneToday].map(t => `<div class="check-row ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">${escapeHtml(t.title)}${t.due_date && t.due_date < today && t.status !== 'done' ? ' <span style="color:#fca5a5;font-size:0.68rem;">overdue</span>' : ''}</span><span class="prio-dot" style="background:${(D_PRIO[t.priority] || D_PRIO.med)[0]};"></span></div>`).join('') : '<div class="wgt-sub">Nothing urgent. Enjoy the calm.</div>');
+      // priorities: 8 open tasks — high priority first (nearest due date first), then medium, then low
+      const pr = open.slice().sort((a, b) => (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9999').localeCompare(b.due_date || '9999')).slice(0, 8);
+      dashSet('dashTasks', pr.length ? pr.map(t => { const dl = t.due_date ? (t.due_date < today ? '<span style="color:#fca5a5;font-size:0.68rem;">overdue</span>' : t.due_date === today ? '<span style="color:#fcd34d;font-size:0.68rem;">today</span>' : `<span style="color:rgba(255,255,255,0.45);font-size:0.68rem;">${hKeyLabel(t.due_date)}</span>`) : ''; return `<div class="check-row" data-id="${t.id}"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">${escapeHtml(t.title)} ${dl}</span><span class="prio-dot" style="background:${(D_PRIO[t.priority] || D_PRIO.med)[0]};"></span></div>`; }).join('') : '<div class="wgt-sub">No open tasks. Enjoy the calm.</div>');
 
       // money
       const bp = budget ? Math.min(100, Math.round(spent / budget * 100)) : 0, ip = income ? Math.min(100, Math.round(spent / income * 100)) : 0;
