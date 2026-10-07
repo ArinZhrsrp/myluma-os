@@ -9,7 +9,7 @@
 
   var css = document.createElement("style");
   css.textContent =
-    "#lumaLoader{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:rgba(10,14,26,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);transition:opacity .3s ease}" +
+    "#lumaLoader{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;background:rgba(10,14,26,.22);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);transition:opacity .3s ease}" +
     "#lumaLoader.out{opacity:0;pointer-events:none}" +
     "#lumaLoader .ll-box{display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px 34px;border-radius:20px;background:rgba(15,23,42,.8);border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 60px rgba(0,0,0,.45);color:rgba(255,255,255,.75);font:500 .82rem -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif}" +
     "#lumaLoader .ll-spin{width:32px;height:32px;border-radius:50%;border:3px solid rgba(255,255,255,.14);border-top-color:#3b82f6;animation:llspin .8s linear infinite}" +

@@ -1973,11 +1973,7 @@
                 <div id="greetDate" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.12em;color:#93c5fd;font-weight:600;margin-bottom:0.5rem;">Friday · 11 July · 10:30 AM</div>
                 <h2 id="greetName" style="color:#fff;font-size:1.6rem;font-weight:600;letter-spacing:-0.02em;">Good morning</h2>
                 <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;margin-top:0.35rem;">Here's what matters today.</p>
-                <div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1rem;">
-                  <span style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:0.75rem;color:rgba(255,255,255,0.85);"><i class="fa-solid fa-fire" style="color:#fca5a5;"></i> 3 urgent tasks</span>
-                  <span style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:0.75rem;color:rgba(255,255,255,0.85);"><i class="fa-regular fa-calendar" style="color:#93c5fd;"></i> 2 meetings</span>
-                  <span style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:0.75rem;color:rgba(255,255,255,0.85);"><i class="fa-solid fa-wallet" style="color:#6ee7b7;"></i> RM450 remaining</span>
-                </div>
+                <div id="dashChips" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1rem;min-height:34px;"></div>
               </div>
               <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);display:grid;place-items:center;color:#fff;font-size:1.4rem;box-shadow:0 0 30px rgba(59,130,246,0.35);flex-shrink:0;">
                 <i class="fa-solid fa-robot"></i>
@@ -1986,15 +1982,15 @@
           </div>
 
           <!-- AI Recommendation Card (featured) -->
-          <div class="card full-width" style="background:linear-gradient(125deg, rgba(37,99,235,0.24), rgba(139,92,246,0.22));border:1px solid rgba(139,92,246,0.32);padding:1.4rem 1.6rem;">
+          <div class="card full-width" id="dashRec" style="display:none;background:linear-gradient(125deg, rgba(37,99,235,0.24), rgba(139,92,246,0.22));border:1px solid rgba(139,92,246,0.32);padding:1.4rem 1.6rem;">
             <div style="display:flex;gap:16px;align-items:flex-start;">
               <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:grid;place-items:center;color:#fff;font-size:1.1rem;flex-shrink:0;box-shadow:0 0 20px rgba(59,130,246,0.4);"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
               <div style="flex:1;">
-                <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:#c4b5fd;font-weight:600;margin-bottom:0.5rem;">AI Recommendation</div>
-                <div style="font-size:1.05rem;font-weight:600;color:#fff;line-height:1.45;">You're overloaded this week. Move <span style="color:#c4b5fd;">Project Planning</span> to Friday to protect your focus blocks.</div>
+                <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:#c4b5fd;font-weight:600;margin-bottom:0.5rem;">Suggestion</div>
+                <div id="dashRecText" style="font-size:1.05rem;font-weight:600;color:#fff;line-height:1.45;"></div>
                 <div style="display:flex;gap:10px;margin-top:14px;">
-                  <button class="create-btn" style="padding:9px 16px;font-size:0.78rem;"><i class="fa-solid fa-check"></i> Apply suggestion</button>
-                  <button class="create-btn dismiss-rec" style="padding:9px 16px;font-size:0.78rem;background:rgba(255,255,255,0.06);box-shadow:none;">Not now</button>
+                  <button class="create-btn" id="dashRecGo" style="padding:9px 16px;font-size:0.78rem;"><i class="fa-solid fa-arrow-right"></i> <span>Open</span></button>
+                  <button class="create-btn dismiss-rec" id="dashRecNo" style="padding:9px 16px;font-size:0.78rem;background:rgba(255,255,255,0.06);box-shadow:none;">Not now</button>
                 </div>
               </div>
             </div>
@@ -2016,36 +2012,19 @@
           <!-- Today's Schedule -->
           <div class="card">
             <div class="wgt-head"><span class="wgt-label"><i class="fa-regular fa-calendar"></i> Today's Schedule</span><span class="wgt-link nav-cal">View calendar</span></div>
-            <div style="display:flex;flex-direction:column;gap:6px;">
-              <div style="display:flex;gap:11px;"><span class="wgt-time" style="width:44px;flex-shrink:0;padding-top:9px;">09:00</span><span style="width:3px;border-radius:3px;background:#3b82f6;margin:3px 0;"></span><div style="flex:1;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">Deep work — Q3 deck</div><div class="wgt-sub" style="margin-top:2px;">Focus · 2h</div></div></div>
-              <div style="display:flex;gap:11px;"><span class="wgt-time" style="width:44px;flex-shrink:0;padding-top:9px;">11:30</span><span style="width:3px;border-radius:3px;background:#8b5cf6;margin:3px 0;"></span><div style="flex:1;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">Standup with design</div><div class="wgt-sub" style="margin-top:2px;">Meeting · 30m</div></div></div>
-              <div style="display:flex;gap:11px;"><span class="wgt-time" style="width:44px;flex-shrink:0;padding-top:9px;">14:00</span><span style="width:3px;border-radius:3px;background:#8b5cf6;margin:3px 0;"></span><div style="flex:1;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">1:1 with Marcus</div><div class="wgt-sub" style="margin-top:2px;">Meeting · 1h</div></div></div>
-              <div style="display:flex;gap:11px;"><span class="wgt-time" style="width:44px;flex-shrink:0;padding-top:9px;">16:00</span><span style="width:3px;border-radius:3px;background:#22c55e;margin:3px 0;"></span><div style="flex:1;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">Gym</div><div class="wgt-sub" style="margin-top:2px;">Health · 1h</div></div></div>
-            </div>
+            <div id="dashSched" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;"><div class="wgt-sub">Loading…</div></div>
           </div>
 
           <!-- Today's Priorities -->
           <div class="card">
             <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-list-check"></i> Today's Priorities</span><span class="wgt-link nav-tasks">All tasks</span></div>
-            <div class="dash-checks">
-              <div class="check-row"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">Finalize Q3 strategy deck</span><span class="prio-dot" style="background:#ef4444;"></span></div>
-              <div class="check-row"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">Review design handoff</span><span class="prio-dot" style="background:#ef4444;"></span></div>
-              <div class="check-row"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">Reply to Marcus re: budget</span><span class="prio-dot" style="background:#f59e0b;"></span></div>
-              <div class="check-row done"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">Book flights for offsite</span><span class="prio-dot" style="background:#f59e0b;"></span></div>
-              <div class="check-row"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">Water the plants</span><span class="prio-dot" style="background:#22c55e;"></span></div>
-            </div>
+            <div class="dash-checks" id="dashTasks" style="max-height:260px;overflow-y:auto;"><div class="wgt-sub">Loading…</div></div>
           </div>
 
           <!-- Finance -->
           <div class="card">
             <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-wallet"></i> This Month</span><span class="wgt-link nav-money">Money</span></div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:0.7rem;">
-              <div><div class="wgt-sub">Spent</div><div class="wgt-num" style="margin-top:4px;">RM1,950</div></div>
-              <div style="text-align:right;"><div class="wgt-sub">Left in budget</div><div class="wgt-num" style="margin-top:4px;color:#6ee7b7;">RM450</div></div>
-            </div>
-            <div class="pbar" style="margin-bottom:1.1rem;"><span style="width:64%;"></span></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;"><span class="wgt-sub">Savings goal</span><span class="wgt-sub" style="color:rgba(255,255,255,0.8);">RM8,200 / RM12,000</span></div>
-            <div class="pbar"><span style="width:68%;background:linear-gradient(90deg,#22c55e,#10b981);"></span></div>
+            <div id="dashMoney"><div class="wgt-sub">Loading…</div></div>
           </div>
 
           <!-- Habit Streaks -->
@@ -2057,60 +2036,31 @@
           <!-- Wellness -->
           <div class="card">
             <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-heart-pulse"></i> Wellness</span><span class="wgt-link nav-health">Health</span></div>
-            <div style="display:flex;gap:10px;">
-              <div style="flex:1;text-align:center;padding:14px 6px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><i class="fa-solid fa-moon" style="color:#a78bfa;font-size:1.2rem;"></i><div class="wgt-it" style="margin-top:9px;">7.2h</div><div class="wgt-sub" style="margin-top:2px;">Sleep</div></div>
-              <div style="flex:1;text-align:center;padding:14px 6px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><i class="fa-solid fa-droplet" style="color:#38bdf8;font-size:1.2rem;"></i><div class="wgt-it" style="margin-top:9px;">1.4L</div><div class="wgt-sub" style="margin-top:2px;">Water</div></div>
-              <div style="flex:1;text-align:center;padding:14px 6px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><i class="fa-solid fa-face-smile" style="color:#34d399;font-size:1.2rem;"></i><div class="wgt-it" style="margin-top:9px;">Good</div><div class="wgt-sub" style="margin-top:2px;">Mood</div></div>
-            </div>
+            <div id="dashWell" style="display:flex;gap:10px;"><div class="wgt-sub">Loading…</div></div>
           </div>
 
           <!-- Productivity -->
           <div class="card">
-            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-chart-line"></i> Productivity</span><span class="pill pill-low">+8%</span></div>
-            <div style="display:flex;align-items:center;gap:16px;">
-              <div style="text-align:center;flex-shrink:0;"><div class="wgt-num" style="font-size:1.9rem;">86</div><div class="wgt-sub" style="margin-top:4px;">score</div></div>
-              <div style="flex:1;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span class="wgt-sub">Focus time</span><span class="wgt-sub" style="color:rgba(255,255,255,0.85);">28h</span></div>
-                <div class="pbar" style="margin-bottom:0.8rem;"><span style="width:78%;"></span></div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span class="wgt-sub">Task completion</span><span class="wgt-sub" style="color:rgba(255,255,255,0.85);">92%</span></div>
-                <div class="pbar"><span style="width:92%;background:linear-gradient(90deg,#22c55e,#10b981);"></span></div>
-              </div>
-            </div>
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-chart-line"></i> Productivity</span><span id="dashProdPill"></span></div>
+            <div id="dashProd"><div class="wgt-sub">Loading…</div></div>
           </div>
 
           <!-- Reminders -->
           <div class="card">
             <div class="wgt-head"><span class="wgt-label"><i class="fa-regular fa-bell"></i> Upcoming Reminders</span><span class="wgt-link nav-subs">View all</span></div>
-            <div class="reminder-item" style="font-size:0.78rem;padding:0.5rem 0;">
-              <span class="title"><i class="fa-solid fa-film"></i> Netflix Subscription</span>
-              <span><span class="meta">Renews in 2d</span> <span class="price">RM55</span></span>
-            </div>
-            <div class="reminder-item" style="font-size:0.78rem;padding:0.5rem 0;">
-              <span class="title"><i class="fa-solid fa-wifi"></i> Internet Bill</span>
-              <span><span class="meta">Due in 5d</span> <span class="price">RM129</span></span>
-            </div>
-            <div class="reminder-item" style="font-size:0.78rem;padding:0.5rem 0;">
-              <span class="title"><i class="fa-regular fa-cake-candles"></i> Aina's Birthday</span>
-              <span><span class="meta">In 8d</span> <span class="price">1 Aug</span></span>
-            </div>
+            <div id="dashRem"><div class="wgt-sub">Loading…</div></div>
           </div>
 
           <!-- Overview -->
           <div class="card">
             <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-chart-pie"></i> Today's Overview</span></div>
-            <div class="stats-grid" style="font-size:0.78rem;">
-              <div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Meetings</span><span class="stat-value">3</span></div>
-              <div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Tasks</span><span class="stat-value">8</span></div>
-              <div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Due Today</span><span class="stat-value">8</span></div>
-              <div class="stat-item budget" style="font-size:0.78rem;"><span class="stat-label">Left in Budget</span><span class="stat-value">RM450</span></div>
-              <div class="stat-item workload"><span class="stat-value">⚠️ High</span><span class="stat-label">Workload Level</span></div>
-            </div>
+            <div class="stats-grid" id="dashOver" style="font-size:0.78rem;"></div>
           </div>
 
           <!-- Tip -->
           <div class="card full-width tip-card">
             <i class="fa-regular fa-lightbulb"></i>
-            <div class="tip-text" style="font-size:0.78rem;"><strong>Tip for today:</strong> You've been overloaded. Consider blocking focus time in the afternoon.</div>
+            <div class="tip-text" id="dashTip" style="font-size:0.78rem;"></div>
           </div>
 
         </div>
@@ -3335,7 +3285,7 @@
       applyUserUI();
       initNotifications(session.user.id);
       initReminders();
-      refreshHabits().then(paintHabits).catch(() => {}).then(() => LumaLoader.release('app'));
+      loadDashboard().catch(() => {}).then(() => LumaLoader.release('app'));
       resyncPush();
       maybePromptPush();
     })();
@@ -3825,10 +3775,11 @@
       if (pg) pg.classList.add('active');
       pageTitle.textContent = titles[key];
       document.querySelectorAll('.menu').forEach(i => i.classList.toggle('active', i.dataset.page === key));
-      if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); rendered[key] = true; LumaLoader.page(pg, key, wireModule(key)); } else LumaLoader.page(pg, key);
+      if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); rendered[key] = true; LumaLoader.page(pg, key, wireModule(key)); } else if (key !== 'dashboard') LumaLoader.page(pg, key);
       const mc = document.querySelector('.main-content');
       mc.classList.toggle('fit', FIT_PAGES.has(key));
       if (key === 'calendar') calOnShow();
+      if (key === 'dashboard' && typeof LumaLoader !== 'undefined') LumaLoader.page(pg, key, loadDashboard());
       mc.scrollTop = 0;
       // remember the page in the URL so a browser refresh lands back here
       try { history.replaceState(null, '', '#' + key); } catch (e) {}
@@ -5355,7 +5306,110 @@
       paintAnalytics();
     }
 
-    function paintHabits() { paintHabitsPage(); paintDashHabits(); }
+    // =====================================================
+    //  DASHBOARD — every widget is computed from your real data
+    // =====================================================
+    let dashTasks = [], dashRecHidden = false;
+    const D_PRIO = { high: ['#ef4444', 0], med: ['#f59e0b', 1], low: ['#22c55e', 2] };
+    const dashCard = (icon, color, label, value) => `<div style="flex:1;text-align:center;padding:14px 6px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><i class="fa-solid ${icon}" style="color:${color};font-size:1.2rem;"></i><div class="wgt-it" style="margin-top:9px;">${value}</div><div class="wgt-sub" style="margin-top:2px;">${label}</div></div>`;
+    const dashChip = (icon, color, text, page) => `<span data-go="${page}" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:0.75rem;color:rgba(255,255,255,0.85);"><i class="${icon}" style="color:${color};"></i> ${text}</span>`;
+    const dashSet = (id, html) => { const e = document.getElementById(id); if (e) e.innerHTML = html; };
+
+    function paintDashboard() {
+      if (!document.getElementById('dashChips')) return;
+      const today = hToday(), T = dashTasks, open = T.filter(t => t.status !== 'done');
+      const overdue = open.filter(t => t.due_date && t.due_date < today), dueToday = open.filter(t => t.due_date === today);
+      const hid = [...cHidden]; cHidden.clear(); // the calendar's category filter shouldn't hide things here
+      const todayItems = cItemsOn(today); hid.forEach(c => cHidden.add(c));
+      const events = todayItems.filter(i => i.type === 'event');
+      const first = bFirst(today), txns = mTxns(first);
+      const spent = txns.filter(t => t.kind === 'expense').reduce((a, t) => a + t.amount, 0), income = txns.filter(t => t.kind === 'income').reduce((a, t) => a + t.amount, 0);
+      const budget = Number(MSET.monthly_budget) || 0, left = budget - spent;
+      const habitsLeft = HABITS.filter(h => h.period === 'daily' && hSched(h, today) && hBorn(h) <= today && !hLogged(h, today));
+      const rows = [...bRows(first), ...bRows(bAddMonths(first, 1))].filter(r => r.status !== 'paid');
+      const billsOver = rows.filter(r => r.status === 'overdue');
+
+      // greeting chips
+      const urgent = overdue.length + dueToday.length;
+      dashSet('dashChips', [
+        dashChip('fa-solid fa-fire', '#fca5a5', urgent ? `${urgent} task${urgent > 1 ? 's' : ''} due or overdue` : 'No tasks due today', 'tasks'),
+        dashChip('fa-regular fa-calendar', '#93c5fd', events.length ? `${events.length} event${events.length > 1 ? 's' : ''} today` : 'No events today', 'calendar'),
+        budget ? dashChip('fa-solid fa-wallet', left < 0 ? '#fca5a5' : '#6ee7b7', left < 0 ? `${bRM(-left)} over budget` : `${bRM(left)} left to spend`, 'money') : dashChip('fa-solid fa-wallet', '#6ee7b7', `${bRM(spent)} spent this month`, 'money')
+      ].join(''));
+
+      // suggestion
+      let rec = null;
+      if (overdue.length) rec = [`You have ${overdue.length} overdue task${overdue.length > 1 ? 's' : ''}. Start with <span style="color:#c4b5fd;">${escapeHtml(overdue.sort((a, b) => a.due_date.localeCompare(b.due_date))[0].title)}</span>.`, 'tasks', 'Open tasks'];
+      else if (billsOver.length) rec = [`${billsOver.length} bill${billsOver.length > 1 ? 's are' : ' is'} overdue. Pay <span style="color:#c4b5fd;">${escapeHtml(billsOver[0].b.name)}</span> (${bRM(billsOver[0].amount)}) first.`, 'bills', 'Open bills'];
+      else if (dueToday.length > 5) rec = [`${dueToday.length} tasks are due today. Move the less important ones to another day to protect your focus.`, 'tasks', 'Open tasks'];
+      else if (habitsLeft.length) rec = [`${habitsLeft.length} habit${habitsLeft.length > 1 ? 's' : ''} still to tick today, including <span style="color:#c4b5fd;">${escapeHtml(habitsLeft[0].name)}</span>.`, 'habits', 'Open habits'];
+      const recEl = document.getElementById('dashRec');
+      if (recEl) { recEl.style.display = rec && !dashRecHidden ? '' : 'none'; if (rec) { document.getElementById('dashRecText').innerHTML = rec[0]; recEl.dataset.go = rec[1]; recEl.querySelector('#dashRecGo span').textContent = rec[2]; } }
+
+      // schedule
+      dashSet('dashSched', todayItems.length ? todayItems.map(it => `<div data-cal="${it.type}:${it.id}" style="display:flex;gap:11px;cursor:pointer;"><span class="wgt-time" style="width:56px;flex-shrink:0;padding-top:9px;">${it.time ? t12(it.time) : it.type === 'event' ? 'All day' : it.type === 'bill' ? 'Bill' : 'Task'}</span><span style="width:3px;border-radius:3px;background:${it.color};margin:3px 0;"></span><div style="flex:1;min-width:0;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">${escapeHtml(it.title)}</div><div class="wgt-sub" style="margin-top:2px;">${escapeHtml(cTimeLabel(it))}${it.type === 'event' ? ' · ' + escapeHtml(it.cat) : ''}</div></div></div>`).join('') : '<div class="wgt-sub">Nothing scheduled today. Add an event on the Calendar.</div>');
+
+      // priorities: overdue / due today / high priority, then what you finished today
+      const pr = open.filter(t => (t.due_date && t.due_date <= today) || t.priority === 'high').sort((a, b) => (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9').localeCompare(b.due_date || '9')).slice(0, 8);
+      const doneToday = T.filter(t => t.status === 'done' && t.completed_at && mytDayKey(t.completed_at) === today).slice(0, 4);
+      dashSet('dashTasks', pr.length || doneToday.length ? [...pr, ...doneToday].map(t => `<div class="check-row ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">${escapeHtml(t.title)}${t.due_date && t.due_date < today && t.status !== 'done' ? ' <span style="color:#fca5a5;font-size:0.68rem;">overdue</span>' : ''}</span><span class="prio-dot" style="background:${(D_PRIO[t.priority] || D_PRIO.med)[0]};"></span></div>`).join('') : '<div class="wgt-sub">Nothing urgent. Enjoy the calm.</div>');
+
+      // money
+      const bp = budget ? Math.min(100, Math.round(spent / budget * 100)) : 0, ip = income ? Math.min(100, Math.round(spent / income * 100)) : 0;
+      dashSet('dashMoney', `<div style="display:flex;justify-content:space-between;margin-bottom:0.7rem;"><div><div class="wgt-sub">Spent</div><div class="wgt-num" style="margin-top:4px;">${bRM(spent)}</div></div><div style="text-align:right;"><div class="wgt-sub">${budget ? 'Left in budget' : 'Budget'}</div><div class="wgt-num" style="margin-top:4px;color:${budget && left < 0 ? '#fca5a5' : '#6ee7b7'};">${budget ? (left < 0 ? '−' : '') + bRM(Math.abs(left)) : 'Not set'}</div></div></div><div class="pbar" style="margin-bottom:1.1rem;"><span style="width:${bp}%;${left < 0 ? 'background:#ef4444;' : ''}"></span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;"><span class="wgt-sub">Income this month</span><span class="wgt-sub" style="color:rgba(255,255,255,0.8);">${bRM(income)}</span></div><div class="pbar"><span style="width:${ip}%;background:linear-gradient(90deg,#22c55e,#10b981);"></span></div>`);
+
+      // wellness (today's log)
+      const log = (an && an.health ? an.health : []).find(r => r.log_date === today) || {};
+      dashSet('dashWell', dashCard('fa-moon', '#a78bfa', 'Sleep', log.sleep_hours != null ? Number(log.sleep_hours) + 'h' : '—') + dashCard('fa-droplet', '#38bdf8', 'Water', log.water_ml != null ? (log.water_ml / 1000).toFixed(1).replace(/\.0$/, '') + 'L' : '—') + dashCard(log.mood ? MOOD_ICO[log.mood - 1] : 'fa-face-meh-blank', log.mood ? MOOD_COL[log.mood - 1] : 'rgba(255,255,255,0.3)', 'Mood', log.mood ? MOOD_NAME[log.mood - 1] : '—'));
+
+      // productivity (last 7 days vs the 7 before)
+      if (an) {
+        const cur = anCalc(anKeys(7)), prev = anCalc(anKeys(7, 7)), pct = v => v == null ? '—' : Math.round(v * 100) + '%', w = v => v == null ? 0 : Math.round(v * 100);
+        dashSet('dashProdPill', cur.score != null && prev.score != null ? `<span class="pill ${cur.score >= prev.score ? 'pill-low' : 'pill-high'}">${cur.score >= prev.score ? '+' : ''}${Math.round((cur.score - prev.score) * 100)}%</span>` : '');
+        dashSet('dashProd', `<div style="display:flex;align-items:center;gap:16px;"><div style="text-align:center;flex-shrink:0;"><div class="wgt-num" style="font-size:1.9rem;">${cur.score == null ? '—' : Math.round(cur.score * 100)}</div><div class="wgt-sub" style="margin-top:4px;">score</div></div><div style="flex:1;"><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span class="wgt-sub">Task completion</span><span class="wgt-sub" style="color:rgba(255,255,255,0.85);">${pct(cur.taskRate)}</span></div><div class="pbar" style="margin-bottom:0.8rem;"><span style="width:${w(cur.taskRate)}%;"></span></div><div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span class="wgt-sub">Habit consistency</span><span class="wgt-sub" style="color:rgba(255,255,255,0.85);">${pct(cur.habit)}</span></div><div class="pbar"><span style="width:${w(cur.habit)}%;background:linear-gradient(90deg,#22c55e,#10b981);"></span></div></div></div>`);
+      }
+
+      // reminders: next unpaid bills & subscriptions
+      const up = rows.sort((a, b) => a.due.localeCompare(b.due)).slice(0, 4);
+      dashSet('dashRem', up.length ? up.map(r => { const d = bDays(r.due, today), sub = r.b.category === 'Subscription', [, icon] = bCat(r.b.category); return `<div class="reminder-item" style="font-size:0.78rem;padding:0.5rem 0;"><span class="title"><i class="fa-solid ${icon}"></i> ${escapeHtml(r.b.name)}</span><span><span class="meta" style="${d < 0 ? 'color:#fca5a5' : ''}">${d < 0 ? 'Overdue ' + (-d) + 'd' : d === 0 ? 'Due today' : (sub ? 'Renews in ' : 'Due in ') + d + 'd'}</span> <span class="price">${bRM(r.amount)}</span></span></div>`; }).join('') : '<div class="wgt-sub">No bills or subscriptions due soon.</div>');
+
+      // overview
+      const load = overdue.length + dueToday.length, lvl = load <= 3 ? ['Low', '✅'] : load <= 6 ? ['Medium', '🟡'] : ['High', '⚠️'];
+      dashSet('dashOver', `<div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Events</span><span class="stat-value">${events.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Open tasks</span><span class="stat-value">${open.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Due Today</span><span class="stat-value">${dueToday.length}</span></div><div class="stat-item budget" style="font-size:0.78rem;"><span class="stat-label">${budget ? 'Left in Budget' : 'Spent'}</span><span class="stat-value">${budget ? (left < 0 ? '−' : '') + bRM(Math.abs(left)) : bRM(spent)}</span></div><div class="stat-item workload"><span class="stat-value">${lvl[1]} ${lvl[0]}</span><span class="stat-label">Workload Level</span></div>`);
+
+      // tip
+      const tip = overdue.length ? 'Clear one overdue task first. It lifts your score fastest.' : load > 6 ? 'Your day is heavy. Block focus time and push the small stuff to tomorrow.' : habitsLeft.length ? 'A quick win: tick off a habit before you start your next task.' : log.water_ml == null ? 'Log your water and sleep in Health to keep your wellness streak going.' : "You're on top of things. Use the spare time to plan tomorrow.";
+      dashSet('dashTip', `<strong>Tip for today:</strong> ${escapeHtml(tip)}`);
+      paintDashHabits();
+    }
+
+    async function loadDashboard() {
+      const [t, ev] = await Promise.all([LumaTasks.list(), LumaEvents.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(hKeyAdd(hToday(), -70)).then(h => { an = { ...(an || {}), health: h.error ? [] : (h.data || []) }; }), LumaHealth.getGoals().then(g => { an = { ...(an || {}), goals: g.data }; })]);
+      dashTasks = t.error ? [] : t.data; CTASKS = dashTasks; if (!ev.error) CEV = ev.data || [];
+      an = { ...(an || {}), tasks: dashTasks };
+      paintDashboard();
+    }
+
+    // widgets are clickable: chips and suggestion open their page, schedule rows open the calendar item, priorities tick a task off
+    document.getElementById('page-dashboard').addEventListener('click', async e => {
+      const go = e.target.closest('[data-go]');
+      if (go && !e.target.closest('#dashRecNo')) { if (go.id === 'dashRec' && !e.target.closest('#dashRecGo')) return; return goTo(go.dataset.go); }
+      if (e.target.closest('#dashRecNo')) { dashRecHidden = true; document.getElementById('dashRec').style.display = 'none'; return; }
+      const sc = e.target.closest('[data-cal]');
+      if (sc) { const [type, id] = sc.dataset.cal.split(':'); goTo('calendar'); setTimeout(() => calOpenItem(type, id, hToday()), 400); return; }
+      const row = e.target.closest('#dashTasks .check-row');
+      if (row) {
+        const t = dashTasks.find(x => String(x.id) === row.dataset.id); if (!t) return;
+        const status = t.status === 'done' ? 'todo' : 'done', old = { status: t.status, completed_at: t.completed_at };
+        t.status = status; t.completed_at = status === 'done' ? new Date().toISOString() : null; paintDashboard();
+        const { data, error } = await LumaTasks.update(t.id, { status });
+        if (error) { Object.assign(t, old); paintDashboard(); return luAlert('Could not update the task: ' + error.message); }
+        Object.assign(t, data);
+        paintDashboard();
+      }
+    });
+
+    function paintHabits() { paintHabitsPage(); paintDashHabits(); if (document.getElementById('dashChips') && dashTasks) paintDashboard(); }
 
     function paintDashHabits() {
       const box = document.getElementById('dashHabits'); if (!box) return;
@@ -6835,14 +6889,6 @@
     // dashboard reminders / overview view-all → route
     document.querySelectorAll('#page-dashboard .action, #page-dashboard .box-head a').forEach(el=>{
       if (/view all/i.test(el.textContent)) el.style.cursor='pointer', el.addEventListener('click',()=>document.querySelector('.menu[data-page="subscriptions"]')?.click());
-    });
-    // dashboard checkable priorities
-    document.querySelectorAll('#page-dashboard .dash-checks .check-row').forEach(r=>{
-      r.addEventListener('click', ()=>r.classList.toggle('done'));
-    });
-    // dismiss AI recommendation
-    document.querySelector('#page-dashboard .dismiss-rec')?.addEventListener('click', function(){
-      this.closest('.card').style.display='none';
     });
     // Number fields get small up/down buttons (click, or hold to repeat). The native spinner is hidden for a
     // cleaner look; the buttons use stepUp/stepDown, so min/max/step are respected, and fire a normal "input" event.
