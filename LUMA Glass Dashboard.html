@@ -5357,7 +5357,8 @@
       // priorities: 8 open tasks — overdue ones first (oldest first), then high priority first (nearest due date first), then medium, then low
       const od = t => t.due_date && t.due_date < today ? 0 : 1;
       if (!dashPrIds) dashPrIds = open.slice().sort((a, b) => od(a) - od(b) || (od(a) === 0 ? a.due_date.localeCompare(b.due_date) : 0) || (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9999').localeCompare(b.due_date || '9999')).slice(0, 8).map(t => t.id);
-      const pr = dashPrIds.map(id => T.find(t => t.id === id)).filter(Boolean);
+      const prAll = dashPrIds.map(id => T.find(t => t.id === id)).filter(Boolean);
+      const pr = [...prAll.filter(t => t.status !== 'done'), ...prAll.filter(t => t.status === 'done')]; // crossed-out ones sink below the rest (list order otherwise unchanged)
       dashSet('dashTasks', pr.length ? pr.map(t => { const dl = t.due_date && t.status !== 'done' ? (t.due_date < today ? '<span style="color:#fca5a5;font-size:0.68rem;">overdue</span>' : t.due_date === today ? '<span style="color:#fcd34d;font-size:0.68rem;">today</span>' : `<span style="color:rgba(255,255,255,0.45);font-size:0.68rem;">${hKeyLabel(t.due_date)}</span>`) : ''; return `<div class="check-row ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">${escapeHtml(t.title)} ${dl}</span><span class="prio-dot" style="background:${(D_PRIO[t.priority] || D_PRIO.med)[0]};"></span></div>`; }).join('') : '<div class="wgt-sub">No open tasks. Enjoy the calm.</div>');
 
       // money
