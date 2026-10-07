@@ -6897,7 +6897,7 @@
     function lumiPaintLeft() {
       const known = lumiLeft != null, txt = known ? `${lumiLeft} of ${lumiLimit} questions left today` : `${lumiLimit} questions per day`;
       document.querySelectorAll('#chatPop .chat-pop-head .s').forEach(el => { el.innerHTML = `<span class="dot"></span> Online · ${txt}`; });
-      document.querySelectorAll('.lumi-left').forEach(el => { el.textContent = txt; el.style.color = known && lumiLeft === 0 ? '#fca5a5' : known && lumiLeft <= 3 ? '#fcd34d' : ''; });
+      document.querySelectorAll('.lumi-left').forEach(el => { el.textContent = txt; el.style.color = known && lumiLeft === 0 ? '#fca5a5' : known && lumiLeft <= 3 ? '#fcd34d' : 'rgba(255,255,255,0.7)'; });
     }
     async function lumiCheckLeft() { if (lumiLeft != null) return; const r = await lumiCall({ mode: 'chat', check: true }); if (r && r.left != null) { lumiLeft = r.left; lumiLimit = r.limit || 15; lumiPaintLeft(); } }
     // push(role, text) must return the bubble element
