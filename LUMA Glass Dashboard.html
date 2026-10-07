@@ -938,7 +938,8 @@
     .tg-dh .dw { font-size:0.78rem; color:rgba(255,255,255,0.6); }
     .tg-dh.today .dn { background:#3b82f6; border-radius:50%; width:34px; height:34px; display:grid; place-items:center; }
     .tg-dh.today .dw { color:#bfdbfe; font-weight:600; }
-    .tg-adrow { border-top:1px solid rgba(255,255,255,0.08); }
+    .tg-adrow { border-bottom:1px solid rgba(255,255,255,0.12); }
+    .tg-adrow .tg-corner { padding:8px 0; }
     .tg-ad { min-height:30px; padding:4px 6px; border-left:1px solid rgba(255,255,255,0.08); cursor:pointer; }
     .tg-ad .cchip { margin:2px 0 0; padding:1px 4px; display:flex; align-items:center; gap:6px; border-radius:6px; font-size:0.68rem; line-height:1.5; white-space:nowrap; overflow:hidden; background:rgba(255,255,255,0.06); cursor:pointer; color:rgba(255,255,255,0.85); }
     .tg-ad .cchip .dot { width:7px; height:7px; border-radius:50%; flex:none; }
@@ -4186,7 +4187,7 @@
       docEl('calWd').style.display = cView === 'month' ? '' : 'none'; body.classList.remove('cal-nosc', 'cal-wk');
       if (CERR) { docEl('calTitle').textContent = 'Calendar'; body.innerHTML = '<div class="cal-empty">Could not load events — has <b>supabase/migrations/027_events.sql</b> been run in the Supabase SQL Editor?</div>'; paintCalSide(); return; }
       const keepScroll = body.dataset.v === 'week' && cView === 'week' ? (body.querySelector('.tg-scroll') || {}).scrollTop : null; // stay where you were when changing week
-      let title = '', html = '';
+      let title = '', html = '', wkTop = 7 * C_HOUR_H;
       if (cView === 'month') {
         const first = bFirst(cDate), lead = cDow(first), n = cLast(first), weeks = Math.ceil((lead + n) / 7), start = bAddDays(first, -lead);
         title = cFmt(first, { month: 'long', year: 'numeric' });
@@ -4212,15 +4213,16 @@
           return { k, loose, laid };
         });
         const hourH = C_HOUR_H, headCells = ds.map(k => `<div class="tg-dh ${k === today ? 'today' : ''}"><span class="dn">${+k.slice(8)}</span><span class="dw">${cFmt(k, { weekday: 'short' })}</span></div>`).join('');
-        const adCells = cols.map(c => `<div class="tg-ad" data-d="${c.k}">${(c.loose.length > 2 ? c.loose.slice(0, 1) : c.loose).map(it => cChip(it, c.k)).join('')}${c.loose.length > 2 ? `<div class="cal-more" data-d="${c.k}">+${c.loose.length - 1} more</div>` : ''}</div>`).join('');
+        const adCells = cols.map(c => `<div class="tg-ad" data-d="${c.k}">${c.loose.map(it => cChip(it, c.k)).join('')}</div>`).join('');
         const dayCols = cols.map(c => `<div class="tg-col" data-d="${c.k}">${c.laid.map(ev => {
           const top = ev.s / 60 * hourH, h = Math.max(20, (ev.e - ev.s) / 60 * hourH - 2), w = 100 / ev.lanes, it = ev.it;
           return `<div class="tg-ev ${h < 36 ? 'tiny' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${c.k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}" style="top:${top}px;height:${h}px;left:calc(${ev.lane * w}% + 2px);width:calc(${w}% - 4px);--ic:${it.color}"><div class="t">${escapeHtml(it.title)}</div><div class="m">${t12(it.time)}${it.end ? ' – ' + t12(it.end) : ''}</div></div>`;
         }).join('')}${c.k === today ? `<div class="tg-now" style="top:${nowMin / 60 * hourH}px"></div>` : ''}</div>`).join('');
         const labels = Array.from({ length: 24 }, (_, h) => h ? `<div class="tg-hl" style="top:${h * hourH}px">${hr12(h)}</div>` : '').join('');
-        html = `<div class="cal-tg"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>${tzOffsetLabel().replace('GMT', '')}</span></div>${headCells}</div><div class="tg-row tg-adrow"><div class="tg-corner"><span>all-day</span></div>${adCells}</div></div>`
-          + `<div class="tg-scroll"><div class="tg-row tg-body" style="height:${24 * hourH}px"><div class="tg-hours">${labels}</div>${dayCols}</div></div></div>`;
+        html = `<div class="cal-tg"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>${tzOffsetLabel().replace('GMT', '')}</span></div>${headCells}</div></div>`
+          + `<div class="tg-scroll"><div class="tg-row tg-adrow"><div class="tg-corner"><span>all-day</span></div>${adCells}</div><div class="tg-row tg-body" style="height:${24 * hourH}px"><div class="tg-hours">${labels}</div>${dayCols}</div></div></div>`;
         body.classList.add('cal-wk');
+        wkTop = cols.some(c => c.loose.length) ? 0 : 7 * C_HOUR_H; // with all-day items the list opens at the top (where they are); otherwise around 7 am
       } else if (cView === 'day') {
         const items = cItemsOn(cDate);
         title = cFmt(cDate, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -4236,7 +4238,7 @@
       const sun = k => bAddDays(k, -cDow(k)), here = cView === 'month' ? bFirst(cDate) === bFirst(today) : cView === 'week' ? sun(cDate) === sun(today) : cView === 'day' ? cDate === today : cDate.slice(0, 4) === today.slice(0, 4);
       docEl('calToday').style.display = here ? 'none' : ''; // already looking at today: no need for the Today button
       docEl('calTitle').textContent = title; body.innerHTML = html; body.dataset.v = cView;
-      if (cView === 'week') { const sc = body.querySelector('.tg-scroll'); if (sc) sc.scrollTop = keepScroll != null ? keepScroll : 7 * C_HOUR_H; } // first look starts around 7 am
+      if (cView === 'week') { const sc = body.querySelector('.tg-scroll'); if (sc) sc.scrollTop = keepScroll != null ? keepScroll : wkTop; }
       paintCalSide();
     }
 
