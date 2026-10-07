@@ -839,7 +839,11 @@
 
     .setting-row { display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
     .setting-row:last-child { border-bottom:none; }
-    .setting-row .sr-main { flex:1; }
+    .setting-row .sr-main { flex:1; min-width:0; }
+    .rem-ctl { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+    .rem-ctl .rem-lbl { font-size:0.68rem; color:rgba(255,255,255,0.6); }
+    .rem-ctl .lu-sel-btn { min-width:92px; }
+    .setting-row.rem-off .rem-ctl { opacity:0.4; pointer-events:none; }
     .setting-row .sr-t { font-size:0.82rem; font-weight:500; color:rgba(255,255,255,0.85); }
     .setting-row .sr-s { font-size:0.68rem; color:rgba(255,255,255,0.4); margin-top:2px; }
 
@@ -3815,6 +3819,28 @@
     const head = (title, sub, actions='') => `<div class="page-head"><div><h1>${title}</h1>${sub?`<p>${sub}</p>`:''}</div><div class="head-actions">${actions}</div></div>`;
     const btn = (label, icon) => `<button class="create-btn">${icon?`<i class="fa-solid ${icon}"></i>`:''} ${label}</button>`;
 
+    const REM_HOURS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+    const REM_DEFAULTS = { event_on: true, event_lead_min: 15, allday_hour: 8, task_on: true, task_hour: 9, bill_on: true, bill_hour: 9, bill_days: 3, sub_on: true, sub_hour: 9, sub_days: 3, goal_on: true, goal_hour: 9, goal_days: 3, budget_on: true };
+    async function wireReminderPrefs(pg) {
+      const box = pg.querySelector('#remPrefs'); if (!box) return;
+      const err = m => { const e = box.querySelector('#remError'); e.textContent = m; e.style.display = m ? 'flex' : 'none'; };
+      const { data, error } = await LumaAuth.client.schema('luma').from('reminder_prefs').select('*').maybeSingle();
+      if (error) err(/reminder_prefs|schema cache|does not exist/i.test(error.message) ? 'Reminder settings aren\'t set up yet — run supabase/migrations/031_reminder_prefs.sql in the Supabase SQL Editor.' : error.message);
+      const v = { ...REM_DEFAULTS, ...(data || {}) };
+      const dim = () => box.querySelectorAll('.setting-row').forEach(r => { const sw = r.querySelector('.switch'); r.classList.toggle('rem-off', !!sw && !sw.classList.contains('on')); });
+      box.querySelectorAll('select[data-rem]').forEach(sel => { sel.value = String(v[sel.dataset.rem]); skinSelect(sel); });
+      box.querySelectorAll('.switch[data-rem]').forEach(sw => sw.classList.toggle('on', !!v[sw.dataset.rem]));
+      dim();
+      const save = async patch => {
+        err('');
+        const { error: e } = await LumaAuth.client.schema('luma').from('reminder_prefs').upsert({ user_id: LUMA_USER.id, ...patch }, { onConflict: 'user_id' });
+        if (e) err(/reminder_prefs|schema cache|does not exist/i.test(e.message) ? 'Reminder settings aren\'t set up yet — run supabase/migrations/031_reminder_prefs.sql in the Supabase SQL Editor.' : e.message);
+        else flashToast('Reminder saved', '', 'fa-check', '#22c55e');
+      };
+      box.addEventListener('change', e => { const sel = e.target.closest('select[data-rem]'); if (sel) save({ [sel.dataset.rem]: Number(sel.value) }); });
+      box.addEventListener('click', e => { const sw = e.target.closest('.switch[data-rem]'); if (!sw) return; setTimeout(() => { dim(); save({ [sw.dataset.rem]: sw.classList.contains('on') }); }, 0); });
+    }
+
     const MODULES = {
       // ---------------- TASKS ----------------
       tasks() {
@@ -3980,6 +4006,25 @@
           ${card(`<div class="section-title"><i class="fa-solid fa-bell"></i> Push notifications</div><div class="pem-msg error" id="setPushError"></div><div class="setting-row"><div class="sr-main"><div class="sr-t">Notifications on this device</div><div class="sr-s" id="setPushState">Checking…</div></div><button type="button" class="np-btn" id="setPushBtn" style="display:none">Enable</button></div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-sliders"></i> Preferences</div>${prefs.map(p=>`<div class="setting-row"><div class="sr-main"><div class="sr-t">${p[1]}</div><div class="sr-s">${p[2]}</div></div><button class="switch ${(savedPrefs[p[0]] ?? p[3])?'on':''}" data-key="${p[0]}"><span class="knob"></span></button></div>`).join('')}`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-plug"></i> Integrations</div>${integ.map(g=>`<div class="lrow"><div class="licon" style="color:${g[3]};background:${g[3]}22"><i class="fa-${g[2]==='fa-spotify'?'brands':'solid'} ${g[2]}"></i></div><div class="lmain"><div class="lt">${g[0]}</div><div class="ls">${g[1]}</div></div><span class="pill" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5)">Coming soon</span></div>`).join('')}`)}
+        </div>
+        <div class="card full-width" style="margin-top:0.9rem" id="remPrefs">
+          <div class="section-title"><i class="fa-regular fa-clock"></i> Reminders</div>
+          <p class="ls" style="margin-bottom:0.4rem">Choose which reminders you get and when. Times follow your time zone (<span class="js-tz-label">${tzOffsetLabel()}</span>) and are delivered to your inbox and as push notifications.</p>
+          <div class="pem-msg error" id="remError"></div>
+          ${[
+            ['event_on','Calendar events','Before a timed event, and a morning heads-up for all-day events',
+              `<span class="rem-lbl">Before</span><select data-rem="event_lead_min">${[5,10,15,30,60].map(m=>`<option value="${m}">${m} min</option>`).join('')}</select><span class="rem-lbl">All-day at</span><select data-rem="allday_hour">${REM_HOURS.map(h=>`<option value="${h}">${fmt12(String(h).padStart(2,'0')+':00')}</option>`).join('')}</select>`],
+            ['task_on','Tasks','A daily summary of tasks due today and overdue',
+              `<span class="rem-lbl">At</span><select data-rem="task_hour">${REM_HOURS.map(h=>`<option value="${h}">${fmt12(String(h).padStart(2,'0')+':00')}</option>`).join('')}</select>`],
+            ['bill_on','Bills','Before the due date, on it, and the day after if unpaid',
+              `<select data-rem="bill_days">${[1,2,3,5,7].map(d=>`<option value="${d}">${d} day${d>1?'s':''} before</option>`).join('')}</select><span class="rem-lbl">At</span><select data-rem="bill_hour">${REM_HOURS.map(h=>`<option value="${h}">${fmt12(String(h).padStart(2,'0')+':00')}</option>`).join('')}</select>`],
+            ['sub_on','Subscriptions','Before a subscription renews',
+              `<select data-rem="sub_days">${[1,2,3,5,7].map(d=>`<option value="${d}">${d} day${d>1?'s':''} before</option>`).join('')}</select><span class="rem-lbl">At</span><select data-rem="sub_hour">${REM_HOURS.map(h=>`<option value="${h}">${fmt12(String(h).padStart(2,'0')+':00')}</option>`).join('')}</select>`],
+            ['goal_on','Goals','Before a goal deadline and on the day',
+              `<select data-rem="goal_days">${[1,2,3,5,7].map(d=>`<option value="${d}">${d} day${d>1?'s':''} before</option>`).join('')}</select><span class="rem-lbl">At</span><select data-rem="goal_hour">${REM_HOURS.map(h=>`<option value="${h}">${fmt12(String(h).padStart(2,'0')+':00')}</option>`).join('')}</select>`],
+            ['budget_on','Budget alerts','When you reach 80% of your monthly budget and when you go over',''],
+          ].map(r=>`<div class="setting-row"><div class="sr-main"><div class="sr-t">${r[1]}</div><div class="sr-s">${r[2]}</div></div><div class="rem-ctl">${r[3]}</div><button type="button" class="switch" data-rem="${r[0]}"><span class="knob"></span></button></div>`).join('')}
+          <p class="ls" style="margin-top:0.6rem">Health reminders (water, steps, sleep) are set on the Health page, and each habit has its own reminder time.</p>
         </div>`;
       },
     };
@@ -6810,6 +6855,7 @@
       }
       // Settings — background picker
       if (key === 'settings') {
+        wireReminderPrefs(pg);
         pg.querySelector('#logoutBtn')?.addEventListener('click', openLogoutConfirm);
         pg.querySelector('#setPushBtn')?.addEventListener('click', e => togglePush(e.currentTarget, 'setPushError'));
         paintPushControls();

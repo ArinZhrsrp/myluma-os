@@ -289,6 +289,7 @@ supabase/migrations/
   028_timezone.sql             time zone (GMT) per user — dashboard times + push reminders follow it
   029_assistant.sql            Lumi assistant daily question limit (15 per user per day)
   030_more_reminders.sql       event / task / bill / goal reminders + budget alerts (inbox + push)
+  031_reminder_prefs.sql       Settings → Reminders: on/off + timing per reminder type
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:
