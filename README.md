@@ -40,6 +40,7 @@ its JS SDK from a CDN.
 - **Health** — log a day (sleep, water, steps, active minutes, mood, note), set
   daily goals, see today's rings, 7-day mood/sleep/steps charts and recent
   entries (edit/delete); one-tap +250 ml water. See `assets/luma-health.js`.
+- **Habits** — create habits (icon, colour, goal, repeat days), tick them off for today or any of the last 7 days, streaks, consistency heat-map and weekly chart; the dashboard's Habit Streaks widget shows your top 3. Run `016_habits.sql`. See `assets/luma-habits.js`.
 - **Notifications** — a bell with an unread badge; the dropdown shows today's
   notifications with *Mark all as read* and *See all notifications* (full page,
   grouped by day, All/Unread filter, delete). Created by database triggers for:
@@ -259,6 +260,8 @@ supabase/migrations/
   012_health_quick_add.sql         configurable quick-add amounts for the rings
   013_health_reminders.sql         water / steps / sleep reminders + bedtime & wake-up time
   014_server_reminders_and_push.sql  server-side reminder job (pg_cron) + push subscriptions
+  015_active_reminder.sql      "Stay active" reminder
+  016_habits.sql               habits + daily check-ins (streaks are worked out in the app)
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:
