@@ -70,7 +70,7 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
       <div class="inp"><i class="fa-solid fa-lock"></i><input type="password" id="pw" placeholder="••••••••" required><i class="fa-regular fa-eye eye" onclick="const p=document.getElementById('pw');p.type=p.type==='password'?'text':'password';this.className=p.type==='password'?'fa-regular fa-eye eye':'fa-regular fa-eye-slash eye';"></i></div>
     </div>
     <div class="row">
-      <label><input type="checkbox" id="remember" checked> Remember me</label>
+      <label><input type="checkbox" id="remember" checked> Remember my email</label>
       <a href="#" id="forgotLink">Forgot password?</a>
     </div>
     <button class="btn" type="submit" id="submitBtn">Sign in <i class="fa-solid fa-arrow-right"></i></button>
@@ -90,7 +90,7 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
 
     // restore the last choice and, if remembered, the email
     const rememberEl = document.getElementById("remember");
-    rememberEl.checked = LumaAuth.isRemembered();
+    try { rememberEl.checked = localStorage.getItem("luma.remember") !== "0"; } catch (e) {}
     try {
       const saved = localStorage.getItem("luma.rememberedEmail");
       if (saved && rememberEl.checked) document.getElementById("email").value = saved;

@@ -11,17 +11,14 @@
     console.warn("LUMA: Supabase credentials are still placeholders — edit assets/supabase-config.js.");
   }
 
-  // "Remember me": when ticked the session lives in localStorage (survives
-  // closing the browser); when unticked it lives in sessionStorage (gone when
-  // the tab/browser closes). The choice itself is kept in localStorage so every
-  // page reads the session from the same place.
+  // The session always lives in sessionStorage: a page refresh keeps you signed
+  // in, but closing the tab or killing the app signs you out, so LUMA reopens on
+  // the Login page. (The "Remember me" checkbox only remembers the email address.)
   const REMEMBER_KEY = "luma.remember";
-  const remembered = () => {
-    try { return localStorage.getItem(REMEMBER_KEY) !== "0"; } catch (e) { return true; }
-  };
+  const remembered = () => false;
   const authStorage = {
-    getItem: (k) => (remembered() ? localStorage : sessionStorage).getItem(k),
-    setItem: (k, v) => (remembered() ? localStorage : sessionStorage).setItem(k, v),
+    getItem: (k) => sessionStorage.getItem(k),
+    setItem: (k, v) => sessionStorage.setItem(k, v),
     removeItem: (k) => { localStorage.removeItem(k); sessionStorage.removeItem(k); },
   };
 
@@ -40,16 +37,14 @@
       });
     },
 
-    // remember: true (default) keeps you signed in across browser restarts;
-    // false ends the session when the browser/tab is closed.
+    // The session ends when the tab/app is closed whatever `remember` is; it only
+    // decides whether the Login page pre-fills the email next time.
     async signIn({ email, password, remember = true }) {
       this.setRemember(remember);
       const res = await client.auth.signInWithPassword({ email, password });
       if (res.error) return res;
       // drop any stale copy of the session left in the other storage
-      if (remember) sessionStorage.clear(); else {
-        Object.keys(localStorage).filter((k) => k.startsWith("sb-")).forEach((k) => localStorage.removeItem(k));
-      }
+      Object.keys(localStorage).filter((k) => k.startsWith("sb-")).forEach((k) => localStorage.removeItem(k));
       return res;
     },
 
