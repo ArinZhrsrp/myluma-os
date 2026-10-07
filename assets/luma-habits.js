@@ -54,6 +54,11 @@
       return db().from("habits").delete().eq("id", id);
     },
 
+    // delete several habits (and, via cascade, their check-ins)
+    async removeMany(ids) {
+      return db().from("habits").delete().in("id", ids);
+    },
+
     // mark a habit done (or not done) on a calendar day; `value` = the amount for measurable habits
     async setDone(habitId, dayKey, done, value) {
       if (done) {

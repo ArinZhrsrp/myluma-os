@@ -863,6 +863,18 @@
     @media (max-width:1024px){ .habit-grid{ grid-template-columns:1fr; } }
     .hrow { display:flex; align-items:center; gap:14px; padding:11px 6px; border-bottom:1px solid rgba(255,255,255,0.04); }
     .hrow:last-child { border-bottom:none; }
+    .hrow .licon { flex:none; width:40px; height:40px; display:grid; place-items:center; }
+    .hrow.selecting { cursor:pointer; border-radius:12px; }
+    .hrow.selecting:hover { background:rgba(255,255,255,0.04); }
+    .hrow.selecting .hdots { pointer-events:none; opacity:0.6; }
+    .hsel { width:26px; height:26px; flex:none; margin-right:6px; border-radius:8px; border:2px solid rgba(255,255,255,0.25); background:transparent; color:transparent; display:grid; place-items:center; font-size:0.72rem; transition:0.15s; }
+    .hrow.selected .hsel { background:#3b82f6; border-color:#3b82f6; color:#fff; }
+    .h-selbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 6px; padding:10px 12px; border-radius:13px; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.25); }
+    .h-selbar .cnt { flex:1; font-size:0.78rem; color:rgba(255,255,255,0.75); min-width:90px; }
+    .h-selbar button { height:32px; padding:0 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#fff; font-size:0.76rem; font-family:inherit; cursor:pointer; }
+    .h-selbar button:hover { background:rgba(255,255,255,0.12); }
+    .h-selbar button.del { background:rgba(239,68,68,0.2); border-color:rgba(239,68,68,0.5); color:#fecaca; }
+    .h-selbar button.del:disabled { opacity:0.4; cursor:default; }
     .hdots { display:flex; gap:5px; margin-top:7px; }
     .hdot { width:16px; height:16px; border-radius:5px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.05); padding:0; cursor:pointer; transition:0.15s; }
     .hdot:hover { transform:scale(1.18); }
@@ -3464,7 +3476,7 @@
       },
       // ---------------- HABITS ----------------
       habits() {
-        return head('Habits','<span id="habitsSub">Loading…</span>', '<button class="create-btn" id="addHabitBtn"><i class="fa-solid fa-plus"></i> New habit</button>') +
+        return head('Habits','<span id="habitsSub">Loading…</span>', '<button class="create-btn" id="selectHabitBtn" style="display:none;background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-regular fa-square-check"></i> Select</button><button class="create-btn" id="addHabitBtn"><i class="fa-solid fa-plus"></i> New habit</button>') +
         '<div id="habitsRoot"></div>';
       },
       // ---------------- HEALTH ----------------
@@ -3743,6 +3755,7 @@
     const H_GROUPS = [['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly']];
     const H_PUNIT = { daily: 'day', weekly: 'week', monthly: 'month' };
     const H_WINDOW = 365; // days of history loaded (for streaks)
+    let hSelecting = false; const hSel = new Set(); // multi-select mode (to delete several habits at once)
     let HABITS = [], HLOGS = new Map(), HSLEEP = new Map(), HABITS_ERR = null; // HLOGS: habit id → Map(day → amount | null); HSLEEP: day → hours slept
 
     const hToday = () => mytDayKey(Date.now());
@@ -3828,6 +3841,10 @@
         root.innerHTML = card('<div class="ls">Has <b>supabase/migrations/016_habits.sql</b> been run in the Supabase SQL Editor?</div>');
         return;
       }
+      if (!HABITS.length) { hSelecting = false; hSel.clear(); }
+      [...hSel].forEach(id => { if (!HABITS.some(h => h.id === id)) hSel.delete(id); });
+      const selBtn = document.getElementById('selectHabitBtn');
+      if (selBtn) { selBtn.style.display = HABITS.length ? '' : 'none'; selBtn.innerHTML = hSelecting ? '<i class="fa-solid fa-xmark"></i> Cancel' : '<i class="fa-regular fa-square-check"></i> Select'; }
       const today = hToday();
       const daily = HABITS.filter(h => h.period === 'daily' && hSched(h, today)), longer = HABITS.filter(h => h.period !== 'daily');
       sub.textContent = HABITS.length
@@ -3855,12 +3872,13 @@
           const d = hPeriodDone(h, k, today);
           return `<button type="button" class="hdot ${hSched(h, k) ? '' : 'rest'} ${k === pk ? 'today' : ''}" data-day="${k}" title="${hPeriodLabel(h, k)}${d ? ' · done' : ''}" style="${d ? `background:${h.color};border-color:${h.color}` : ''}"></button>`;
         }).join('');
-        return `<div class="hrow" data-id="${h.id}"><div class="licon" style="color:${h.color};background:${h.color}22"><i class="fa-solid ${h.icon}"></i></div>
+        const picked = hSel.has(h.id);
+        return `<div class="hrow ${hSelecting ? 'selecting' : ''} ${hSelecting && picked ? 'selected' : ''}" data-id="${h.id}">${hSelecting ? '<span class="hsel"><i class="fa-solid fa-check"></i></span>' : ''}<div class="licon" style="color:${h.color};background:${h.color}22"><i class="fa-solid ${h.icon}"></i></div>
           <div style="flex:1;min-width:0"><div class="lt">${escapeHtml(h.name)}</div>
             <div class="ls" style="color:${cur ? '#fb923c' : 'rgba(255,255,255,0.4)'}"><i class="fa-solid fa-fire"></i> ${cur} ${H_PUNIT[h.period]} streak${detail ? ' · ' + escapeHtml(detail) : ''}</div>
             <div class="hdots">${dots}</div></div>
-          <button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button>
-          <button type="button" class="hbtn ${done ? 'on' : ''}" data-day="${today}" title="${sleep ? 'Counted from your sleep log in Health' : done ? 'Done — tap to undo' : h.goal_value ? 'Log amount' : 'Mark done'}" style="${done ? `background:${h.color}` : ''}"><i class="fa-solid fa-check"></i></button></div>`;
+          ${hSelecting ? '' : `<button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button>
+          <button type="button" class="hbtn ${done ? 'on' : ''}" data-day="${today}" title="${sleep ? 'Counted from your sleep log in Health' : done ? 'Done — tap to undo' : h.goal_value ? 'Log amount' : 'Mark done'}" style="${done ? `background:${h.color}` : ''}"><i class="fa-solid fa-check"></i></button>`}</div>`;
       };
       const rows = H_GROUPS.map(([per, label]) => {
         const hs = HABITS.filter(h => h.period === per); if (!hs.length) return '';
@@ -3875,7 +3893,7 @@
       const mon = hKeyAdd(today, -((hDow(today) + 6) % 7)); // this week's Monday
       const bars = Array.from({ length: 7 }, (_, i) => { const k = hKeyAdd(mon, i), r = k > today ? null : hDayRatio(k); return `<div class="bcol" title="${hKeyLabel(k)}${r == null ? '' : ' · ' + Math.round(r * 100) + '%'}"><div class="bbar" style="height:${Math.max(r || 0, 0.04) * 100}%;${k > today ? 'opacity:.25' : ''}"></div><div class="blbl">${'MTWTFSS'[i]}</div></div>`; }).join('');
       root.innerHTML = `<div class="habit-grid">
-        ${card(`<div class="section-title"><i class="fa-solid fa-circle-check"></i> ${showGroups ? 'Habits' : 'Today'}</div>` + rows)}
+        ${card(`<div class="section-title"><i class="fa-solid fa-circle-check"></i> ${showGroups ? 'Habits' : 'Today'}</div>` + (hSelecting ? `<div class="h-selbar"><button type="button" class="h-selall">${hSel.size === HABITS.length ? 'Deselect all' : 'Select all'}</button><span class="cnt">${hSel.size} selected</span><button type="button" class="del h-seldel" ${hSel.size ? '' : 'disabled'}><i class="fa-regular fa-trash-can"></i> Delete${hSel.size ? ' (' + hSel.size + ')' : ''}</button></div>` : '') + rows)}
         <div style="display:flex;flex-direction:column;gap:0.9rem">
           ${card(`<div class="section-title"><i class="fa-solid fa-table-cells"></i> Consistency</div><div class="heat">${heat}</div><div style="display:flex;justify-content:space-between;margin-top:12px;font-size:0.72rem"><span style="color:rgba(255,255,255,0.4)">Best streak</span><span style="color:#fff;font-weight:600">${best}</span></div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-arrow-trend-up"></i> This week</div><div class="barchart" style="height:90px">${bars}</div>`)}
@@ -4008,7 +4026,20 @@
 
     async function loadHabits(pg) {
       pg.querySelector('#addHabitBtn').addEventListener('click', () => openHabitModal(null));
-      pg.querySelector('#habitsRoot').addEventListener('click', e => {
+      hSelecting = false; hSel.clear();
+      pg.querySelector('#selectHabitBtn').addEventListener('click', () => { hSelecting = !hSelecting; hSel.clear(); paintHabits(); });
+      pg.querySelector('#habitsRoot').addEventListener('click', async e => {
+        if (e.target.closest('.h-selall')) { hSel.size === HABITS.length ? hSel.clear() : HABITS.forEach(h => hSel.add(h.id)); return paintHabits(); }
+        if (e.target.closest('.h-seldel')) {
+          const ids = [...hSel]; if (!ids.length) return;
+          if (!await luConfirm({ title: `Delete ${ids.length} habit${ids.length === 1 ? '' : 's'}?`, message: 'Their streaks and history will be removed too. This can\'t be undone.', ok: 'Delete' })) return;
+          const { error } = await LumaHabits.removeMany(ids);
+          if (error) return luAlert('Could not delete: ' + error.message);
+          HABITS = HABITS.filter(h => !hSel.has(h.id)); ids.forEach(id => HLOGS.delete(id)); hSel.clear(); hSelecting = false;
+          return paintHabits();
+        }
+        const selRow = hSelecting && e.target.closest('.hrow');
+        if (selRow) { const id = selRow.dataset.id; hSel.has(id) ? hSel.delete(id) : hSel.add(id); return paintHabits(); }
         const chip = e.target.closest('.h-chip'); if (chip) return useHabitPreset(+chip.dataset.preset);
         const row = e.target.closest('.hrow'); if (!row) return;
         if (e.target.closest('.hedit')) return openHabitModal(HABITS.find(x => x.id === row.dataset.id));
