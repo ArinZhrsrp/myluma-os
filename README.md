@@ -272,6 +272,7 @@ supabase/migrations/
   024_money_pcb.sql            use the PCB amount from your own payslip
   025_subscription_reminders.sql  daily job: notification / push 3 days before a subscription renews
   026_task_notes.sql           notes on tasks
+  027_events.sql               calendar events
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:
