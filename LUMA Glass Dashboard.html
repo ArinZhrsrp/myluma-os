@@ -4256,6 +4256,12 @@
     .adm-meta { color:rgba(255,255,255,0.65); font-size:0.72rem; line-height:1.5; }
     .adm-plan .lu-select, .adm-plan .lu-sel-btn { width:100%; }
 
+    /* Support: the FAQ card is as tall as the message card; its questions scroll inside */
+    .supp-faq { position:relative; padding:0 !important; }
+    .supp-faq-in { position:absolute; inset:0; padding:1.2rem 1.3rem; display:flex; flex-direction:column; min-width:0; }
+    .supp-faq .faq-wrap { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:-6px; padding-right:6px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    @media (max-width:768px){ .supp-faq { height:460px; } }
+
     /* page switcher */
     .page {
       display: none;
@@ -10363,7 +10369,7 @@
               <button class="create-btn" id="suppSend" style="justify-content:center"><i class="fa-solid fa-paper-plane"></i> Send message</button>
               <div id="suppOk" style="display:none;align-items:center;gap:8px;font-size:0.78rem;color:#6ee7b7;padding-top:4px"><i class="fa-solid fa-circle-check"></i> Thanks! Our team will reply to your account email shortly.</div>
             </div>`)}
-          ${card(`<div class="section-title"><i class="fa-regular fa-circle-question"></i> Frequently asked</div>${faqs.map((f, i) => `<div class="faq" data-i="${i}" style="border-bottom:1px solid rgba(255,255,255,0.05)"><div class="faq-q" style="display:flex;align-items:center;gap:10px;padding:12px 2px;cursor:pointer"><i class="fa-solid fa-chevron-right faq-ic" style="font-size:0.7rem;color:rgba(255,255,255,0.4);transition:0.2s"></i><span class="lt" style="flex:1">${f[0]}</span></div><div class="faq-a" style="display:none;font-size:0.76rem;color:rgba(255,255,255,0.55);line-height:1.55;padding:0 2px 12px 22px">${f[1]}</div></div>`).join('')}<div style="margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);font-size:0.76rem;color:rgba(255,255,255,0.8)"><i class="fa-regular fa-clock" style="color:#93c5fd;margin-right:7px"></i>Support hours: Mon–Fri, 9am–6pm (MYT)</div>`)}
+          ${card(`<div class="supp-faq-in"><div class="section-title"><i class="fa-regular fa-circle-question"></i> Frequently asked</div><div class="faq-wrap">${faqs.map((f, i) => `<div class="faq" data-i="${i}" style="border-bottom:1px solid rgba(255,255,255,0.05)"><div class="faq-q" style="display:flex;align-items:center;gap:10px;padding:12px 2px;cursor:pointer"><i class="fa-solid fa-chevron-right faq-ic" style="font-size:0.7rem;color:rgba(255,255,255,0.4);transition:0.2s"></i><span class="lt" style="flex:1">${f[0]}</span></div><div class="faq-a" style="display:none;font-size:0.76rem;color:rgba(255,255,255,0.55);line-height:1.55;padding:0 2px 12px 22px">${f[1]}</div></div>`).join('')}</div><div style="flex:none;margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);font-size:0.76rem;color:rgba(255,255,255,0.8)"><i class="fa-regular fa-clock" style="color:#93c5fd;margin-right:7px"></i>Support hours: Mon–Fri, 9am–6pm (MYT)</div></div>`, 'supp-faq')}
         </div>`;
       },
       // ---------------- SETTINGS ----------------
