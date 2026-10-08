@@ -37,7 +37,8 @@
     const sdT12 = t => fmt12(sdHM(t));
     const sdMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
     const sdNowMin = (ts = Date.now()) => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ts)); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; };
-    const sdWeekStart = () => { const k = sdKey(); return sdAdd(k, -((sdDow(k) + 6) % 7)); }; // this week's Monday
+    const sdWeekStartOf = k => sdAdd(k, -((sdDow(k) + 6) % 7)); // the Monday of the week that has day k
+    const sdWeekStart = () => sdWeekStartOf(sdKey()); // this week's Monday
     const sdMinText = m => m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '') : m + ' min';
     const sdAddMonths = (k, n) => { const d = new Date(k + 'T00:00:00Z'), day = d.getUTCDate(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); d.setUTCDate(Math.min(day, new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate())); return d.toISOString().slice(0, 10); };
     const sdShort = k => sdFmtDate(k, { day: 'numeric', month: 'short' });
@@ -140,7 +141,9 @@
           <div class="h-empty-chips"><button type="button" class="h-chip" data-add="course"><i class="fa-solid fa-plus" style="color:#34d399"></i>Add your first subject</button></div></div>`);
         return;
       }
+      const prevScroll = root.querySelector('.tg-scroll'), keepTop = prevScroll && SD.tab === 'timetable' ? prevScroll.scrollTop : null;
       root.innerHTML = (SD_VIEW[SD.tab] || { timetable: sdTimetable, assignments: sdAssignments, subjects: sdSubjects, semesters: sdSemesters }[SD.tab] || sdOverview)();
+      const sc = root.querySelector('.tg-scroll'); if (sc) sc.scrollTop = keepTop != null ? keepTop : (SD.ttTop || 7 * SD_H); // the timetable keeps its place when you change week
     }
 
     function sdRow(t) {
@@ -211,30 +214,40 @@
         return `<div class="sd-day ${d === today ? 'today' : ''}"><div class="sd-dh"><span>${n}</span><button type="button" data-add="class" data-day="${d}" title="Add a class on ${n}"><i class="fa-solid fa-plus"></i></button></div>${list.length ? list.map(sdClassCard).join('') : '<div class="sd-free">Free</div>'}</div>`;
       }).join('')}</div>`;
       const endedNote = ended.length ? `<div class="sd-endednote"><button type="button" data-ended>${SD.showEnded ? 'Hide' : 'Show'} ended classes (${ended.length})</button></div>` : '';
-      const view = sdTtView(), toggle = window.innerWidth < 900 ? '' : `<div class="sd-tt-top"><div class="sd-seg"><button type="button" data-tt="grid" class="${view === 'grid' ? 'on' : ''}"><i class="fa-solid fa-table-cells"></i> Grid</button><button type="button" data-tt="list" class="${view === 'list' ? 'on' : ''}"><i class="fa-solid fa-list"></i> List</button></div></div>`;
-      return toggle + (view === 'grid' ? sdGrid(shown, today) : listHtml) + endedNote;
+      const view = sdTtView(), mon = SD.ttWeek || (SD.ttWeek = sdWeekStart()), sem = sdCurrentSem();
+      const wkNo = sem && mon >= sdWeekStartOf(sem.start_date) && mon <= sem.end_date ? ` · ${sem.name}, week ${Math.floor(sdDiff(sdWeekStartOf(sem.start_date), mon) / 7) + 1} of ${Math.ceil((sdDiff(sem.start_date, sem.end_date) + 1) / 7)}` : '';
+      const nav = view === 'grid' ? `<div class="sd-ttnav"><button type="button" data-ttw="prev" title="Previous week"><i class="fa-solid fa-chevron-left"></i></button><button type="button" data-ttw="today" class="td">Today</button><button type="button" data-ttw="next" title="Next week"><i class="fa-solid fa-chevron-right"></i></button><span class="lb">${sdShort(mon)} to ${sdFmtDate(sdAdd(mon, 6), { day: 'numeric', month: 'short', year: 'numeric' })}${wkNo}</span></div>` : '<span></span>';
+      const toggle = `<div class="sd-tt-top">${nav}${window.innerWidth < 900 ? '' : `<div class="sd-seg"><button type="button" data-tt="grid" class="${view === 'grid' ? 'on' : ''}"><i class="fa-solid fa-table-cells"></i> Week</button><button type="button" data-tt="list" class="${view === 'list' ? 'on' : ''}"><i class="fa-solid fa-list"></i> List</button></div>`}</div>`;
+      return toggle + (view === 'grid' ? sdGrid() : listHtml + endedNote);
     }
 
-    const sdTtView = () => { if (window.innerWidth < 900) return 'list'; try { return localStorage.getItem('luma_tt_view') || 'grid'; } catch (e) { return 'grid'; } };
-    // the timetable as a week grid: hours down the side, a block per class sized by its length
-    function sdGrid(list, todayDow) {
-      const H = 48, mins = list.flatMap(c => [sdMin(c.start_time), sdMin(c.end_time)]);
-      const from = (mins.length ? Math.min(8, Math.floor(Math.min(...mins) / 60)) : 8) * 60, to = (mins.length ? Math.min(24, Math.max(18, Math.ceil(Math.max(...mins) / 60))) : 18) * 60, total = (to - from) / 60 * H;
-      const nowM = sdNowMin(), hours = []; for (let m = from; m < to; m += 60) hours.push(m);
-      const layout = arr => { // classes that overlap in time share the column side by side
-        const out = []; let cluster = [], end = -1;
-        const flush = () => { const lanes = []; cluster.forEach(it => { let l = lanes.findIndex(e => e <= it.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); cluster.forEach(it => { it.lanes = lanes.length; }); out.push(...cluster); cluster = []; end = -1; };
-        arr.forEach(it => { if (cluster.length && it.s >= end) flush(); cluster.push(it); end = Math.max(end, it.e); }); if (cluster.length) flush(); return out;
-      };
-      const cols = SD_DAYS.map(([d, n]) => {
-        const items = layout(list.filter(c => c.weekday === d).map(c => ({ c, s: sdMin(c.start_time), e: Math.max(sdMin(c.end_time), sdMin(c.start_time) + 20) })).sort((a, b) => a.s - b.s || b.e - a.e));
-        const blocks = items.map(({ c, s: a, e: z, lane, lanes }) => { const co = sdCourse(c.course_id); const h = Math.max(22, (z - a) / 60 * H - 2); return `<button type="button" class="sd-gblk ${sdClassEnded(c) ? 'ended' : ''} ${h < 40 ? 'tiny' : ''}" data-cls="${c.id}" style="--c:${co ? co.color : '#34d399'};top:${(a - from) / 60 * H}px;height:${h}px;left:calc(${lane * 100 / lanes}% + 2px);width:calc(${100 / lanes}% - 4px)" title="${escapeHtml(co ? co.name : 'Class')} · ${sdT12(c.start_time)} – ${sdT12(c.end_time)}${c.room ? ' · ' + escapeHtml(c.room) : ''}"><b>${sdT12(c.start_time)}</b><span>${escapeHtml(co ? co.name : 'Class')}</span>${c.room ? `<small>${escapeHtml(c.room)}</small>` : ''}</button>`; }).join('');
-        const now = d === todayDow && nowM >= from && nowM <= to ? `<div class="sd-gnow" style="top:${(nowM - from) / 60 * H}px"></div>` : '';
-        return `<div class="sd-gcol ${d === todayDow ? 'today' : ''}" style="height:${total}px">${blocks}${now}</div>`;
-      }).join('');
-      return `<div class="sd-grid"><div class="sd-ghead"><span></span>${SD_DAYS.map(([d, n]) => `<div class="${d === todayDow ? 'today' : ''}">${n}<button type="button" data-add="class" data-day="${d}" title="Add a class on ${n}"><i class="fa-solid fa-plus"></i></button></div>`).join('')}</div>
-        <div class="sd-gbody" style="--h:${H}px"><div class="sd-ghours" style="height:${total}px">${hours.map(m => `<span style="top:${(m - from) / 60 * H}px">${fmt12(String(Math.floor(m / 60)).padStart(2, '0') + ':00')}</span>`).join('')}</div>${cols}</div></div>`;
+    // the timetable as a calendar-style week: real dates, a full 24-hour day you scroll (classes can run into the night), blocks sized by class length.
+    // It shows what actually happens on each date: classes outside their start / end dates, in a break or in an archived subject are left out, cancelled sessions are marked.
+    const SD_H = 52; // pixels per hour (same as the Calendar)
+    function sdLayout(arr) { // classes that overlap in time share the column side by side
+      const out = []; let cluster = [], end = -1;
+      const flush = () => { const lanes = []; cluster.forEach(it => { let l = lanes.findIndex(e => e <= it.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); cluster.forEach(it => { it.lanes = lanes.length; }); out.push(...cluster); cluster = []; end = -1; };
+      arr.forEach(it => { if (cluster.length && it.s >= end) flush(); cluster.push(it); end = Math.max(end, it.e); }); if (cluster.length) flush(); return out;
     }
+    function sdGrid() {
+      const H = SD_H, today = sdKey(), mon = SD.ttWeek || (SD.ttWeek = sdWeekStart()), ds = Array.from({ length: 7 }, (_, i) => sdAdd(mon, i)), nowM = sdNowMin();
+      const live = SD.classes.filter(c => !sdArchived(c.course_id)); let first = 1440;
+      const hr12 = h => h === 0 ? '12 am' : h < 12 ? h + ' am' : h === 12 ? '12 pm' : (h - 12) + ' pm';
+      const cols = ds.map(k => {
+        const brk = sdInBreak(k);
+        const items = live.filter(c => c.weekday === sdDow(k) && (!c.start_date || k >= c.start_date) && (!c.end_date || k <= c.end_date) && !brk).map(c => ({ c, cancelled: sdSkipped(c, k), s: sdMin(c.start_time), e: Math.max(sdMin(c.end_time), sdMin(c.start_time) + 25) })).sort((a, b) => a.s - b.s || b.e - a.e);
+        items.forEach(it => { first = Math.min(first, it.s); });
+        const blocks = sdLayout(items).map(({ c, cancelled, s: a, e: z, lane, lanes }) => { const co = sdCourse(c.course_id), h = Math.max(20, (z - a) / 60 * H - 2), w = 100 / lanes;
+          return `<div class="tg-ev ${h < 36 ? 'tiny' : ''} ${cancelled ? 'cancelled' : ''}" data-cls="${c.id}" data-d="${k}" title="${escapeHtml(co ? co.name : 'Class')} · ${sdT12(c.start_time)} – ${sdT12(c.end_time)}${c.room ? ' · ' + escapeHtml(c.room) : ''}${cancelled ? ' · cancelled' : ''}" style="top:${a / 60 * H}px;height:${h}px;left:calc(${lane * w}% + 2px);width:calc(${w}% - 4px);--ic:${co ? co.color : '#34d399'}"><div class="t">${escapeHtml(co ? co.name : 'Class')}</div><div class="m">${sdT12(c.start_time)} – ${sdT12(c.end_time)}${c.room ? ' · ' + escapeHtml(c.room) : ''}${cancelled ? ' · cancelled' : ''}</div></div>`; }).join('');
+        return `<div class="tg-col ${brk ? 'sd-brkcol' : ''}" data-d="${k}" data-wd="${sdDow(k)}" ${brk ? `title="${escapeHtml(brk.name)}"` : ''}>${blocks}${k === today ? `<div class="tg-now" style="top:${nowM / 60 * H}px"></div>` : ''}</div>`;
+      }).join('');
+      const head = ds.map(k => `<div class="tg-dh ${k === today ? 'today' : ''}"><span class="dn">${+k.slice(8)}</span><span class="dw">${sdFmtDate(k, { weekday: 'short' })}</span>${sdInBreak(k) ? `<span class="sd-brk-tag" title="${escapeHtml(sdInBreak(k).name)}">Break</span>` : ''}</div>`).join('');
+      const labels = Array.from({ length: 24 }, (_, h) => `<div class="tg-hl" style="top:${h * H}px">${hr12(h)}</div>`).join('');
+      SD.ttTop = first < 1440 ? Math.max(0, first / 60 * H - 24) : 7 * H; // open near the first class of the week, otherwise around 7 am
+      return `<div class="sd-ttwrap"><div class="cal-tg" style="--n:7"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>${tzOffsetLabel().replace('GMT', '')}</span></div>${head}</div></div>`
+        + `<div class="tg-scroll"><div class="tg-row tg-body" style="height:${24 * H}px"><div class="tg-hours">${labels}</div>${cols}</div></div></div></div>`;
+    }
+    const sdTtView = () => { if (window.innerWidth < 900) return 'list'; try { return localStorage.getItem('luma_tt_view') || 'grid'; } catch (e) { return 'grid'; } };
 
     function sdAssignments() {
       const today = sdKey();
@@ -388,12 +401,13 @@
 
     // --- class ---
     function sdPaintDays() { docEl('sdClassDays').innerHTML = SD_DAYS.map(([d, n]) => `<button type="button" class="h-chip sm ${SDF.days.has(d) ? 'on' : ''}" data-day="${d}">${n}</button>`).join(''); }
-    function openClassModal(c, day) {
+    function openClassModal(c, day, startTime) {
       if (!SD.courses.length) { openCourseModal(null); return flashToast('Add a subject first', 'Then you can put its classes on the timetable', 'fa-book', '#34d399'); }
       SDF.classId = c ? c.id : null; SDF.days = new Set(c ? [c.weekday] : [day != null ? day : (sdDow(sdKey()) || 1)]); SDF.classKind = c ? c.kind : 'lecture';
       docEl('sdClassTitle').textContent = c ? 'Edit class' : 'New class'; docEl('sdClassDaysLbl').textContent = c ? 'Day' : 'Days (pick every day it happens)';
       sdCourseOptions('sdClassCourse', c ? c.course_id : null, false);
-      docEl('sdClassStart').value = c ? sdHM(c.start_time) : '09:00'; docEl('sdClassEnd').value = c ? sdHM(c.end_time) : '10:00';
+      const hh = startTime ? +startTime.slice(0, 2) : 9;
+      docEl('sdClassStart').value = c ? sdHM(c.start_time) : startTime || '09:00'; docEl('sdClassEnd').value = c ? sdHM(c.end_time) : String(Math.min(23, hh + 1)).padStart(2, '0') + ':' + (startTime ? startTime.slice(3, 5) : '00');
       ['sdClassStart', 'sdClassEnd'].forEach(id => docEl(id)._luTimeRefresh && docEl(id)._luTimeRefresh());
       docEl('sdClassRoom').value = c ? c.room || '' : '';
       docEl('sdClassFrom').value = c && c.start_date ? c.start_date : sdKey(); docEl('sdClassUntil').value = c && c.end_date ? c.end_date : '';
@@ -665,6 +679,8 @@
         if (e.target.closest('[data-ended]')) { SD.showEnded = !SD.showEnded; return sdPaint(); }
         if (e.target.closest('[data-scale]')) return openScale();
         if (e.target.closest('[data-breaks]')) return openBreaks();
+        const wk = e.target.closest('[data-ttw]'); if (wk) { const m = wk.dataset.ttw; SD.ttWeek = m === 'today' ? sdWeekStart() : sdAdd(SD.ttWeek || sdWeekStart(), m === 'next' ? 7 : -7); return sdPaint(); }
+        const cell = e.target.closest('.tg-col'); if (cell && !e.target.closest('.tg-ev')) { const y = e.clientY - cell.getBoundingClientRect().top, h = Math.max(0, Math.min(23, Math.floor(y / SD_H))); return openClassModal(null, +cell.dataset.wd, String(h).padStart(2, '0') + ':00'); } // an empty hour: new class at that hour
         const tt = e.target.closest('[data-tt]'); if (tt) { try { localStorage.setItem('luma_tt_view', tt.dataset.tt); } catch (x) { } return sdPaint(); }
         for (const h of SD_CLICK) if (h(e)) return;
         if (e.target.closest('[data-archived]')) { SD.showArchived = !SD.showArchived; return sdPaint(); }

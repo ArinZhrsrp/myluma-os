@@ -145,9 +145,10 @@
     .sm-main { flex:1; min-width:0; }
     .sm-t { color:#fff; font-weight:700; font-size:0.98rem; }
     .sm-s { color:rgba(255,255,255,0.6); font-size:0.72rem; margin-top:3px; }
-    .sm-gpa { text-align:center; padding:6px 14px; border-radius:14px; background:rgba(255,255,255,0.06); }
-    .sm-gpa b { display:block; color:#fff; font-size:1.2rem; }
-    .sm-gpa span { color:rgba(255,255,255,0.55); font-size:0.62rem; }
+    .sm-gpa { width:54px; height:54px; flex:none; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; border-radius:16px; background:rgba(255,255,255,0.06); }
+    .sm-gpa b { display:block; color:#fff; font-size:1.05rem; line-height:1.15; }
+    .sm-gpa span { color:rgba(255,255,255,0.55); font-size:0.6rem; }
+    .sd-sem .hedit { width:54px; height:54px; flex:none; border-radius:16px; font-size:0.9rem; }
     .sm-subj { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08); }
     .sm-subj b { margin-left:4px; font-size:0.68rem; padding:1px 6px; border-radius:6px; background:rgba(255,255,255,0.12); }
 
@@ -232,3 +233,16 @@
     .sd-ptask .ic:hover { background:rgba(255,255,255,0.16); color:#fff; }
     .sd-taskadd { display:flex; gap:8px; margin-top:10px; }
     .sd-taskadd input { flex:1; min-width:0; height:38px; border-radius:11px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#fff; padding:0 12px; font:inherit; font-size:0.82rem; }
+
+    /* timetable week (same look as the Calendar's week) */
+    .sd-ttwrap { display:flex; flex-direction:column; height:calc(100vh - 360px); min-height:440px; }
+    .sd-ttwrap > .cal-tg { flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+    .sd-ttnav { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .sd-ttnav button { height:32px; min-width:32px; padding:0 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#fff; font:600 0.74rem inherit; font-family:inherit; cursor:pointer; }
+    .sd-ttnav button:hover { background:rgba(255,255,255,0.14); }
+    .sd-ttnav .lb { color:rgba(255,255,255,0.8); font-size:0.78rem; margin-left:6px; }
+    .sd-tt-top { justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+    .tg-ev.cancelled { opacity:0.45; }
+    .tg-ev.cancelled .t { text-decoration:line-through; }
+    .sd-brkcol { background-image:repeating-linear-gradient(135deg, rgba(251,191,36,0.07) 0, rgba(251,191,36,0.07) 8px, transparent 8px, transparent 16px); }
+    .sd-brk-tag { position:absolute; margin-top:34px; font-size:0.54rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:1px 6px; border-radius:999px; background:rgba(251,191,36,0.2); color:#fcd34d; }
