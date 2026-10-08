@@ -344,7 +344,9 @@
       docEl('sdCourseTitle').textContent = c ? 'Edit subject' : 'New subject';
       docEl('sdCourseName').value = c ? c.name : ''; docEl('sdCourseCode').value = c ? c.code || '' : ''; docEl('sdCourseLecturer').value = c ? c.lecturer || '' : ''; docEl('sdCourseCredits').value = c && c.credit_hours != null ? c.credit_hours : '';
       const own = c && c.semester_id ? sdSem(c.semester_id) : null, semTxt = c ? (own ? own.name + (own.archived_at ? ' (archived)' : '') : 'No semester') : ((sdActiveSem() || {}).name || 'No active semester');
-      docEl('sdCourseSemTxt').textContent = semTxt + (c ? '' : ' (new subjects go into the active semester)');
+      const sc = docEl('sdCourseSemTxt'), semObj = c ? own : sdActiveSem();
+      sc.classList.toggle('none', !semObj);
+      sc.innerHTML = `<i class="fa-solid fa-calendar-days"></i><span class="nm">${escapeHtml(semObj ? semObj.name : semTxt)}</span>${semObj ? `<span class="tg ${semObj.archived_at ? 'off' : semObj.is_active ? '' : 'idle'}">${semObj.archived_at ? 'Archived' : semObj.is_active ? 'Active' : 'Inactive'}</span>` : ''}${!c && semObj ? '<small>New subjects go into your active semester.</small>' : ''}`;
       docEl('sdCourseTarget').value = c && c.target_percent != null ? +c.target_percent : ''; docEl('sdCourseFinal').value = c && c.final_percent != null ? +c.final_percent : '';
       docEl('sdCourseDelete').style.display = c ? '' : 'none'; sdErr('sdCourseError', ''); sdPaintColors(); sdPaintCourseStatus();
       sdOpen('sdCourseOverlay'); setTimeout(() => docEl('sdCourseName').focus(), 50);
