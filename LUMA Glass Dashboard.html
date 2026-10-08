@@ -9590,7 +9590,7 @@
     function lumaEmail() { return (LUMA_PROFILE && LUMA_PROFILE.email) || (LUMA_USER && LUMA_USER.email) || ""; }
 
     function applyUserUI() {
-      applyBg((LUMA_PROFILE && LUMA_PROFILE.background_url) || BGS[0].url);
+      applySavedBg();
       applyTheme((LUMA_PROFILE && LUMA_PROFILE.theme) || "midnight");
       const hour = mytHour();
       const timeGreeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -9660,6 +9660,31 @@
       { name: 'Dusk ridge', url: 'https://images.unsplash.com/photo-1444080748397-f442aa95c3e5?w=1920&q=80', thumb: 'https://images.unsplash.com/photo-1444080748397-f442aa95c3e5?w=300&q=60' },
       { name: 'Aurora', url: 'https://images.unsplash.com/photo-1502790671504-542ad42d5189?w=1920&q=80', thumb: 'https://images.unsplash.com/photo-1502790671504-542ad42d5189?w=300&q=60' },
     ];
+    // a wallpaper value is a picture address, or "storage:<path>" for the image you uploaded (kept in your private storage)
+    async function bgAddress(val) {
+      if (!val || !String(val).startsWith('storage:')) return val;
+      const { data, error } = await LumaAuth.client.storage.from('luma-backgrounds').createSignedUrl(String(val).slice(8), 60 * 60 * 24 * 7);
+      return error || !data ? null : data.signedUrl;
+    }
+    async function applyBgValue(val) { const a = await bgAddress(val); if (a) applyBg(a); return !!a; }
+    function applySavedBg() {
+      const saved = LUMA_PROFILE && LUMA_PROFILE.background_url;
+      applyBg(String(saved || '').startsWith('storage:') ? BGS[0].url : (saved || BGS[0].url)); // something nice straight away...
+      if (String(saved || '').startsWith('storage:')) applyBgValue(saved).catch(() => { }); // ...then your own picture as soon as its address is ready
+    }
+    // shrink a picture to at most 1920 px and re-save it as a JPEG, so a phone photo doesn't fill your storage
+    function shrinkImage(file, max = 1920) {
+      return new Promise((resolve, reject) => {
+        const img = new Image(), url = URL.createObjectURL(file);
+        img.onload = () => {
+          const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+          c.toBlob(b => b ? resolve(b) : reject(new Error('Could not process that picture.')), 'image/jpeg', 0.85);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file could not be read as a picture.')); };
+        img.src = url;
+      });
+    }
     function applyBg(val) { document.documentElement.style.setProperty('--app-bg', val.indexOf('url(') === 0 ? val : "url('" + val + "')"); }
 
     // ---------- Theme ----------
@@ -10523,6 +10548,7 @@
           <p class="ls" style="margin-bottom:0.9rem">Choose a wallpaper or upload your own.</p>
           <div class="bg-grid" id="bgGrid">
             ${BGS.map((b, i) => `<div class="bg-thumb ${i >= (LumaPlan.get('wallpapers') ?? 99) ? 'plan-lock' : ''}" data-bg="${b.url}" style="background-image:url('${b.thumb}')" title="${b.name}${i >= (LumaPlan.get('wallpapers') ?? 99) ? ' · Glow and Zenith' : ''}"></div>`).join('')}
+            ${savedPrefs.custom_bg_path ? `<div class="bg-thumb" id="bgCustom" data-bg="storage:${savedPrefs.custom_bg_path}" title="Your uploaded picture" style="background-color:rgba(255,255,255,0.08)"></div>` : ''}
             <div class="bg-upload ${LumaPlan.has('own_wallpaper') ? '' : 'plan-lock'}" id="bgUpload"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload<br>your own</div>
           </div>
           <input type="file" id="bgFile" accept="image/*" style="display:none">
@@ -13977,25 +14003,36 @@
         mark((LUMA_PROFILE && LUMA_PROFILE.background_url) || BGS[0].url);
         pg.querySelectorAll('.bg-thumb').forEach(t => t.addEventListener('click', async () => {
           if (t.classList.contains('plan-lock')) return planLocked('More wallpapers', 'the Glow and Zenith plans');
-          const url = t.dataset.bg; applyBg(url); mark(url);
+          const url = t.dataset.bg; mark(url); if (!await applyBgValue(url)) return luAlert('Could not load that picture. Try uploading it again.');
           const { data, error } = await LumaAuth.updateProfile({ background_url: url });
           if (!error) LUMA_PROFILE = data;
           else console.warn("LUMA: couldn't save background (is the luma schema exposed yet?)", error.message);
         }));
         const file = pg.querySelector('#bgFile');
         pg.querySelector('#bgUpload').addEventListener('click', () => LumaPlan.has('own_wallpaper') ? file.click() : planLocked('Uploading your own wallpaper', 'the Zenith plan'));
-        file.addEventListener('change', e => {
-          const f = e.target.files[0]; if (!f) return;
-          const r = new FileReader();
-          r.onload = ev => {
-            // Applied for this session only — a custom upload is a large
-            // data URL, not a good fit for a database text column. Real
-            // persistence would need file storage (e.g. Supabase Storage).
-            applyBg("url('" + ev.target.result + "')");
-            pg.querySelectorAll('.bg-thumb').forEach(t => t.classList.remove('active'));
-          };
-          r.readAsDataURL(f);
+        // the picture you upload is saved to your account (so it is there after a refresh or on another device); a new upload replaces and deletes the old one
+        file.addEventListener('change', async e => {
+          const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+          if (!f.type.startsWith('image/')) return luAlert('Please choose a picture (JPG, PNG, WebP…).');
+          if (f.size > 15 * 1024 * 1024) return luAlert('That picture is over 15 MB. Please choose a smaller one.');
+          const up = pg.querySelector('#bgUpload'), label = up.innerHTML; up.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…'; up.style.pointerEvents = 'none';
+          try {
+            const blob = await shrinkImage(f), path = `${LUMA_USER.id}/wallpaper-${Date.now()}.jpg`, bucket = LumaAuth.client.storage.from('luma-backgrounds');
+            const put = await bucket.upload(path, blob, { contentType: 'image/jpeg' });
+            if (put.error) throw new Error(/bucket not found/i.test(put.error.message) ? 'Wallpaper storage isn\'t set up yet — run supabase/migrations/042_backgrounds.sql in the SQL Editor.' : put.error.message);
+            const prefs = (LUMA_PROFILE && LUMA_PROFILE.preferences) || {}, old = prefs.custom_bg_path;
+            const { data, error } = await LumaAuth.updateProfile({ background_url: 'storage:' + path, preferences: { ...prefs, custom_bg_path: path } });
+            if (error) { await bucket.remove([path]); throw new Error(error.message); }
+            LUMA_PROFILE = data;
+            if (old && old !== path) await bucket.remove([old]); // the previous picture is deleted
+            await applyBgValue('storage:' + path);
+            delete rendered.settings; goTo('settings'); // shows the new picture tile
+            flashToast('Wallpaper saved', 'It will stay after a refresh and on your other devices.', 'fa-image', '#22c55e');
+          } catch (err) { up.innerHTML = label; up.style.pointerEvents = ''; luAlert(err.message || 'Could not save the picture.'); }
         });
+        // the saved picture's tile shows the picture itself
+        const custom = pg.querySelector('#bgCustom');
+        if (custom) bgAddress(custom.dataset.bg).then(a => { if (a) custom.style.backgroundImage = `url('${a}')`; });
       }
       // Support — channels, contact form, FAQ accordion
       if (key === 'support') {
