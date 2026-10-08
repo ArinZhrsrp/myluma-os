@@ -157,20 +157,8 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
         return;
       }
 
-      // No session came back. If the project doesn't require email confirmation, signing in right now works.
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = 'Signing you in\u2026';
-      const signedIn = await LumaAuth.signIn({ email, password, remember: true });
-      if (!signedIn.error && signedIn.data && signedIn.data.session) {
-        window.location.href = "LUMA Glass Dashboard.html";
-        return;
-      }
-
-      // Email confirmation is required before a session is issued.
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = 'Create account <i class="fa-solid fa-arrow-right"></i>';
-      form.querySelectorAll("input, button").forEach((el) => (el.disabled = true));
-      showOk("Account created. Check " + email + " for a confirmation link, then sign in.");
+      // No session yet: the email must be verified first. Send the person to the code page.
+      window.location.href = "LUMA Verify Email.html?sent=1&email=" + encodeURIComponent(email);
     });
   </script>
 </body>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="assets/luma-loader.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUMA · Verify email</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif;}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;overflow-y:auto;background:#0a0e1a;}
+body::before{content:'';position:fixed;inset:0;background:url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1920&q=80') center/cover no-repeat;filter:brightness(0.45) saturate(0.8) blur(1px);transform:scale(1.05);z-index:0;}
+body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-index:0;}
+.auth{position:relative;z-index:2;width:440px;max-width:100%;padding:38px 34px;border-radius:28px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(34px) saturate(1.4);-webkit-backdrop-filter:blur(34px) saturate(1.4);box-shadow:0 24px 70px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.1);}
+.brand{display:flex;align-items:center;gap:13px;margin-bottom:24px;}
+.brand .ic{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;font-size:20px;box-shadow:0 0 26px rgba(59,130,246,0.35);}
+.brand h1{color:#fff;font-size:19px;font-weight:600;letter-spacing:-0.01em;}
+.brand p{color:rgba(255,255,255,0.4);font-size:12px;margin-top:2px;}
+.head{margin-bottom:22px;}
+.head h2{color:#fff;font-size:1.5rem;font-weight:600;letter-spacing:-0.02em;}
+.head span{color:rgba(255,255,255,0.5);font-size:0.85rem;margin-top:6px;display:block;}
+.field{margin-bottom:15px;}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.two .field{min-width:0;}
+.field label{display:block;font-size:0.72rem;font-weight:500;color:rgba(255,255,255,0.55);margin-bottom:7px;}
+.inp{display:flex;align-items:center;gap:11px;padding:0 15px;height:48px;border-radius:14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);transition:0.2s;}
+.inp:focus-within{border-color:#3b82f6;background:rgba(59,130,246,0.08);}
+.inp i{color:rgba(255,255,255,0.4);font-size:0.9rem;width:18px;text-align:center;}
+.inp input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:#fff;font-size:0.9rem;}
+.inp input::placeholder{color:rgba(255,255,255,0.3);}
+.inp select{flex:1;min-width:0;height:100%;background:transparent;border:none;outline:none;color:#fff;font-size:0.9rem;cursor:pointer;appearance:none;-webkit-appearance:none;font-family:inherit;}
+.inp select:invalid{color:rgba(255,255,255,0.3);}
+.inp select option{background:#141a2c;color:#fff;}
+.inp .caret{margin-left:auto;font-size:0.7rem;pointer-events:none;}
+.strength{display:flex;gap:5px;margin-top:9px;}
+.strength span{flex:1;height:4px;border-radius:3px;background:rgba(255,255,255,0.1);transition:0.3s;}
+.strength span.on{background:linear-gradient(90deg,#2563eb,#3b82f6);}
+.agree{display:flex;align-items:flex-start;gap:9px;margin:6px 0 20px;font-size:0.76rem;color:rgba(255,255,255,0.55);line-height:1.5;cursor:pointer;}
+.agree input{accent-color:#3b82f6;width:15px;height:15px;margin-top:2px;flex-shrink:0;}
+.agree a{color:#60a5fa;text-decoration:none;}
+.btn{width:100%;height:50px;border:none;border-radius:14px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#fff;font-size:0.92rem;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;box-shadow:0 10px 28px rgba(37,99,235,0.4);transition:0.2s;}
+.btn:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(37,99,235,0.5);}
+.divider{display:flex;align-items:center;gap:14px;margin:20px 0;color:rgba(255,255,255,0.3);font-size:0.72rem;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.1);}
+.social{display:flex;gap:10px;}
+.social button{flex:1;height:46px;border-radius:13px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);font-size:0.98rem;cursor:pointer;transition:0.2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.social button:hover{background:rgba(255,255,255,0.1);}
+.foot{text-align:center;margin-top:22px;font-size:0.82rem;color:rgba(255,255,255,0.5);}
+.foot a{color:#60a5fa;text-decoration:none;font-weight:600;}
+.msg{display:none;align-items:center;gap:9px;padding:11px 14px;border-radius:12px;font-size:0.78rem;line-height:1.5;margin-bottom:16px;}
+.msg.error{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;}
+.msg.ok{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:#6ee7b7;}
+.btn[disabled]{opacity:0.6;cursor:default;transform:none !important;}
+
+.codebox input{width:100%;height:58px;text-align:center;letter-spacing:0.5em;font-size:1.6rem;font-weight:600;color:#fff;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:14px;outline:none;transition:0.2s;font-variant-numeric:tabular-nums;}
+.codebox input:focus{border-color:#3b82f6;background:rgba(59,130,246,0.08);}
+.codebox input::placeholder{color:rgba(255,255,255,0.18);letter-spacing:0.4em;}
+.resend{margin-top:18px;text-align:center;font-size:0.8rem;color:rgba(255,255,255,0.55);}
+.resend button{background:none;border:none;color:#60a5fa;font:inherit;font-weight:600;cursor:pointer;padding:0;}
+.resend button[disabled]{color:rgba(255,255,255,0.35);cursor:default;}
+.tip{margin-top:14px;font-size:0.72rem;color:rgba(255,255,255,0.45);text-align:center;line-height:1.6;}
+</style>
+</head>
+<body>
+  <form class="auth" id="verifyForm" autocomplete="off">
+    <div class="brand">
+      <div class="ic"><i class="fa-solid fa-bolt"></i></div>
+      <div><h1>LUMA</h1><p>Your Personal OS</p></div>
+    </div>
+    <div class="head">
+      <h2>Check your email</h2>
+      <span id="headSub">We sent a 6-digit code to your email.</span>
+    </div>
+    <div class="msg error" id="formError"></div>
+    <div class="msg ok" id="formOk"></div>
+    <div class="field" id="emailField" style="display:none"><label>Email</label><div class="inp"><i class="fa-regular fa-envelope"></i><input type="email" id="email" placeholder="you@luma.os"></div></div>
+    <div class="field codebox"><label>Verification code</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="••••••" required></div>
+    <button class="btn" type="submit" id="submitBtn">Verify and continue <i class="fa-solid fa-arrow-right"></i></button>
+    <div class="resend">Didn't get it? <button type="button" id="resendBtn">Send a new code</button></div>
+    <div class="tip">Check your spam folder too. The code works for a limited time, and a new code replaces the old one.</div>
+    <div class="foot"><a href="LUMA Register.html">Wrong email? Start over</a> &nbsp;·&nbsp; <a href="LUMA Login.html">Back to sign in</a></div>
+  </form>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="assets/supabase-config.js"></script>
+  <script src="assets/luma-auth.js"></script>
+  <script>
+    const form = document.getElementById("verifyForm"), errEl = document.getElementById("formError"), okEl = document.getElementById("formOk");
+    const submitBtn = document.getElementById("submitBtn"), resendBtn = document.getElementById("resendBtn"), codeEl = document.getElementById("code"), emailEl = document.getElementById("email");
+    const q = new URLSearchParams(location.search);
+    let email = (q.get("email") || "").trim();
+    const showError = (t) => { okEl.style.display = "none"; errEl.textContent = t; errEl.style.display = "flex"; };
+    const showOk = (t) => { errEl.style.display = "none"; okEl.textContent = t; okEl.style.display = "flex"; };
+
+    if (email) document.getElementById("headSub").textContent = "We sent a 6-digit code to " + email + ".";
+    else { document.getElementById("emailField").style.display = ""; document.getElementById("headSub").textContent = "Enter your email and the code we sent you."; }
+    if (q.get("sent") === "1") showOk("Account created. We emailed you a code.");
+    codeEl.focus();
+    codeEl.addEventListener("input", () => { codeEl.value = codeEl.value.replace(/\D/g, ""); });
+
+    // "send a new code" waits 60 seconds between sends
+    let wait = 0, timer = null;
+    function tick() {
+      resendBtn.disabled = wait > 0;
+      resendBtn.textContent = wait > 0 ? "Send a new code in " + wait + "s" : "Send a new code";
+      if (wait > 0) { wait--; timer = setTimeout(tick, 1000); }
+    }
+    wait = q.get("sent") === "1" ? 45 : 0; tick();
+
+    resendBtn.addEventListener("click", async () => {
+      email = email || emailEl.value.trim();
+      if (!email) return showError("Enter your email first.");
+      resendBtn.disabled = true;
+      const { error } = await LumaAuth.resendSignupCode(email);
+      if (error) { showError(error.message); wait = 0; tick(); return; }
+      showOk("A new code is on its way to " + email + ".");
+      wait = 60; clearTimeout(timer); tick();
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      errEl.style.display = "none"; okEl.style.display = "none";
+      email = email || emailEl.value.trim();
+      const code = codeEl.value.trim();
+      if (!email) return showError("Enter your email first.");
+      if (code.length < 6) return showError("Enter the full code from the email.");
+      submitBtn.disabled = true; submitBtn.innerHTML = "Verifying\u2026";
+      const { data, error } = await LumaAuth.verifyEmailCode(email, code);
+      if (error || !data || !data.session) {
+        submitBtn.disabled = false; submitBtn.innerHTML = 'Verify and continue <i class="fa-solid fa-arrow-right"></i>';
+        showError(/expired|invalid/i.test((error && error.message) || "") ? "That code is wrong or has expired. Check it, or send a new code." : ((error && error.message) || "Could not verify. Please try again."));
+        return;
+      }
+      showOk("Email verified. Taking you in\u2026");
+      window.location.href = "LUMA Glass Dashboard.html";
+    });
+  </script>
+</body>
+</html>

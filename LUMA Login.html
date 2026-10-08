@@ -136,6 +136,11 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
       if (error) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = 'Sign in <i class="fa-solid fa-arrow-right"></i>';
+        if (/not confirmed/i.test(error.message || "")) { // the account exists but the email was never verified: send a fresh code
+          await LumaAuth.resendSignupCode(email);
+          window.location.href = "LUMA Verify Email.html?sent=1&email=" + encodeURIComponent(email);
+          return;
+        }
         showError(error.message);
         return;
       }

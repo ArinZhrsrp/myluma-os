@@ -73,6 +73,16 @@
       });
     },
 
+    // Email verification with a 6-digit code (Supabase "Confirm signup" email template must show {{ .Token }}).
+    // Verifying signs the person in.
+    async verifyEmailCode(email, token) {
+      this.setRemember(true);
+      return client.auth.verifyOtp({ email, token, type: "signup" });
+    },
+    async resendSignupCode(email) {
+      return client.auth.resend({ type: "signup", email });
+    },
+
     // remember: true (default) keeps you signed in across browser restarts;
     // false ends the session when the browser/tab is closed.
     async signIn({ email, password, remember = true }) {

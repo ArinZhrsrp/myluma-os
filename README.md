@@ -249,6 +249,35 @@ their name, email, plan and price already typed in, so you can arrange payment a
 3. To change someone's plan: `update luma.profiles set plan = 'glow' where email = 'them@example.com';` (users cannot change their own plan).
 4. Every limit lives in the `luma.plan_limits` table. Edit a row to change a limit (NULL = unlimited).
 
+## Email verification (6-digit code) and the admin account
+
+**How sign-up works now:** Register → we email a 6-digit code → the person types it on `LUMA Verify Email.html` → they are verified and
+signed in at once. People who try to sign in before verifying are sent a fresh code automatically.
+
+Set this up in the Supabase dashboard (one time):
+1. **Authentication → Providers → Email:** keep **Confirm email ON**.
+2. **Authentication → Emails → Templates → "Confirm signup"** — subject `Your LUMA verification code`, body:
+   ```html
+   <h2>Welcome to LUMA</h2>
+   <p>Your verification code is:</p>
+   <p style="font-size:32px;font-weight:700;letter-spacing:8px">{{ .Token }}</p>
+   <p>Enter it on the sign-up page. If you didn't create an account, ignore this email.</p>
+   ```
+3. **Project Settings → Authentication → SMTP Settings:** switch on **Custom SMTP** with a real email provider (Resend, Brevo, Gmail SMTP, …).
+   Supabase's built-in sender is limited to a handful of emails per hour and is only meant for testing, so real sign-ups will not get their codes without this.
+4. **Authentication → URL Configuration:** Site URL `https://myluma-os.vercel.app`, and add `https://myluma-os.vercel.app/**` to Redirect URLs.
+
+**Admin account:** run `supabase/migrations/036_admin.sql`, register your own account on the site (verify it), then in the SQL Editor:
+```sql
+insert into luma.admin_users (user_id) select id from auth.users where email = 'YOUR-EMAIL' on conflict do nothing;
+update luma.profiles set plan = 'zenith' where email = 'YOUR-EMAIL';
+```
+An **Admin** page then appears in your sidebar: every account, search, and a plan dropdown per account (your own included). Each change is
+logged in `luma.plan_changes` and the person gets a notification. Only accounts in `luma.admin_users` can use it, and that table can only be edited in the SQL Editor.
+
+**Fresh start:** `supabase/reset/00_RESET_EVERYTHING.sql` erases every account and all data (it refuses to run until you delete its safety guard).
+Empty the `luma-documents` Storage bucket by hand afterwards.
+
 ## File structure
 
 ```
@@ -302,6 +331,7 @@ supabase/migrations/
   032_reminders.sql            Reminders page: your own reminders (e.g. last weekday of the month), inbox + push
   033_plans.sql                plans Dawn / Glow / Zenith: limits table + enforcement (existing accounts become Zenith)
   035_more_reminder_prefs.sql  Settings → Reminders: habits + health on/off, budget warning percentage
+  036_admin.sql                super admin: Admin page, change anyone's plan (audit log)
   034_weekly_review.sql        Sunday 18:00 weekly review notification (Settings → Preferences → Weekly review)
 ```
 
