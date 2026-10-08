@@ -370,6 +370,7 @@ supabase/migrations/
   043_more_wallpapers.sql      11 built-in wallpapers (Dawn 4, Glow 8, Zenith all)
   044_addons.sql               Work / Study add-ons: who has them, 7-day trial, Admin switches
   045_study.sql                Study v1: subjects, timetable, assignments, reminders, Focus subject tag
+  046_fix_addon_policies.sql   Fix: Study rules call luma.has_my_addon (users can't call has_addon)
   042_backgrounds.sql          your uploaded wallpaper is saved with your account (private storage bucket)
   041_focus_sessions.sql       Focus mode: every completed focus session is saved
   040_admin_report.sql         Admin page: monthly report of people per plan + log of every plan change
