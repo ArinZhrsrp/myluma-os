@@ -4157,6 +4157,23 @@
     .cd-s { margin-top:2px; font-size:0.74rem; color:rgba(255,255,255,0.6); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     @media (max-width:560px){ .cd-row { flex-direction:column; gap:4px; } .cd-time { width:auto; padding-top:0; } }
 
+    /* Planner */
+    .main-content.fit #plRoot { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    .pl-grid { display:grid; grid-template-columns:1fr 320px; gap:0.9rem; align-items:start; }
+    @media (max-width:980px){ .pl-grid { grid-template-columns:1fr; } }
+    .pl-intro { display:flex; align-items:center; gap:12px; margin-bottom:1rem; padding:12px 14px; border-radius:14px; background:rgba(59,130,246,0.1); border:1px solid rgba(139,92,246,0.2); font-size:0.78rem; color:rgba(255,255,255,0.9); }
+    .pl-intro .orb { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#2563eb,#7c3aed); display:grid; place-items:center; color:#fff; flex:none; }
+    .pl-row { display:flex; gap:14px; margin-bottom:0.55rem; }
+    .pl-time { width:104px; flex:none; padding-top:14px; font-size:0.7rem; color:rgba(255,255,255,0.6); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .pl-block { flex:1; min-width:0; display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-left:3px solid var(--ic); }
+    .pl-block[data-type] { cursor:pointer; }
+    .pl-block[data-type]:hover { background:rgba(255,255,255,0.09); }
+    .pl-block.brk { opacity:0.8; }
+    .pl-sugg { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); font-size:0.74rem; color:#fff; margin-bottom:0.5rem; }
+    .pl-sugg i { color:#93c5fd; }
+    .pl-sugg button { margin-left:auto; border:none; border-radius:8px; padding:5px 10px; font:600 0.68rem inherit; font-family:inherit; background:rgba(59,130,246,0.3); color:#fff; cursor:pointer; white-space:nowrap; }
+    @media (max-width:560px){ .pl-row { flex-direction:column; gap:3px; } .pl-time { width:auto; padding-top:0; } }
+
     /* page switcher */
     .page {
       display: none;
@@ -9943,10 +9960,10 @@
       analytics: 'Analytics', settings: 'Settings', support: 'Support', notifications: 'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'planner']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
-    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics']);
+    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'planner']);
 
     function goTo(key) {
       if (!key || !titles[key]) return;
@@ -10068,24 +10085,10 @@
       },
       // ---------------- PLANNER ----------------
       planner() {
-        const blocks = [
-          ['09:00 – 11:00', 'Deep work: Q3 strategy deck', 'Your peak focus window', 'fa-bolt', '#3b82f6'],
-          ['11:00 – 11:30', 'Standup with design', 'Recurring', 'fa-users', '#8b5cf6'],
-          ['11:30 – 12:30', 'Clear inbox + replies', 'Batched admin', 'fa-envelope', '#94a3b8'],
-          ['12:30 – 13:30', 'Lunch & walk', 'Protected break', 'fa-utensils', '#22c55e'],
-          ['13:30 – 15:00', 'Review design handoff', 'High priority', 'fa-square-check', '#3b82f6'],
-          ['15:00 – 16:00', '1:1 with Marcus', 'Budget discussion', 'fa-users', '#8b5cf6'],
-          ['16:00 – 17:00', 'Buffer + wind down', 'Plan tomorrow', 'fa-moon', '#94a3b8'],
-        ];
-        return head('Planner', 'AI-generated plan for Friday, 11 July', btn('Regenerate', 'fa-arrows-rotate') + btn('Accept plan', 'fa-check')) +
-          `<div style="display:grid;grid-template-columns:1fr 320px;gap:0.9rem">
-          ${card(`<div style="display:flex;align-items:center;gap:12px;margin-bottom:1rem;padding:12px 14px;border-radius:14px;background:rgba(59,130,246,0.1);border:1px solid rgba(139,92,246,0.2)"><div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);display:grid;place-items:center;color:#fff"><i class="fa-solid fa-robot"></i></div><div style="font-size:0.78rem;color:rgba(255,255,255,0.85)">I balanced your day around your 9–11 AM focus peak and protected lunch.</div></div>
-            ${blocks.map(b => `<div style="display:flex;gap:14px;margin-bottom:0.5rem"><div style="font-size:0.68rem;color:rgba(255,255,255,0.4);width:96px;flex-shrink:0;padding-top:12px;font-variant-numeric:tabular-nums">${b[0]}</div><div style="flex:1;display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);border-left:3px solid ${b[4]}"><div class="licon" style="width:34px;height:34px;color:${b[4]};background:${b[4]}22"><i class="fa-solid ${b[2] ? b[3] : b[3]}"></i></div><div style="flex:1"><div class="lt">${b[1]}</div><div class="ls">${b[2]}</div></div></div></div>`).join('')}`)}
-          <div style="display:flex;flex-direction:column;gap:0.9rem">
-            ${card(`<div class="section-title"><i class="fa-solid fa-chart-pie"></i> Plan balance</div>${[['Deep focus', 45, '#3b82f6'], ['Meetings', 25, '#8b5cf6'], ['Admin', 15, '#94a3b8'], ['Breaks', 15, '#22c55e']].map(c => `<div style="margin-bottom:0.7rem"><div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:5px"><span style="color:rgba(255,255,255,0.6)">${c[0]}</span><span style="color:rgba(255,255,255,0.85)">${c[1]}%</span></div><div class="pbar"><span style="width:${c[1]}%;background:${c[2]}"></span></div></div>`).join('')}`)}
-            ${card(`<div class="section-title"><i class="fa-solid fa-robot"></i> Suggestions</div>${['Add a 20-min break at 15:00', 'Move standup earlier', 'Block tomorrow’s focus too'].map(s => `<div class="add-card" style="justify-content:flex-start;margin-bottom:0.5rem"><i class="fa-solid fa-plus" style="color:#93c5fd"></i> ${s}</div>`).join('')}`)}
-          </div>
-        </div>`;
+        return head('Planner','<span id="plSub">Loading…</span>',
+          '<div class="mall-nav" style="height:40px;flex:none"><button type="button" id="plPrev" title="Previous day"><i class="fa-solid fa-chevron-left"></i></button><span id="plDay" style="min-width:128px;text-align:center"></span><button type="button" id="plNext" title="Next day"><i class="fa-solid fa-chevron-right"></i></button></div>' +
+          '<button class="create-btn" id="plRegen" style="background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-arrows-rotate"></i> Regenerate</button><button class="create-btn" id="plAccept"><i class="fa-solid fa-check"></i> Accept plan</button>') +
+        '<div id="plRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
       },
       // ---------------- BILLS ----------------
       bills() {
@@ -11771,6 +11774,123 @@
       }
     });
 
+    // =====================================================
+    //  PLANNER — builds a day plan from your real tasks and events
+    // =====================================================
+    const PL_STRATS = [['priority', 'Priority first'], ['quick', 'Quick wins first'], ['due', 'Due date first']];
+    const PL_DUR = { high: 90, med: 60, low: 30 }; // minutes a task is given
+    let plDate = null, plStrat = 0, plTasksAll = [], plPlan = null;
+    const plMin = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+    const plT = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    const plWin = () => { try { const w = JSON.parse(localStorage.getItem('luma_plan_window') || 'null'); if (w && w.s < w.e) return w; } catch (e) {} return { s: 540, e: 1080 }; }; // 09:00 – 18:00
+    const plAcceptKey = k => `luma_plan_done_${LUMA_USER ? LUMA_USER.id : ''}_${k}`;
+    const plAccepted = k => { try { return JSON.parse(localStorage.getItem(plAcceptKey(k)) || '[]'); } catch (e) { return []; } };
+
+    function buildPlan(k) {
+      const today = mytDayKey(Date.now()), win = plWin(), isToday = k === today;
+      let from = win.s; if (isToday) from = Math.max(win.s, Math.ceil(mytNowMin() / 15) * 15);
+      const events = CEV.filter(e => cOccurs(e, k)), timed = events.filter(e => !e.all_day && e.start_time), allDay = events.filter(e => e.all_day || !e.start_time);
+      const blocks = timed.map(e => ({ type: 'event', e, s: plMin(e.start_time), e2: Math.min(1440, e.end_time && plMin(e.end_time) > plMin(e.start_time) ? plMin(e.end_time) : plMin(e.start_time) + 60), title: e.title, sub: e.category, color: cColor(e.category), icon: C_ICON[e.category] || 'fa-calendar-day' }));
+      const busy = blocks.map(b => [b.s, b.e2]);
+      const lunch = [750, 810]; // 12:30 – 13:30, protected
+      if (lunch[0] >= win.s && lunch[1] <= win.e && !(isToday && from >= lunch[1]) && !busy.some(([a, b]) => a < lunch[1] && b > lunch[0])) { blocks.push({ type: 'lunch', s: lunch[0], e2: lunch[1], title: 'Lunch & walk', sub: 'Protected break', color: '#22c55e', icon: 'fa-utensils' }); busy.push(lunch); }
+      // free gaps inside the working window
+      const merged = busy.map(x => [...x]).sort((a, b) => a[0] - b[0]).reduce((m, x) => { const l = m[m.length - 1]; if (l && x[0] <= l[1]) l[1] = Math.max(l[1], x[1]); else m.push(x); return m; }, []);
+      const gaps = []; let cur = from;
+      merged.forEach(([a, b]) => { if (a > cur) gaps.push([cur, Math.min(a, win.e)]); cur = Math.max(cur, b); });
+      if (cur < win.e) gaps.push([cur, win.e]);
+      const gapsOk = gaps.filter(g => g[1] - g[0] >= 15 && g[0] < win.e);
+
+      // which tasks: overdue and due that day, then high-priority ones due in the next 3 days; ones already planned (accepted) are skipped
+      const done = new Set(plAccepted(k)), open = plTasksAll.filter(t => t.status !== 'done' && !done.has(t.id) && t.due_date);
+      const soon = bAddDays(k, 3), od = t => t.due_date < k ? 0 : t.due_date === k ? 1 : 2, pr = t => ({ high: 0, med: 1, low: 2 }[t.priority] ?? 1);
+      let cand = open.filter(t => t.due_date <= k || (t.due_date <= soon && t.priority === 'high'));
+      const cmp = [(a, b) => od(a) - od(b) || pr(a) - pr(b) || a.due_date.localeCompare(b.due_date), (a, b) => od(a) - od(b) || PL_DUR[a.priority] - PL_DUR[b.priority] || pr(a) - pr(b), (a, b) => a.due_date.localeCompare(b.due_date) || pr(a) - pr(b)][plStrat];
+      cand.sort(cmp);
+      const left = []; // tasks that did not fit
+      cand.forEach(t => {
+        const dur = PL_DUR[t.priority] || 60; let placed = false;
+        for (const g of gapsOk) {
+          if (g[1] - g[0] >= dur) {
+            const color = t.priority === 'high' ? '#3b82f6' : t.priority === 'low' ? '#94a3b8' : '#8b5cf6';
+            blocks.push({ type: 'task', t, s: g[0], e2: g[0] + dur, title: t.title, sub: `${{ high: 'High', med: 'Medium', low: 'Low' }[t.priority] || 'Medium'} priority · ${t.due_date < k ? 'overdue' : t.due_date === k ? 'due today' : 'due ' + cFmt(t.due_date, { day: 'numeric', month: 'short' })}`, color, icon: t.priority === 'high' ? 'fa-bolt' : 'fa-square-check' });
+            g[0] += dur;
+            if (dur >= 90 && g[1] - g[0] >= 15) { blocks.push({ type: 'break', s: g[0], e2: g[0] + 15, title: 'Short break', sub: 'Stretch and reset', color: '#22c55e', icon: 'fa-mug-hot' }); g[0] += 15; }
+            placed = true; break;
+          }
+        }
+        if (!placed) left.push(t);
+      });
+      blocks.sort((a, b) => a.s - b.s || a.e2 - b.e2);
+      const mins = g => blocks.filter(b => g(b)).reduce((a, b) => a + (b.e2 - b.s), 0);
+      const bal = [['Deep focus', mins(b => b.type === 'task' && b.t.priority === 'high'), '#3b82f6'], ['Other tasks', mins(b => b.type === 'task' && b.t.priority !== 'high'), '#94a3b8'], ['Meetings & events', mins(b => b.type === 'event'), '#8b5cf6'], ['Breaks', mins(b => b.type === 'lunch' || b.type === 'break'), '#22c55e']];
+      return { k, blocks, allDay, left, bal, from, win };
+    }
+
+    function paintPlanner() {
+      const root = document.getElementById('plRoot'); if (!root) return;
+      const today = mytDayKey(Date.now()); if (!plDate) plDate = today;
+      const p = plPlan = buildPlan(plDate), tasksPlanned = p.blocks.filter(b => b.type === 'task'), nEv = p.blocks.filter(b => b.type === 'event').length;
+      document.getElementById('plDay').textContent = plDate === today ? 'Today' : plDate === bAddDays(today, 1) ? 'Tomorrow' : plDate === bAddDays(today, -1) ? 'Yesterday' : cFmt(plDate, { weekday: 'short', day: 'numeric', month: 'short' });
+      document.getElementById('plSub').textContent = `Plan for ${cFmt(plDate, { weekday: 'long', day: 'numeric', month: 'long' })} · ${PL_STRATS[plStrat][1]}`;
+      const done = plAccepted(plDate), acceptBtn = document.getElementById('plAccept');
+      acceptBtn.disabled = !tasksPlanned.length || plDate < today; acceptBtn.innerHTML = '<i class="fa-solid fa-check"></i> Accept plan';
+      const intro = tasksPlanned.length ? `I fitted ${tasksPlanned.length} task${tasksPlanned.length > 1 ? 's' : ''} around your ${nEv} event${nEv === 1 ? '' : 's'}, between ${plT(p.from)} and ${plT(p.win.e)}, and protected your lunch.` + (p.left.length ? ` ${p.left.length} didn't fit.` : '') : (p.left.length ? `There is no free time left in the ${plT(p.win.s)}–${plT(p.win.e)} window for ${p.left.length} task${p.left.length > 1 ? 's' : ''}.` : done.length ? 'This plan has been added to your calendar.' : 'No tasks need planning for this day. Enjoy the free time or add a task.');
+      const icon = (b) => `<div class="cd-ico" style="--ic:${b.color}"><i class="fa-solid ${b.icon}"></i></div>`;
+      const row = b => `<div class="pl-row"><div class="pl-time">${plT(b.s)} – ${plT(b.e2)}</div><div class="pl-block ${b.type === 'break' || b.type === 'lunch' ? 'brk' : ''}" style="--ic:${b.color}" ${b.type === 'task' ? `data-type="task" data-id="${b.t.id}"` : b.type === 'event' ? `data-type="event" data-id="${b.e.id}"` : ''}>${icon(b)}<div style="flex:1;min-width:0"><div class="lt">${escapeHtml(b.title)}</div><div class="ls">${escapeHtml(b.sub)}</div></div></div></div>`;
+      const allDay = p.allDay.length ? `<div class="pl-row"><div class="pl-time">All day</div><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">${p.allDay.map(e => `<div class="pl-block" style="--ic:${cColor(e.category)}" data-type="event" data-id="${e.id}"><div class="cd-ico" style="--ic:${cColor(e.category)}"><i class="fa-solid ${C_ICON[e.category] || 'fa-calendar-day'}"></i></div><div style="flex:1;min-width:0"><div class="lt">${escapeHtml(e.title)}</div><div class="ls">${escapeHtml(e.category)}</div></div></div>`).join('')}</div></div>` : '';
+      const total = p.bal.reduce((a, b) => a + b[1], 0);
+      const overdueN = plTasksAll.filter(t => t.status !== 'done' && t.due_date && t.due_date < today).length;
+      const suggestions = [];
+      if (p.left.length) suggestions.push([`${p.left.length} task${p.left.length > 1 ? 's' : ''} didn't fit. Move ${p.left.length > 1 ? 'them' : 'it'} to the next day.`, 'move', 'fa-arrow-right-arrow-left', 'Move']);
+      if (overdueN && plDate >= today) suggestions.push([`${overdueN} overdue task${overdueN > 1 ? 's are' : ' is'} in this plan first.`, '', 'fa-triangle-exclamation']);
+      if (p.blocks.filter(b => b.type === 'event').length > 3) suggestions.push(['Lots of events today. Keep short gaps between them.', '', 'fa-users']);
+      if (plDate < today) suggestions.push(['This day is in the past, so it can\'t be accepted.', '', 'fa-clock-rotate-left']);
+      suggestions.push(['Try Regenerate for a different order (priority, quick wins or due date).', '', 'fa-arrows-rotate']);
+      root.innerHTML = `<div class="pl-grid">
+        ${card(`<div class="pl-intro"><div class="orb"><i class="fa-solid fa-wand-magic-sparkles"></i></div><div>${escapeHtml(intro)}</div></div>${allDay}${p.blocks.length ? p.blocks.map(row).join('') : '<div class="cal-empty" style="padding:30px 10px">Nothing to schedule for this day.</div>'}`)}
+        <div style="display:flex;flex-direction:column;gap:0.9rem">
+          ${card(`<div class="section-title"><i class="fa-solid fa-chart-pie"></i> Plan balance</div>${total ? p.bal.map(c => `<div style="margin-bottom:0.7rem"><div style="display:flex;justify-content:space-between;font-size:0.72rem;margin-bottom:5px"><span style="color:rgba(255,255,255,0.75)">${c[0]}</span><span style="color:#fff">${Math.round(c[1] / total * 100)}% · ${c[1] >= 60 ? Math.floor(c[1] / 60) + 'h ' + (c[1] % 60 ? c[1] % 60 + 'm' : '') : c[1] + 'm'}</span></div><div class="pbar"><span style="width:${c[1] / total * 100}%;background:${c[2]}"></span></div></div>`).join('') : '<div class="ls">Nothing planned yet.</div>'}`)}
+          ${card(`<div class="section-title"><i class="fa-solid fa-robot"></i> Suggestions</div>${suggestions.map(x => `<div class="pl-sugg"><i class="fa-solid ${x[2]}"></i><span>${x[0]}</span>${x[1] ? `<button type="button" data-act="${x[1]}">${x[3]}</button>` : ''}</div>`).join('')}`)}
+        </div>
+      </div>`;
+    }
+
+    async function loadPlanner(pg) {
+      plDate = null;
+      pg.querySelector('#plPrev').onclick = () => { plDate = bAddDays(plDate || mytDayKey(Date.now()), -1); paintPlanner(); };
+      pg.querySelector('#plNext').onclick = () => { plDate = bAddDays(plDate || mytDayKey(Date.now()), 1); paintPlanner(); };
+      pg.querySelector('#plRegen').onclick = () => { plStrat = (plStrat + 1) % PL_STRATS.length; paintPlanner(); flashToast('Plan regenerated', PL_STRATS[plStrat][1], 'fa-arrows-rotate', '#3b82f6'); };
+      pg.querySelector('#plAccept').onclick = async () => {
+        const p = plPlan; if (!p) return; const list = p.blocks.filter(b => b.type === 'task'); if (!list.length) return;
+        const ok = await luConfirm({ title: 'Add this plan to your calendar?', message: `${list.length} task block${list.length > 1 ? 's' : ''} will be added as events on ${cFmt(p.k, { weekday: 'long', day: 'numeric', month: 'short' })}.`, ok: 'Add to calendar', icon: 'fa-calendar-plus', tone: 'info' });
+        if (!ok) return;
+        const btn = pg.querySelector('#plAccept'); btn.disabled = true;
+        const made = [];
+        for (const b of list) {
+          const { error } = await LumaEvents.add({ title: b.title.slice(0, 120), category: 'Work', event_date: p.k, all_day: false, start_time: plT(b.s), end_time: plT(b.e2), repeats: 'none', note: 'Planned from your tasks' });
+          if (error) { await luAlert('Could not add "' + b.title + '": ' + error.message); break; }
+          made.push(b.t.id);
+        }
+        if (made.length) { try { localStorage.setItem(plAcceptKey(p.k), JSON.stringify([...plAccepted(p.k), ...made])); } catch (e) {} const ev = await LumaEvents.list(); if (!ev.error) CEV = ev.data || []; flashToast('Plan added', `${made.length} event${made.length > 1 ? 's' : ''} on your calendar`, 'fa-check', '#22c55e'); }
+        paintPlanner();
+      };
+      pg.querySelector('#plRoot').onclick = async e => {
+        const act = e.target.closest('[data-act="move"]');
+        if (act && plPlan) {
+          act.disabled = true; const next = bAddDays(plPlan.k, 1);
+          for (const t of plPlan.left) { const { data } = await LumaTasks.update(t.id, { due_date: next }); if (data) Object.assign(t, data); }
+          flashToast('Moved to ' + cFmt(next, { weekday: 'short', day: 'numeric', month: 'short' }), '', 'fa-arrow-right', '#3b82f6'); return paintPlanner();
+        }
+        const it = e.target.closest('[data-type]'); if (!it) return;
+        if (it.dataset.type === 'task') { const t = plTasksAll.find(x => x.id === it.dataset.id); if (t) openTaskModal(t); } else calOpenItem('event', it.dataset.id, plDate);
+      };
+      paintPlanner();
+      const [t, ev] = await Promise.all([LumaTasks.list(), LumaEvents.list()]);
+      plTasksAll = t.error ? [] : t.data; CTASKS = plTasksAll; if (!ev.error) CEV = ev.data || [];
+      paintPlanner();
+    }
+
     function paintHabits() { paintHabitsPage(); paintDashHabits(); if (document.getElementById('dashChips') && dashTasks) paintDashboard(); }
 
     function paintDashHabits() {
@@ -13134,6 +13254,7 @@
       if (key === 'subscriptions') wp = loadSubs(pg);
       if (key === 'money') wp = loadMoney(pg);
       if (key === 'analytics') wp = loadAnalytics(pg);
+      if (key === 'planner') wp = loadPlanner(pg);
       if (key === 'documents') wp = loadDocuments(pg);
       if (key === 'notes') wp = loadNotes(pg);
       if (key === 'health') wp = loadHealth(pg);
@@ -13274,6 +13395,7 @@
     // Quick actions route to modules
     // when a popup closes while you're on the dashboard, refresh the widgets so the new task / expense / event shows up
     ['taskOverlay', 'moneyEntryOverlay', 'calEventOverlay'].forEach(id => {
+      const refreshPl = () => { if (document.getElementById('page-planner').classList.contains('active')) LumaTasks.list().then(t => { if (!t.error) { plTasksAll = t.data; paintPlanner(); } }); };
       const ov = document.getElementById(id); if (!ov) return;
       let was = false;
       new MutationObserver(() => { const on = ov.classList.contains('open'); if (was && !on && document.getElementById('page-dashboard').classList.contains('active')) loadDashboard().catch(() => { }); was = on; }).observe(ov, { attributes: true, attributeFilter: ['class'] });
