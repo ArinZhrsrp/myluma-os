@@ -146,6 +146,7 @@
       <div class="pem-msg error" id="sdBreakError"></div>
       <div class="pem-body">
         <div class="pem-hint" style="margin:0 0 10px">No classes happen on these dates: they leave your timetable, Calendar and class reminders. Assignments are not affected.</div>
+        <button type="button" class="np-btn" id="sdHolOpen" style="margin-bottom:12px"><i class="fa-solid fa-flag"></i> Import public holidays</button>
         <div id="sdBreakList"></div>
         <div class="pem-field" style="margin-top:14px"><label>Name <span style="color:#fca5a5">*</span></label><input id="sdBreakName" type="text" maxlength="60" placeholder="e.g. Mid-semester break" autocomplete="off"></div>
         <div class="pem-row">
@@ -274,6 +275,33 @@
         <div class="pem-field"><label>Remark <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional, kept with the archive)</span></label><textarea id="sdArchRemark" maxlength="1000" style="min-height:110px" placeholder="e.g. Finished with a 3.6 GPA. Struggled with Calculus, take it easier next time."></textarea></div>
       </div>
       <div class="pem-actions"><button class="confirm-btn save" id="sdArchSave" style="flex:1">Archive semester</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdHolOverlay" style="z-index:215">
+    <div class="profile-edit-modal fixed-modal" style="width:500px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Import public holidays</div>
+        <button class="x" id="sdHolClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdHolError"></div>
+      <div class="pem-body">
+        <div class="h-tpls" id="sdHolSrc" style="margin-bottom:12px"></div>
+        <div id="sdHolCountry">
+          <div class="pem-row">
+            <div class="pem-field"><label>Country</label><select id="sdHolCode"></select></div>
+            <div class="pem-field"><label>Year</label><select id="sdHolYear"></select></div>
+          </div>
+          <button type="button" class="np-btn" id="sdHolFind"><i class="fa-solid fa-magnifying-glass"></i> Find holidays</button>
+        </div>
+        <div id="sdHolMy" style="display:none"><div class="pem-field"><label>Year</label><select id="sdHolMyYear"></select></div>
+          <div class="pem-hint" style="margin:0 0 8px">These national days fall on the same date every year. Religious and state holidays (Hari Raya, Deepavali, Chinese New Year…) change each year: add them from your university calendar, or import a calendar file.</div>
+          <button type="button" class="np-btn" id="sdHolMyGo"><i class="fa-solid fa-list"></i> Show the national days</button></div>
+        <div id="sdHolFile" style="display:none"><div class="pem-hint" style="margin:0 0 8px">Choose a calendar file (.ics): for example the holiday calendar you can download from Google Calendar, or your university's calendar.</div>
+          <input type="file" id="sdHolIcs" accept=".ics,text/calendar"></div>
+        <div id="sdHolList" style="margin-top:14px"></div>
+      </div>
+      <div class="pem-actions"><button class="confirm-btn save" id="sdHolAdd" style="flex:1" disabled>Add selected</button></div>
     </div>
   </div>
 

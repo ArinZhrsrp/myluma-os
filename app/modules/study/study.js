@@ -739,6 +739,77 @@
         grade_scale: (LUMA_PROFILE && LUMA_PROFILE.preferences && LUMA_PROFILE.preferences.grade_scale) || 'standard' };
     }
 
+    // --- import public holidays (a country list, the fixed national days, or a calendar file) ---
+    const SDH = { src: 'country', items: [], countries: null };
+    const SD_HOL_FALLBACK = [['MY', 'Malaysia'], ['SG', 'Singapore'], ['ID', 'Indonesia'], ['PH', 'Philippines'], ['VN', 'Vietnam'], ['GB', 'United Kingdom'], ['US', 'United States'], ['AU', 'Australia'], ['CA', 'Canada'], ['NZ', 'New Zealand'], ['JP', 'Japan'], ['KR', 'South Korea'], ['CN', 'China'], ['HK', 'Hong Kong']];
+    function sdHolPaintSrc() {
+      sdChips('sdHolSrc', [['country', 'By country', 'fa-earth-asia'], ['my', 'Malaysia: national days', 'fa-flag'], ['file', 'From a file', 'fa-file']], SDH.src, 'hs');
+      docEl('sdHolCountry').style.display = SDH.src === 'country' ? '' : 'none'; docEl('sdHolMy').style.display = SDH.src === 'my' ? '' : 'none'; docEl('sdHolFile').style.display = SDH.src === 'file' ? '' : 'none';
+    }
+    function sdHolPaintList() {
+      const L = docEl('sdHolList');
+      L.innerHTML = SDH.items.length ? `<div class="ls" style="margin-bottom:6px">${SDH.items.length} found. Untick any you do not want.</div>` + SDH.items.map((h, i) => `<label class="cal-pick"><input type="checkbox" data-hi="${i}" ${h.on ? 'checked' : ''} ${h.dup ? 'disabled' : ''}><span class="nm">${escapeHtml(h.name)}<small>${sdFmtDate(h.start, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}${h.end !== h.start ? ' to ' + sdShort(h.end) : ''}${h.dup ? ' · already added' : h.note ? ' · ' + escapeHtml(h.note) : ''}</small></span></label>`).join('') : '';
+      const n = SDH.items.filter(h => h.on && !h.dup).length; docEl('sdHolAdd').disabled = !n; docEl('sdHolAdd').textContent = n ? `Add ${n} holiday${n === 1 ? '' : 's'}` : 'Add selected';
+    }
+    const sdHolSet = items => { SDH.items = items.map(h => ({ ...h, dup: SD.breaks.some(b => b.start_date === h.start && b.end_date === h.end && b.name === h.name), on: h.on !== false })); SDH.items.forEach(h => { if (h.dup) h.on = false; }); sdHolPaintList(); };
+    async function sdHolCountries() {
+      if (SDH.countries) return SDH.countries;
+      try { const r = await fetch('https://date.nager.at/api/v3/AvailableCountries'); const j = await r.json(); SDH.countries = j.map(c => [c.countryCode, c.name]).sort((a, b) => a[1].localeCompare(b[1])); } catch (e) { SDH.countries = SD_HOL_FALLBACK; }
+      return SDH.countries;
+    }
+    async function openHolidays() {
+      sdErr('sdHolError', ''); SDH.items = []; SDH.src = 'country'; sdHolPaintSrc(); sdHolPaintList(); sdOpen('sdHolOverlay');
+      const y = +sdKey().slice(0, 4), yr = docEl('sdHolYear'), my = docEl('sdHolMyYear');
+      yr.innerHTML = my.innerHTML = [y, y + 1].map(v => `<option value="${v}">${v}</option>`).join(''); skinSelect(yr); skinSelect(my);
+      const list = await sdHolCountries(), mine = (lumaCountry() || '').toLowerCase(), pick = (list.find(c => c[1].toLowerCase() === mine) || list.find(c => c[0] === 'SG') || list[0])[0];
+      docEl('sdHolCode').innerHTML = list.map(c => `<option value="${c[0]}">${escapeHtml(c[1])}</option>`).join(''); docEl('sdHolCode').value = pick; skinSelect(docEl('sdHolCode'));
+    }
+    docEl('sdHolOpen').onclick = openHolidays;
+    docEl('sdHolClose').onclick = () => sdClose('sdHolOverlay');
+    docEl('sdHolOverlay').onclick = e => {
+      if (e.target === docEl('sdHolOverlay')) return sdClose('sdHolOverlay');
+      const hs = e.target.closest('[data-hs]'); if (hs) { SDH.src = hs.dataset.hs; SDH.items = []; sdErr('sdHolError', ''); sdHolPaintSrc(); sdHolPaintList(); }
+      const hi = e.target.closest('input[data-hi]'); if (hi) { SDH.items[+hi.dataset.hi].on = hi.checked; sdHolPaintList(); }
+    };
+    docEl('sdHolFind').onclick = async () => {
+      const code = docEl('sdHolCode').value, year = docEl('sdHolYear').value; sdErr('sdHolError', ''); docEl('sdHolList').innerHTML = '<div class="ls">Looking…</div>';
+      try {
+        const r = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${code}`);
+        if (r.status === 204 || r.status === 404) { SDH.items = []; sdHolPaintList(); return sdErr('sdHolError', 'No automatic list exists for that country. Try “Malaysia: national days” or import a calendar file.'); }
+        const j = await r.json(); sdHolSet(j.map(h => ({ name: h.localName && h.localName !== h.name ? `${h.localName} (${h.name})` : h.name, start: h.date, end: h.date, on: h.global !== false, note: h.global === false ? 'some regions only' : '' })));
+      } catch (e) { SDH.items = []; sdHolPaintList(); sdErr('sdHolError', 'Could not reach the holiday list (are you online?). You can still import a calendar file.'); }
+    };
+    docEl('sdHolMyGo').onclick = () => { // the same-date national days of Malaysia, plus the Agong's birthday (first Monday of June)
+      const y = +docEl('sdHolMyYear').value, jun1 = new Date(Date.UTC(y, 5, 1)).getUTCDay(), agong = 1 + ((8 - jun1) % 7), p = n => String(n).padStart(2, '0');
+      sdHolSet([['New Year\'s Day', `${y}-01-01`], ['Labour Day', `${y}-05-01`], ['Agong\'s Birthday', `${y}-06-${p(agong)}`], ['Merdeka Day', `${y}-08-31`], ['Malaysia Day', `${y}-09-16`], ['Christmas Day', `${y}-12-25`]].map(([name, d]) => ({ name, start: d, end: d })));
+    };
+    // a calendar file: all-day events become holidays (the end date of an all-day event is the day after it, so one day is taken off)
+    function sdParseIcs(text) {
+      const lines = text.replace(/\r/g, '').replace(/\n[ \t]/g, '').split('\n'), out = []; let cur = null;
+      const day = v => { const m = /(\d{4})(\d{2})(\d{2})/.exec(v || ''); return m ? `${m[1]}-${m[2]}-${m[3]}` : null; };
+      lines.forEach(l => {
+        if (l.startsWith('BEGIN:VEVENT')) cur = {};
+        else if (l.startsWith('END:VEVENT')) { if (cur && cur.s && cur.name) { let e = cur.e && cur.e > cur.s ? sdAdd(cur.e, cur.allDay ? -1 : 0) : cur.s; if (e < cur.s) e = cur.s; out.push({ name: cur.name, start: cur.s, end: e }); } cur = null; }
+        else if (cur) {
+          if (l.startsWith('DTSTART')) { cur.s = day(l.split(':').pop()); cur.allDay = /VALUE=DATE(?!-)/.test(l) || l.split(':').pop().length === 8; }
+          else if (l.startsWith('DTEND')) cur.e = day(l.split(':').pop());
+          else if (l.startsWith('SUMMARY')) cur.name = l.slice(l.indexOf(':') + 1).replace(/\\,/g, ',').replace(/\\n/g, ' ').trim().slice(0, 60);
+        }
+      });
+      return out.slice(0, 300);
+    }
+    docEl('sdHolIcs').onchange = async () => {
+      const f = docEl('sdHolIcs').files[0]; docEl('sdHolIcs').value = ''; if (!f) return; sdErr('sdHolError', '');
+      try { const items = sdParseIcs(await f.text()); if (!items.length) { SDH.items = []; sdHolPaintList(); return sdErr('sdHolError', 'No events were found in that file.'); } sdHolSet(items); }
+      catch (e) { sdErr('sdHolError', 'Could not read that file.'); }
+    };
+    docEl('sdHolAdd').onclick = async () => {
+      const rows = SDH.items.filter(h => h.on && !h.dup).map(h => ({ name: h.name.slice(0, 60), start_date: h.start, end_date: h.end })); if (!rows.length) return;
+      sdBtn('sdHolAdd', true); const r = await LumaStudy.breaks.addMany(rows); sdBtn('sdHolAdd', false, 'Add selected');
+      if (r.error) return sdErr('sdHolError', /study_breaks|schema cache|does not exist/i.test(r.error.message) ? 'Breaks aren\'t set up yet — run supabase/migrations/052_study_extras.sql.' : sdHint(r.error.message));
+      SD.breaks.push(...(r.data || [])); sdClose('sdHolOverlay'); sdPaintBreaks(); sdAfterSave(); flashToast('Holidays added', `${rows.length} added to your breaks`, 'fa-flag', '#34d399');
+    };
+
     // ---------- calendar: classes repeat every week, assignments show on their due date ----------
     // in Personal mode the person chooses whether Study shows on the Calendar (Settings → Preferences); in Study mode it always does
     const studyVisibleOnCalendar = () => LumaPlan.hasAddon('study') && (LUMA_MODE === 'study' || prefOn('show_study_personal', false));
