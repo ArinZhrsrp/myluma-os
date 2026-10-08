@@ -4134,6 +4134,9 @@
     .mall-stat .v { margin-top:3px; font-size:0.9rem; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
     @media (max-width:480px){ .mall-bar { flex-direction:column; align-items:stretch; } .mall-day { width:100%; } }
 
+    /* disabled buttons look disabled (e.g. Mark all as read when everything is read) */
+    .create-btn:disabled, .np-btn:disabled { opacity:0.4; cursor:not-allowed; filter:grayscale(0.4); pointer-events:none; }
+
     /* page switcher */
     .page {
       display: none;
