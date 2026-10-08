@@ -3,7 +3,7 @@
     // supabase/migrations/044_addons.sql) that bring their own menu. A mode without its add-on shows what it is and
     // how to get it: a request to you on WhatsApp with the person's details (like a plan upgrade). `live: true` also opens the free 7-day trial.
     const ADDONS = {
-      work: { name: 'Work', icon: 'fa-briefcase', color: '#60a5fa', tag: 'Projects & teams', price: 'RM15 / month', live: false,
+      work: { name: 'Work', icon: 'fa-briefcase', color: '#fb923c', tag: 'Projects & teams', price: 'RM15 / month', live: false,
         perks: ['Projects with tasks, assignees, due dates and status', 'Board, list and timeline (Gantt) views', 'Comments and file uploads on every task', 'Invite people who already have a LUMA account', 'Time tracking and a monthly timesheet you can download'] },
       study: { name: 'Study', icon: 'fa-graduation-cap', color: '#34d399', tag: 'Classes & assignments', price: 'RM7 / month', live: false,
         perks: ['Weekly timetable for your classes', 'Assignments, tests and exams with reminders', 'Group projects: invite classmates who already have LUMA', 'Study sessions tied to each subject', 'Grades and a semester planner'] },

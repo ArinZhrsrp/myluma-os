@@ -3412,7 +3412,7 @@
     .mode-switch button .lk { display:none; position:absolute; top:3px; right:5px; font-size:0.5rem; opacity:0.75; }
     .mode-switch button.locked .lk { display:block; }
     .mode-switch button.on { color:#fff; background:linear-gradient(135deg,#2563eb,#3b82f6); box-shadow:0 6px 18px rgba(37,99,235,0.3); }
-    .mode-switch[data-mode="work"] button.on { background:linear-gradient(135deg,#4f46e5,#60a5fa); box-shadow:0 6px 18px rgba(79,70,229,0.3); }
+    .mode-switch[data-mode="work"] button.on { background:linear-gradient(135deg,#ea580c,#fb923c); box-shadow:0 6px 18px rgba(234,88,12,0.32); }
     .mode-switch[data-mode="study"] button.on { background:linear-gradient(135deg,#059669,#34d399); box-shadow:0 6px 18px rgba(5,150,105,0.3); }
     .menu.mode-off { display:none; }
     .ad-hero { --ac:#60a5fa; display:flex; align-items:center; gap:14px; margin-bottom:14px; position:relative; }
