@@ -8153,6 +8153,22 @@
     </div>
   </div>
 
+  <div class="modal-overlay confirm-overlay" id="moneyAllOverlay">
+    <div class="profile-edit-modal" style="width:560px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">All transactions</div>
+        <button class="x" id="mAllClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="h-mnav"><button type="button" id="mAllPrev" title="Previous month"><i class="fa-solid fa-chevron-left"></i></button><span id="mAllMonth"></span><button type="button" id="mAllNext" title="Next month"><i class="fa-solid fa-chevron-right"></i></button></div>
+        <select id="mAllDay" title="Day"></select>
+      </div>
+      <div class="ls" id="mAllSum" style="margin-bottom:8px"></div>
+      <div id="mAllList"></div>
+      <div class="pem-actions"><button class="confirm-btn cancel" id="mAllDone" style="flex:1">Close</button></div>
+    </div>
+  </div>
+
   <div class="modal-overlay confirm-overlay" id="moneyEntryOverlay">
     <div class="profile-edit-modal" style="width:460px;max-width:100%">
       <div class="pem-head">
@@ -10670,6 +10686,13 @@
       return out.sort((a, c) => c.date.localeCompare(a.date));
     }
 
+    function mTxRow(t) {
+      const [, icon, col] = t.salary ? ['', 'fa-arrow-trend-up', '#4ade80'] : mCatInfo(t.cat, t.kind), dl = new Date(t.date + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+      return `<div class="lrow m-tx" ${t.entry ? `data-id="${t.entry.id}"` : ''}><div class="licon" style="color:${col};background:${col}22"><i class="fa-solid ${icon}"></i></div>
+        <div class="lmain"><div class="lt">${escapeHtml(t.name)}${t.bill ? `<span class="m-tag">${t.bill.category === 'Subscription' ? 'Subscription' : 'Bill'}</span>` : ''}${t.expected ? '<span class="m-tag">Expected</span>' : ''}</div><div class="ls">${escapeHtml(t.salary ? 'Income' : t.cat)} · ${dl}</div></div>
+        <span class="m-amt ${t.kind === 'income' ? 'in' : 'out'}">${t.kind === 'income' ? '+' : '−'}${bRM(t.amount)}</span>${t.entry ? '<button type="button" class="hedit m-edit" title="Edit"><i class="fa-solid fa-pen"></i></button>' : ''}</div>`;
+    }
+
     function paintMoney() {
       const root = docEl('moneyRoot'), sub = docEl('moneySub'); if (!root) return;
       if (MERR) {
@@ -10688,12 +10711,8 @@
       const cats = Object.entries(byCat).sort((a, c) => c[1] - a[1]);
       const catHtml = cats.length ? cats.map(([n, v]) => { const [, , col] = mCatInfo(n, 'expense'); return `<div class="m-cat"><div class="top"><span class="dot" style="background:${col}"></span>${escapeHtml(n)}<span class="amt">${bRM(v)}</span></div><div class="bar"><span style="width:${Math.max(2, Math.round(v / spent * 100))}%;background:${col}"></span></div></div>`; }).join('')
         : '<div class="ls" style="padding:18px 2px">No spending logged this month yet. Log an expense, or mark a bill as paid.</div>';
-      const txHtml = txns.length ? txns.map(t => {
-        const [, icon, col] = t.salary ? ['', 'fa-arrow-trend-up', '#4ade80'] : mCatInfo(t.cat, t.kind), dl = new Date(t.date + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-        return `<div class="lrow m-tx" ${t.entry ? `data-id="${t.entry.id}"` : ''}><div class="licon" style="color:${col};background:${col}22"><i class="fa-solid ${icon}"></i></div>
-          <div class="lmain"><div class="lt">${escapeHtml(t.name)}${t.bill ? `<span class="m-tag">${t.bill.category === 'Subscription' ? 'Subscription' : 'Bill'}</span>` : ''}${t.expected ? '<span class="m-tag">Expected</span>' : ''}</div><div class="ls">${escapeHtml(t.salary ? 'Income' : t.cat)} · ${dl}</div></div>
-          <span class="m-amt ${t.kind === 'income' ? 'in' : 'out'}">${t.kind === 'income' ? '+' : '−'}${bRM(t.amount)}</span>${t.entry ? '<button type="button" class="hedit m-edit" title="Edit"><i class="fa-solid fa-pen"></i></button>' : ''}</div>`;
-      }).join('') : '<div class="ls" style="padding:18px 2px">Nothing yet this month.</div>';
+      const shownTx = txns.slice(0, 5); // the page only lists the 5 latest; View all opens the full list
+      const txHtml = shownTx.length ? shownTx.map(mTxRow).join('') : '<div class="ls" style="padding:18px 2px">Nothing yet this month.</div>';
 
       const incomeNote = MSET.gross_salary > 0 ? (mIsMY() ? 'take-home after EPF, SOCSO & EIS' : 'salary + other income') : 'tap to set your salary';
       root.innerHTML = `<div class="m-nav"><div class="h-mnav"><button type="button" class="m-mprev" title="Previous month"><i class="fa-solid fa-chevron-left"></i></button><span>${bMonthLabel(first)}</span><button type="button" class="m-mnext" title="Next month"><i class="fa-solid fa-chevron-right"></i></button></div></div>
@@ -10705,9 +10724,41 @@
         </div>
         <div class="m-grid">
           ${card(`<div class="section-title"><i class="fa-solid fa-chart-pie"></i> Spending by category</div><div class="m-scroll">${catHtml}</div>`, 'm-panel')}
-          ${card(`<div class="section-title"><i class="fa-solid fa-right-left"></i> Recent transactions</div><div class="m-scroll">${txHtml}</div>`, 'm-panel')}
+          ${card(`<div class="section-title"><i class="fa-solid fa-right-left"></i> Recent transactions<button type="button" class="wgt-link m-viewall" style="margin-left:auto;background:none;border:none;font-family:inherit">View all</button></div><div class="m-scroll">${txHtml}</div>`, 'm-panel')}
         </div>`;
     }
+
+    // ----- all transactions popup: change the month and (optionally) a single day -----
+    let mAllMonth = null, mAllDay = '';
+    function paintAllTx() {
+      const first = mAllMonth, txns = mTxns(first), last = bAddDays(bAddMonths(first, 1), -1), nDays = +last.slice(8);
+      const sel = docEl('mAllDay');
+      if (mAllDay && !(mAllDay >= first && mAllDay <= last)) mAllDay = '';
+      sel.innerHTML = '<option value="">All days</option>' + Array.from({ length: nDays }, (_, i) => { const k = first.slice(0, 8) + String(i + 1).padStart(2, '0'); return `<option value="${k}">${new Date(k + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })}</option>`; }).join('');
+      sel.value = mAllDay; skinSelect(sel);
+      docEl('mAllMonth').textContent = bMonthLabel(first);
+      const rows = mAllDay ? txns.filter(t => t.date === mAllDay) : txns;
+      const out = rows.filter(t => t.kind === 'expense').reduce((a, t) => a + t.amount, 0), inc = rows.filter(t => t.kind === 'income').reduce((a, t) => a + t.amount, 0);
+      docEl('mAllSum').textContent = rows.length ? `${rows.length} transaction${rows.length === 1 ? '' : 's'} · spent ${bRM(out)}${inc ? ' · income ' + bRM(inc) : ''}` : '';
+      docEl('mAllList').innerHTML = rows.length ? rows.map(mTxRow).join('') : `<div class="ls" style="padding:18px 2px">${mAllDay ? 'Nothing on this day.' : 'Nothing this month.'}</div>`;
+      const thisFirst = bFirst(mytDayKey(Date.now()));
+      docEl('mAllPrev').disabled = first <= bAddMonths(thisFirst, -24); docEl('mAllNext').disabled = first >= bAddMonths(thisFirst, 12);
+    }
+    function openAllTx() {
+      mAllMonth = mMonth || bFirst(mytDayKey(Date.now())); mAllDay = '';
+      paintAllTx();
+      docEl('moneyAllOverlay').classList.add('open');
+      docEl('moneyAllOverlay').querySelectorAll('.pem-body, .profile-edit-modal').forEach(el => { el.scrollTop = 0; });
+    }
+    const closeAllTx = () => docEl('moneyAllOverlay').classList.remove('open');
+    docEl('mAllClose').onclick = docEl('mAllDone').onclick = closeAllTx;
+    docEl('moneyAllOverlay').onclick = e => {
+      if (e.target === docEl('moneyAllOverlay')) return closeAllTx();
+      const row = e.target.closest('.m-tx[data-id]'); if (row && e.target.closest('.m-edit')) { closeAllTx(); openEntryModal(MENT.find(x => x.id === row.dataset.id)); }
+    };
+    docEl('mAllPrev').onclick = () => { mAllMonth = bAddMonths(mAllMonth, -1); mAllDay = ''; paintAllTx(); };
+    docEl('mAllNext').onclick = () => { mAllMonth = bAddMonths(mAllMonth, 1); mAllDay = ''; paintAllTx(); };
+    docEl('mAllDay').addEventListener('change', () => { mAllDay = docEl('mAllDay').value; paintAllTx(); });
 
     async function loadMoneyData() {
       const since = bAddMonths(bFirst(mytDayKey(Date.now())), -24);
@@ -10825,6 +10876,7 @@
       pg.querySelector('#moneyBudgetBtn').addEventListener('click', editBudget);
       pg.querySelector('#moneyRoot').addEventListener('click', e => {
         if (e.target.closest('.m-mprev') || e.target.closest('.m-mnext')) { mMonth = bAddMonths(mMonth || bFirst(mytDayKey(Date.now())), e.target.closest('.m-mprev') ? -1 : 1); if (mMonth === bFirst(mytDayKey(Date.now()))) mMonth = null; return paintMoney(); }
+        if (e.target.closest('.m-viewall')) return openAllTx();
         const act = e.target.closest('[data-act]'); if (act) return act.dataset.act === 'income' ? openIncomeModal() : editBudget();
         const row = e.target.closest('.m-tx[data-id]'); if (row && e.target.closest('.m-edit')) openEntryModal(MENT.find(x => x.id === row.dataset.id));
       });
