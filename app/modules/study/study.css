@@ -99,3 +99,7 @@
     .sd-sw:hover { transform:scale(1.1); }
     .sd-sw.on { border-color:#fff; box-shadow:0 0 0 2px color-mix(in srgb, var(--c) 60%, transparent); }
     .sd-days { display:flex; gap:6px; flex-wrap:wrap; }
+
+    /* the Add button keeps one width whatever its label, so the tabs beside it never shift */
+    #sdAdd { width:168px; justify-content:center; flex:none; }
+    @media (max-width:900px) { #sdAdd { width:auto; min-width:150px; } }
