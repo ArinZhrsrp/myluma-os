@@ -18,6 +18,7 @@
     const sdGuest = () => !LumaPlan.hasAddon('study');
 
     MODULES.study = function () {
+      if (SD.keepTab) SD.keepTab = false; else SD.tab = 'overview'; // opening Study from the menu starts on its first page (Overview); a flow that needs another tab sets keepTab
       if (sdGuest()) SD.tab = 'groups';
       const info = (LumaPlan.addonInfo && LumaPlan.addonInfo.study) || {}, ends = info.expires_at ? new Date(info.expires_at) : null;
       const note = ends && info.source === 'trial' ? ` · trial ends ${ends.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}` : '';
@@ -63,7 +64,7 @@
     const sdLiveTasks = () => SD.tasks.filter(sdLiveTask);
     async function sdNeedSem() { // true (after offering to open Semesters) when there is no active semester
       if (sdActiveSem()) return false;
-      if (await luConfirm({ title: 'No active semester', message: 'Everything you add in Study goes into your active semester. Create one, or activate an existing one, first.', ok: 'Open Semesters', icon: 'fa-calendar-days', tone: 'info' })) { SD.tab = 'semesters'; goTo('study'); sdPaint(); }
+      if (await luConfirm({ title: 'No active semester', message: 'Everything you add in Study goes into your active semester. Create one, or activate an existing one, first.', ok: 'Open Semesters', icon: 'fa-calendar-days', tone: 'info' })) { SD.tab = 'semesters'; SD.keepTab = true; goTo('study'); sdPaint(); }
       return true;
     }
     // GPA over a list of subjects: credit-hour weighted; subjects without a mark are left out

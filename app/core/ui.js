@@ -85,8 +85,6 @@
       </div>`;
     };
     const card = (inner, cls = '') => `<div class="card ${cls}">${inner}</div>`;
-    // remembers where you were on a page (a folder, a filter, a tab) while you use other pages; it is forgotten on refresh
-    const PAGE_MEM = {};
     const head = (title, sub, actions = '') => `<div class="page-head"><div><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div><div class="head-actions">${actions}</div></div>`;
     const btn = (label, icon) => `<button class="create-btn">${icon ? `<i class="fa-solid ${icon}"></i>` : ''} ${label}</button>`;
 

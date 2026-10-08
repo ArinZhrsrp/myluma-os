@@ -5,6 +5,7 @@
     const SA_TABS = [['subjects', 'Subjects', 'fa-book'], ['timetable', 'Timetable', 'fa-calendar-week'], ['assignments', 'Assignments', 'fa-list-check'], ['notes', 'Notes', 'fa-note-sticky'], ['groups', 'Groups', 'fa-user-group'], ['other', 'Other', 'fa-layer-group']];
 
     MODULES.studyarchive = function () {
+      SA.sem = null; SA.tab = 'subjects'; SA.other = null; // opening the archive from the menu starts on the list of semesters
       return head('Study archive', '<span id="saSub">Loading…</span>', `<div id="saBack" style="display:none"><button type="button" class="create-btn" id="saBackBtn"><i class="fa-solid fa-arrow-left"></i> All semesters</button></div>`) + '<div id="saRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
     };
     // the subjects shown for the archived semester being looked at
@@ -105,7 +106,7 @@
     WIRE.studyarchive = async function (pg) {
       pg.querySelector('#saBackBtn').addEventListener('click', () => { SA.sem = null; saPaint(); });
       pg.querySelector('#saRoot').addEventListener('click', async e => {
-        const go = e.target.closest('[data-sa-go]'); if (go) return goTo(go.dataset.saGo);
+        const go = e.target.closest('[data-sa-go]'); if (go) { if (go.dataset.saGo === 'study') { SD.tab = 'semesters'; SD.keepTab = true; } return goTo(go.dataset.saGo); }
         const open = e.target.closest('[data-sa-open]'); if (open) { SA.sem = open.dataset.saOpen; SA.tab = 'subjects'; saPaint(); const r = document.getElementById('saRoot'); if (r) r.scrollTop = 0; return; }
         const tab = e.target.closest('[data-sa-tab]'); if (tab) {
           SA.tab = tab.dataset.saTab; saPaint();

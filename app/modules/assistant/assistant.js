@@ -87,7 +87,6 @@
           const t = (val || input.value).trim(); if (!t) return;
           input.value = ''; lumiSend(t, (r, x) => { const b = push(r, x); scroll.scrollTop = scroll.scrollHeight; return b; });
         };
-        LUMI_HIST.forEach(m => push(m.role === 'user' ? 'me' : 'ai', m.content)); // the conversation so far comes back when you return to this page
         lumiPaintLeft(); lumiCheckLeft();
         send.addEventListener('click', () => submit());
         input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });

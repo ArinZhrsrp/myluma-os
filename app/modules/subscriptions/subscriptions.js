@@ -69,7 +69,7 @@
     }
 
     async function loadSubs(pg) {
-      sHi = false;
+      sHi = false; sTab = 'active';
       // while the yellow highlight is on, a click anywhere else on the page clears it (the Renews soon card itself toggles it)
       if (!window._sHiBound) { window._sHiBound = true; document.addEventListener('click', e => { if (sHi && docEl('subsRoot') && !e.target.closest('.s-clickable')) { sHi = false; paintSubs(); } }); }
       pg.querySelector('#addSubBtn').addEventListener('click', () => openBillModal(null, { category: 'Subscription', recurrence: 'monthly' }, 'sub'));

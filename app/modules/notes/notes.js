@@ -9,8 +9,7 @@
     // ---------- Notes & Docs (Supabase-backed, links to Documents) ----------
     async function loadNotes(pg) {
       const sub = pg.querySelector('#notesSub');
-      const mem = (PAGE_MEM.notes = PAGE_MEM.notes || {}); // the tag, search and date filter you were on come back when you return to this page
-      let notes = [], filter = mem.filter || 'all', query = mem.query || '', dateF = mem.dateF || newDateFilter();
+      let notes = [], filter = 'all', query = '', dateF = newDateFilter();
       let editing = null;        // note being edited, or null for a new one
       let atts = [];             // documents attached in the editor (saved on Save)
       let libDocs = null;        // lazy cache of own + shared documents for the picker
@@ -28,7 +27,6 @@
       };
 
       const render = () => {
-        mem.filter = filter; mem.query = query; mem.dateF = dateF;
         const tags = [...new Set(notes.map(n => n.tag).filter(Boolean))].sort((a, b) => a.localeCompare(b));
         if (filter !== 'all' && !tags.includes(filter)) filter = 'all';
         sub.textContent = `${notes.length} note${notes.length === 1 ? '' : 's'} · your personal knowledge base`;
@@ -212,7 +210,6 @@
       pg.querySelector('#newNoteBtn').onclick = () => openEditor(null);
       const noteDateBtn = pg.querySelector('#noteDateBtn');
       noteDateBtn.onclick = () => openDateFilter(noteDateBtn, dateF, st => { dateF = st; paintDateFilterBtn(noteDateBtn, dateF); render(); }); // filters by last-updated date
-      pg.querySelector('#noteSearch').value = query; paintDateFilterBtn(noteDateBtn, dateF);
       pg.querySelector('#noteSearch').oninput = e => { query = e.target.value; render(); };
       pg.querySelector('#noteFilters').onclick = e => { const f = e.target.closest('.note-filter'); if (f) { filter = f.dataset.k; render(); } };
       pg.querySelector('#noteGrid').onclick = async e => {
