@@ -13,6 +13,11 @@
           <div class="pem-field"><label>Credit hours <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseCredits" type="number" min="0" max="30" step="1" placeholder="e.g. 3" autocomplete="off"></div>
         </div>
         <div class="pem-field"><label>Lecturer <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseLecturer" type="text" maxlength="80" placeholder="e.g. Dr. Aisyah" autocomplete="off"></div>
+        <div class="pem-field"><label>Semester <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><select id="sdCourseSem"></select></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>Target mark % <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseTarget" type="text" inputmode="decimal" placeholder="e.g. 80" autocomplete="off"></div>
+          <div class="pem-field"><label>Final mark % <span style="color:rgba(255,255,255,0.35);font-weight:400">(when finished)</span></label><input id="sdCourseFinal" type="text" inputmode="decimal" placeholder="e.g. 76" autocomplete="off"></div>
+        </div>
         <div class="pem-field"><label>Colour</label><div class="sd-colors" id="sdCourseColors"></div></div>
       </div>
       <div class="pem-actions" style="gap:10px">
@@ -77,6 +82,28 @@
       <div class="pem-actions" style="gap:10px">
         <button type="button" class="h-del" id="sdTaskDelete" title="Delete" aria-label="Delete" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
         <button class="confirm-btn save" id="sdTaskSave" style="flex:1">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdSemOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:440px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdSemTitle">New semester</div>
+        <button class="x" id="sdSemClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdSemError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>Name <span style="color:#fca5a5">*</span></label><input id="sdSemName" type="text" maxlength="60" placeholder="e.g. Semester 2, 2026" autocomplete="off"></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>First day <span style="color:#fca5a5">*</span></label><input id="sdSemStart" type="text"></div>
+          <div class="pem-field"><label>Last day <span style="color:#fca5a5">*</span></label><input id="sdSemEnd" type="text"></div>
+        </div>
+        <div class="pem-hint" id="sdSemHint" style="margin:2px 0 0"></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="sdSemDelete" title="Delete semester" aria-label="Delete semester" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="sdSemSave" style="flex:1">Save semester</button>
       </div>
     </div>
   </div>

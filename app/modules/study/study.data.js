@@ -1,5 +1,6 @@
 // LUMA — Supabase helpers for the Study add-on. Depends on luma-auth.js (reuses its client).
-// Requires supabase/migrations/044_addons.sql and 045_study.sql.
+// Requires supabase/migrations/044_addons.sql and 045_study.sql (+ 047 class dates, 049 semesters / marks).
+// Columns added by a later migration are optional: until that migration has run the app falls back to the older columns.
 
 (function () {
   if (!window.LumaAuth || !window.LumaAuth.client) {
@@ -8,32 +9,32 @@
   }
 
   const db = () => window.LumaAuth.client.schema("luma");
-  const COURSE = "id, name, code, color, lecturer, credit_hours, archived, created_at";
+  const COURSE_BASE = "id, name, code, color, lecturer, credit_hours, archived, created_at";
   const CLASS_BASE = "id, course_id, weekday, start_time, end_time, room, kind, created_at";
-  const CLASS = CLASS_BASE + ", start_date, end_date"; // the dates come from migration 047 — fall back to the base columns until it has run
-  const NO_DATES = /start_date|end_date|schema cache/i;
-  const noDates = (f) => { const g = { ...f }; delete g.start_date; delete g.end_date; return g; };
-  const classes = {
-    async list() { const r = await db().from("study_classes").select(CLASS).order("start_time", { ascending: true }); return r.error && NO_DATES.test(r.error.message) ? db().from("study_classes").select(CLASS_BASE).order("start_time", { ascending: true }) : r; },
-    async addMany(rows) { const r = await db().from("study_classes").insert(rows).select(CLASS); return r.error && NO_DATES.test(r.error.message) ? db().from("study_classes").insert(rows.map(noDates)).select(CLASS_BASE) : r; },
-    async update(id, f) { const r = await db().from("study_classes").update(f).eq("id", id).select(CLASS).single(); return r.error && NO_DATES.test(r.error.message) ? db().from("study_classes").update(noDates(f)).eq("id", id).select(CLASS_BASE).single() : r; },
-    remove: (id) => db().from("study_classes").delete().eq("id", id),
-  };
   const TASK = "id, course_id, title, kind, due_date, due_time, weight, score, max_score, status, notes, completed_at, created_at";
+  const SEMESTER = "id, name, start_date, end_date, created_at";
 
-  // the same four calls for each table; user_id defaults to auth.uid() in the database
-  const table = (name, cols, order) => ({
-    list: () => db().from(name).select(cols).order(order, { ascending: true }),
-    add: (fields) => db().from(name).insert(fields).select(cols).single(),
-    addMany: (rows) => db().from(name).insert(rows).select(cols),
-    update: (id, fields) => db().from(name).update(fields).eq("id", id).select(cols).single(),
-    remove: (id) => db().from(name).delete().eq("id", id),
-  });
+  // the same calls for each table; user_id defaults to auth.uid() in the database.
+  // `extra` = columns a later migration added: tried first, left out again if the database doesn't have them yet.
+  const table = (name, base, order, extra = []) => {
+    const cols = extra.length ? base + ", " + extra.join(", ") : base;
+    const missing = new RegExp(extra.concat(["schema cache"]).join("|"), "i");
+    const strip = (f) => { const g = Array.isArray(f) ? f.map(strip) : { ...f }; if (!Array.isArray(g)) extra.forEach((c) => delete g[c]); return g; };
+    const retry = (r, again) => (r.error && extra.length && missing.test(r.error.message) ? again() : r);
+    return {
+      async list() { return retry(await db().from(name).select(cols).order(order, { ascending: true }), () => db().from(name).select(base).order(order, { ascending: true })); },
+      async add(f) { return retry(await db().from(name).insert(f).select(cols).single(), () => db().from(name).insert(strip(f)).select(base).single()); },
+      async addMany(rows) { return retry(await db().from(name).insert(rows).select(cols), () => db().from(name).insert(strip(rows)).select(base)); },
+      async update(id, f) { return retry(await db().from(name).update(f).eq("id", id).select(cols).single(), () => db().from(name).update(strip(f)).eq("id", id).select(base).single()); },
+      remove: (id) => db().from(name).delete().eq("id", id),
+    };
+  };
 
   window.LumaStudy = {
-    courses: table("study_courses", COURSE, "created_at"),
-    classes,
+    courses: table("study_courses", COURSE_BASE, "created_at", ["semester_id", "target_percent", "final_percent"]),
+    classes: table("study_classes", CLASS_BASE, "start_time", ["start_date", "end_date"]),
     tasks: table("study_tasks", TASK, "due_date"),
+    semesters: table("study_semesters", SEMESTER, "start_date"),
     // focus sessions tagged with a subject since a moment (for "study time")
     focusSince: (iso) => db().from("focus_sessions").select("minutes, course_id, started_at").gte("started_at", iso),
   };

@@ -373,6 +373,7 @@ supabase/migrations/
   046_fix_addon_policies.sql   Fix: Study rules call luma.has_my_addon (users can't call has_addon)
   047_study_class_dates.sql    Timetable classes can run for N weeks / months / until a date
   048_event_invites.sql        Invite contacts to calendar events (accept / decline, guest list)
+  049_study_v2.sql             Study v2: semesters, subject target / final marks (GPA, CGPA)
   042_backgrounds.sql          your uploaded wallpaper is saved with your account (private storage bucket)
   041_focus_sessions.sql       Focus mode: every completed focus session is saved
   040_admin_report.sql         Admin page: monthly report of people per plan + log of every plan change
