@@ -21,3 +21,12 @@
     .adm-addons button:hover { color:#fff; background:rgba(255,255,255,0.1); }
     .adm-addons button.on { color:#fff; border-color:transparent; background:linear-gradient(135deg,#2563eb,#60a5fa); }
     .adm-addons button[data-addon="study"].on { background:linear-gradient(135deg,#059669,#34d399); }
+
+    .adm-planbtn { width:100%; display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:7px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.06); color:#fff; font:inherit; cursor:pointer; text-align:left; }
+    .adm-planbtn:hover { background:rgba(255,255,255,0.12); }
+    .adm-planbtn b { font-size:0.82rem; }
+    .adm-planbtn small { color:rgba(255,255,255,0.6); font-size:0.64rem; }
+    .adm-planbtn.soon small, .adm-addons button.soon small { color:#fca5a5; }
+    .adm-addons button small { margin-left:5px; font-size:0.58rem; opacity:0.85; }
+    .adm-addons button { height:auto; min-height:26px; padding:3px 8px; }
+    .adm-prev { margin-top:6px; padding:10px 14px; border-radius:12px; background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.3); color:#a7f3d0; font-size:0.8rem; line-height:1.45; }

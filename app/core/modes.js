@@ -53,8 +53,23 @@
     // someone invited to a group project (or already in one) may open the Groups tab of Study even without the add-on
     async function sdCheckGuest() {
       if (LumaPlan.hasAddon('study') || typeof LumaStudy === 'undefined') return;
-      try { const r = await LumaStudy.groups.list(); if (!r.error && (r.data || []).length) { LumaPlan.guestStudy = true; applyModeMenus(); } } catch (e) { }
+      try { // only someone invited to a project that ANOTHER person owns gets in (the organiser covers the add-on); owning projects of your own is not enough
+        const r = await LumaStudy.groups.list(); LumaPlan.guestStudy = !r.error && (r.data || []).some(p => !LUMA_USER || p.owner_id !== LUMA_USER.id); applyModeMenus();
+      } catch (e) { }
     }
+    // after an add-on or plan changes (or is found changed): leave a mode you no longer have, and lock it again
+    async function enforceModeAccess() {
+      LumaPlan.guestStudy = false; await sdCheckGuest();
+      const has = m => m === 'personal' || LumaPlan.hasAddon(m) || (m === 'study' && LumaPlan.guestStudy), page = (document.querySelector('.page.active') || {}).id || '';
+      const onWork = LUMA_MODE === 'work' || /^page-work$/.test(page), onStudy = LUMA_MODE === 'study' || /^page-(study|studyarchive)$/.test(page);
+      if ((onWork && !has('work')) || (onStudy && !has('study'))) { LUMA_MODE = 'personal'; try { localStorage.setItem('luma_mode', 'personal'); } catch (e) { } Object.keys(rendered).forEach(k => delete rendered[k]); applyModeMenus(); goTo('dashboard'); }
+      else applyModeMenus();
+    }
+    // the plan and add-ons are checked again when you come back to the app after a while, so a change made by the admin shows up without logging out
+    document.addEventListener('visibilitychange', async () => {
+      if (document.hidden || !LumaPlan.loadedAt || Date.now() - LumaPlan.loadedAt < 120000) return;
+      const before = JSON.stringify([LumaPlan.plan, LumaPlan.addons]); await LumaPlan.load(); if (JSON.stringify([LumaPlan.plan, LumaPlan.addons]) !== before) enforceModeAccess();
+    });
     // on sign-in: go back to the mode the person was in (only if they still have its add-on)
     function initModes() {
       let m = 'personal';

@@ -24,11 +24,26 @@
       docEl('planGrid').innerHTML = PLANS.map(p => `<div class="plan-card ${p.id === cur.id ? 'cur' : ''}" style="--pc:${p.color}">
         ${p.id === cur.id ? '<span class="pb">Your plan</span>' : ''}
         <div class="pn"><span class="pi"><i class="fa-solid ${p.icon}"></i></span>${p.name}</div><div class="pt">${p.tag}</div><div class="pp">${p.price}</div>
+        ${p.id === cur.id && p.id !== 'dawn' && LumaPlan.planExpires ? planEndLine(LumaPlan.planExpires) : ''}
         <ul>${p.perks.map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('')}</ul>
-        ${p.rank > cur.rank ? `<button type="button" class="pbtn up" data-up="${p.id}"><i class="fa-brands fa-whatsapp"></i> Upgrade to ${p.name}</button>` : p.id === cur.id ? (planFirst ? `<button type="button" class="pbtn" data-stay>Stay on ${p.name}</button>` : '<button type="button" class="pbtn" disabled>Current plan</button>') : '<button type="button" class="pbtn" disabled>Included</button>'}</div>`).join('');
+        ${p.rank > cur.rank ? `<button type="button" class="pbtn up" data-up="${p.id}"><i class="fa-brands fa-whatsapp"></i> Upgrade to ${p.name}</button>` : p.id === cur.id ? (planFirst ? `<button type="button" class="pbtn" data-stay>Stay on ${p.name}</button>` : p.id !== 'dawn' && LumaPlan.planExpires ? `<button type="button" class="pbtn up" data-renew="plan:${p.id}"><i class="fa-brands fa-whatsapp"></i> Renew ${p.name}</button>` : '<button type="button" class="pbtn" disabled>Current plan</button>') : '<button type="button" class="pbtn" disabled>Included</button>'}</div>`).join('');
       paintPlanAddons();
       docEl('planOverlay').classList.add('open');
       docEl('planOverlay').querySelectorAll('.pem-body, .profile-edit-modal').forEach(el => { el.scrollTop = 0; });
+    }
+    // "Until 8 Nov 2026 · 23 days left" (red when a week or less is left)
+    function planEndLine(iso) {
+      const d = LumaPlan.daysTo(iso), when = new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `<div class="pend ${d <= 7 ? 'soon' : ''}"><i class="fa-regular fa-clock"></i> ${d < 0 ? 'Ended ' + when : 'Until ' + when + (d === 0 ? ' · ends today' : ` · ${d} day${d === 1 ? '' : 's'} left`)}</div>`;
+    }
+    // renew: the same kind of WhatsApp request as an upgrade, saying what is being renewed and when it ends
+    function requestRenew(what) {
+      const [kind, id] = what.split(':'), num = String(window.LUMA_WHATSAPP || '').replace(/\D/g, '');
+      if (!num) return luAlert('The WhatsApp number for requests isn\'t set up yet. Please email aeinscape@gmail.com to renew.', 'Almost there');
+      const item = kind === 'plan' ? PLANS.find(x => x.id === id) : ADDONS[id], endIso = kind === 'plan' ? LumaPlan.planExpires : (LumaPlan.addonInfo[id] || {}).expires_at; if (!item) return;
+      const end = endIso ? new Date(endIso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'no end date';
+      const msg = `Hi LUMA! I'd like to renew.\n\nName: ${lumaFullName()}\nEmail: ${lumaEmail()}\nCurrent plan: ${LumaPlan.name()}\nRenew: ${kind === 'plan' ? item.name + ' plan' : item.name + ' add-on'}\nEnds: ${end}\nPrice: ${item.price}`;
+      window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
     }
     // Work / Study add-ons under the plans (not on the very first login, which is only about the plan)
     function paintPlanAddons() {
@@ -43,6 +58,8 @@
           ${on ? '<span class="pb">Active</span>' : ''}
           <div class="pn"><span class="pi"><i class="fa-solid ${a.icon}"></i></span>${a.name}</div><div class="pt">${a.tag}</div><div class="pp">${status}</div>
           <ul>${a.perks.slice(0, 3).map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('')}</ul>
+          ${on && info.expires_at ? planEndLine(info.expires_at) : ''}
+          ${on && info.expires_at ? `<button type="button" class="pbtn up" data-renew="addon:${k}"><i class="fa-brands fa-whatsapp"></i> Renew ${a.name}</button>` : ''}
           ${on ? `<button type="button" class="pbtn" data-addon="${k}" data-open style="cursor:pointer">Open ${a.name} mode</button>` : `<button type="button" class="pbtn up" data-addon-buy="${k}"><i class="fa-brands fa-whatsapp"></i> Get ${a.name}</button><button type="button" class="pbtn" data-addon="${k}" style="cursor:pointer">See what's included</button>`}
         </div>`;
       }).join('') + (!LumaPlan.hasAddon('work') && !LumaPlan.hasAddon('study') ? `<div class="plan-card ad-bundle" style="--pc:#34d399"><span class="pb">${ADDON_BUNDLE.save}</span><div class="pn"><span class="pi"><i class="fa-solid fa-layer-group"></i></span>${ADDON_BUNDLE.name}</div><div class="pt">Both add-ons together</div><div class="pp">${ADDON_BUNDLE.price}</div><button type="button" class="pbtn up" data-addon-buy="both"><i class="fa-brands fa-whatsapp"></i> Get both</button></div>` : '') + '</div>';
@@ -61,6 +78,7 @@
     docEl('planOverlay').onclick = e => {
       if (e.target === docEl('planOverlay')) return closePlans();
       const up = e.target.closest('[data-up]'); if (up) return requestUpgrade(up.dataset.up);
+      const rn = e.target.closest('[data-renew]'); if (rn) { closePlans(); return requestRenew(rn.dataset.renew); }
       const buy = e.target.closest('[data-addon-buy]'); if (buy) { closePlans(); return requestAddon(buy.dataset.addonBuy); }
       const ad = e.target.closest('[data-addon]'); if (ad) { if (ad.hasAttribute('data-open')) { closePlans(); return switchMode(ad.dataset.addon); } return openAddon(ad.dataset.addon); }
       if (e.target.closest('[data-stay]')) closePlans();

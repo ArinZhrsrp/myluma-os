@@ -1,0 +1,20 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="admPlanOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="admPlanTitle">Change plan</div>
+        <button class="x" id="admPlanClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="admPlanError"></div>
+      <div class="pem-body">
+        <div class="ls" id="admPlanWho" style="margin-bottom:12px;line-height:1.5"></div>
+        <div class="pem-field" id="admPlanPlanF"><label>Plan</label><div class="h-tpls" id="admPlanPlan"></div></div>
+        <div class="pem-field" id="admPlanOnF"><label>Add-on</label><div class="h-tpls" id="admPlanOn"></div></div>
+        <div class="pem-field" id="admPlanDurF"><label>For how long</label><div class="h-tpls" id="admPlanDur"></div>
+          <div id="admPlanUntilW" style="margin-top:8px;display:none"><input id="admPlanUntil" type="text"></div></div>
+        <div class="pem-field" id="admPlanExtF" style="display:none"><label>Time they already have</label><div class="h-tpls" id="admPlanExt"></div></div>
+        <div class="adm-prev" id="admPlanPrev"></div>
+      </div>
+      <div class="pem-actions"><button class="confirm-btn save" id="admPlanSave" style="flex:1">Apply</button></div>
+    </div>
+  </div>

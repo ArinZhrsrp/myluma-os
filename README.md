@@ -387,6 +387,7 @@ supabase/migrations/
   059_study_notes_extras.sql   Shared notes you can edit together; files on notes
   060_study_reminders_v2.sql   Own reminder per assignment, timed items, overdue nudges; archived semesters stay quiet
   061_grade_scales.sql         Grade scale per semester or subject
+  062_plan_expiry.sql          Plans and add-ons run for a period: end dates, automatic return to Dawn, admin sets or adds time
   042_backgrounds.sql          your uploaded wallpaper is saved with your account (private storage bucket)
   041_focus_sessions.sql       Focus mode: every completed focus session is saved
   040_admin_report.sql         Admin page: monthly report of people per plan + log of every plan change
