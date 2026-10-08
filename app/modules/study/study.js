@@ -533,6 +533,13 @@
     };
 
     // --- assignment / test / exam ---
+    const sdTimeOf = iso => new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
+    // a date and time on your clock (your time zone) → the exact moment, as the database wants it
+    function sdLocalToIso(k, hm) {
+      const [h, m] = hm.split(':').map(Number), t = Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10), h, m);
+      const off = ts => { const p = new Intl.DateTimeFormat('en-US', { timeZone: MYT, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(ts)), g = x => +p.find(y => y.type === x).value; return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) - ts; };
+      let guess = t - off(t); guess = t - off(guess); return new Date(guess).toISOString();
+    }
     function openTaskModal(t, pre) {
       if (!t && !sdActiveSem()) { sdNeedSem(); return; }
       const src = t || pre || {};
@@ -543,6 +550,9 @@
       docEl('sdTaskDue')._luDateRefresh && docEl('sdTaskDue')._luDateRefresh(); docEl('sdTaskTime')._luTimeRefresh && docEl('sdTaskTime')._luTimeRefresh();
       docEl('sdTaskWeight').value = t && t.weight != null ? +t.weight : ''; docEl('sdTaskScore').value = t && t.score != null ? +t.score : ''; docEl('sdTaskMax').value = t && t.max_score != null ? +t.max_score : '';
       docEl('sdTaskNotes').value = t ? t.notes || '' : '';
+      SDF.remindWas = t && t.remind_at ? t.remind_at : null;
+      docEl('sdTaskRemDate').value = t && t.remind_at ? mytDayKey(t.remind_at) : ''; docEl('sdTaskRemTime').value = t && t.remind_at ? sdTimeOf(t.remind_at) : '';
+      ['sdTaskRemDate'].forEach(id => docEl(id)._luDateRefresh && docEl(id)._luDateRefresh()); docEl('sdTaskRemTime')._luTimeRefresh && docEl('sdTaskRemTime')._luTimeRefresh();
       docEl('sdTaskDelete').style.display = t ? '' : 'none'; sdErr('sdTaskError', '');
       sdChips('sdTaskKinds', SD_KINDS, SDF.taskKind, 'tk'); sdChips('sdTaskStatus', SD_STATUS.map(([k, n]) => [k, n, '']), SDF.taskStatus, 'ts');
       sdOpen('sdTaskOverlay'); setTimeout(() => docEl('sdTaskTitle').focus(), 50);
@@ -561,7 +571,10 @@
       if (Number.isNaN(weight) || (weight != null && (weight < 0 || weight > 100))) return sdErr('sdTaskError', 'Weight is a percentage between 0 and 100.');
       if (Number.isNaN(score) || Number.isNaN(max) || (score != null && score < 0) || (max != null && max <= 0)) return sdErr('sdTaskError', 'Score must be 0 or more, and "Out of" above 0.');
       if (score != null && max == null) return sdErr('sdTaskError', 'Add what the score is out of, e.g. 50.');
-      const fields = { title, kind: SDF.taskKind, course_id: docEl('sdTaskCourse').value || null, due_date: docEl('sdTaskDue').value || null, due_time: docEl('sdTaskDue').value ? (docEl('sdTaskTime').value || null) : null, weight, score, max_score: max, status: SDF.taskStatus, notes: docEl('sdTaskNotes').value.trim() };
+      const rd = docEl('sdTaskRemDate').value, rt = docEl('sdTaskRemTime').value || '09:00';
+      let remindAt = null; if (rd) { remindAt = sdLocalToIso(rd, rt); if (remindAt !== SDF.remindWas && Date.parse(remindAt) <= Date.now()) return sdErr('sdTaskError', 'Pick a reminder time in the future.'); }
+      else if (docEl('sdTaskRemTime').value) return sdErr('sdTaskError', 'Pick the date of the extra reminder too.');
+      const fields = { title, kind: SDF.taskKind, course_id: docEl('sdTaskCourse').value || null, due_date: docEl('sdTaskDue').value || null, due_time: docEl('sdTaskDue').value ? (docEl('sdTaskTime').value || null) : null, weight, score, max_score: max, status: SDF.taskStatus, notes: docEl('sdTaskNotes').value.trim(), remind_at: remindAt, ...(remindAt !== SDF.remindWas ? { reminded_at: null } : {}) };
       sdErr('sdTaskError', ''); sdBtn('sdTaskSave', true);
       const { data, error } = SDF.taskId ? await LumaStudy.tasks.update(SDF.taskId, fields) : await LumaStudy.tasks.add(fields);
       sdBtn('sdTaskSave', false, 'Save');
