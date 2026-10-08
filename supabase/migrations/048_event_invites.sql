@@ -63,7 +63,7 @@ begin
       on conflict (event_id, invitee_id) do update set status = 'pending', responded_at = null, created_at = now();
     v_total := v_total + 1; v_count := v_count + 1;
     perform luma.notify(v_user, 'event_invite', '📅 ' || luma.person_name(auth.uid()) || ' invited you to ' || v_ev.title,
-      to_char(v_ev.event_date, 'FMDay, FMDD Mon') || case when v_ev.all_day then ' · all day' else ' · ' || to_char(v_ev.start_time, 'FMHH12:MI am') end || '. Open your calendar to accept or decline.', 'calendar');
+      to_char(v_ev.event_date, 'FMDay, FMDD Mon') || case when v_ev.all_day then ' · all day' else ' · ' || to_char(v_ev.start_time::time, 'FMHH12:MI am') end || '. Open your calendar to accept or decline.', 'calendar');
   end loop;
   return v_count;
 end;
@@ -110,7 +110,7 @@ grant execute on function luma.uninvite_from_event(uuid, uuid) to authenticated;
 -- events other people invited me to (pending and accepted), with who organised them
 create or replace function luma.my_invited_events()
 returns table (
-  id uuid, title text, category text, event_date date, all_day boolean, start_time time, end_time time, repeats text, note text,
+  id uuid, title text, category text, event_date date, all_day boolean, start_time text, end_time text, repeats text, note text,
   created_at timestamptz, owner_id uuid, owner_name text, my_status text
 )
 language sql
