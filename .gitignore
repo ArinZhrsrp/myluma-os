@@ -5,3 +5,7 @@ node_modules/
 .env.*
 supabase/.temp/
 supabase/.branches/
+
+# secrets files are never committed
+supabase/*.env
+!supabase/*.env.example
