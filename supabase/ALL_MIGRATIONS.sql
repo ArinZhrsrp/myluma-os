@@ -4775,3 +4775,641 @@ drop policy if exists assistant_pending_own on luma.assistant_pending;
 create policy assistant_pending_own on luma.assistant_pending for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 revoke all on luma.assistant_pending from anon;
 grant select, insert, update, delete on luma.assistant_pending to authenticated;
+
+
+-- ################################################################
+-- 052_study_extras.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 052: Study extras.
+--   • study_class_skips — cancel ONE session of a class (a holiday, a lecturer away) without deleting the class.
+--   • study_breaks      — break weeks / public holidays: no classes between these dates.
+--   • Class reminders   — "Calculus starts in 15 min" (Settings → Reminders → Classes). Skips, breaks, archived subjects and
+--                         classes outside their start / end dates are all respected.
+-- Same rules as the other Study tables (own rows only; adding or changing needs the Study add-on).
+-- Depends on 045, 046, 047, 031. Safe to re-run. Run in Supabase Dashboard → SQL Editor.
+-- ============================================================
+
+create table if not exists luma.study_class_skips (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  class_id   uuid not null references luma.study_classes(id) on delete cascade,
+  skip_date  date not null,
+  created_at timestamptz not null default now(),
+  unique (class_id, skip_date)
+);
+create index if not exists study_class_skips_user on luma.study_class_skips (user_id, skip_date);
+
+create table if not exists luma.study_breaks (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  name       text not null check (length(btrim(name)) between 1 and 60),
+  start_date date not null,
+  end_date   date not null,
+  created_at timestamptz not null default now(),
+  check (end_date >= start_date)
+);
+create index if not exists study_breaks_user on luma.study_breaks (user_id, start_date);
+
+alter table luma.study_class_skips enable row level security;
+alter table luma.study_breaks enable row level security;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['study_class_skips', 'study_breaks'] loop
+    execute format('drop policy if exists %I on luma.%I', t || '_read', t);
+    execute format('drop policy if exists %I on luma.%I', t || '_insert', t);
+    execute format('drop policy if exists %I on luma.%I', t || '_update', t);
+    execute format('drop policy if exists %I on luma.%I', t || '_delete', t);
+    execute format('create policy %I on luma.%I for select to authenticated using (user_id = auth.uid())', t || '_read', t);
+    execute format('create policy %I on luma.%I for insert to authenticated with check (user_id = auth.uid() and luma.has_my_addon(''study''))', t || '_insert', t);
+    execute format('create policy %I on luma.%I for update to authenticated using (user_id = auth.uid() and luma.has_my_addon(''study'')) with check (user_id = auth.uid())', t || '_update', t);
+    execute format('create policy %I on luma.%I for delete to authenticated using (user_id = auth.uid())', t || '_delete', t);
+    execute format('revoke all on luma.%I from anon', t);
+    execute format('grant select, insert, update, delete on luma.%I to authenticated', t);
+  end loop;
+end $$;
+
+-- a skipped date must belong to one of your own classes
+create or replace function luma.study_check_class_owner()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if not exists (select 1 from luma.study_classes k where k.id = new.class_id and k.user_id = new.user_id) then
+    raise exception 'That class is not yours';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists study_class_skips_owner on luma.study_class_skips;
+create trigger study_class_skips_owner before insert or update on luma.study_class_skips for each row execute function luma.study_check_class_owner();
+
+drop trigger if exists study_class_skips_cap on luma.study_class_skips;
+create trigger study_class_skips_cap before insert on luma.study_class_skips for each row execute function luma.study_cap('1000', 'cancelled dates');
+drop trigger if exists study_breaks_cap on luma.study_breaks;
+create trigger study_breaks_cap before insert on luma.study_breaks for each row execute function luma.study_cap('100', 'breaks');
+
+-- ---------- class reminders ----------
+alter table luma.reminder_prefs add column if not exists class_on boolean not null default true;
+alter table luma.reminder_prefs add column if not exists class_lead_min integer not null default 15;
+alter table luma.reminder_prefs drop constraint if exists reminder_prefs_class_lead_check;
+alter table luma.reminder_prefs add constraint reminder_prefs_class_lead_check check (class_lead_min between 5 and 60);
+
+-- on Dawn the lead time is fixed like every other reminder time (see 038 / 045)
+create or replace function luma.enforce_reminder_timing()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if coalesce(luma.limit_of(new.user_id, 'timing'), 1) = 0 and (
+       new.event_lead_min <> 15 or new.allday_hour <> 8 or new.task_hour <> 9 or new.bill_hour <> 9 or new.bill_days <> 3
+    or new.sub_hour <> 9 or new.sub_days <> 3 or new.goal_hour <> 9 or new.goal_days <> 3 or new.budget_pct <> 80
+    or new.study_hour <> 9 or new.study_days <> 3 or new.class_lead_min <> 15) then
+    raise exception 'Plan limit: choosing reminder times and the budget warning level is available on Glow and Zenith. You can still switch each reminder on or off.';
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function luma.run_class_reminders()
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  r record;
+  v_now timestamp;
+  v_today date;
+  v_on boolean;
+  v_lead int;
+  v_left int;
+  v_count int := 0;
+begin
+  for r in
+    select k.id, k.user_id, k.weekday, k.start_time, k.room, k.start_date, k.end_date, c.name as course_name
+    from luma.study_classes k
+    join luma.study_courses c on c.id = k.course_id
+    where not c.archived and (k.end_date is null or k.end_date >= current_date - 1)
+  loop
+    continue when not luma.has_addon(r.user_id, 'study');
+    select coalesce(bool_and(p.class_on), true), coalesce(max(p.class_lead_min), 15) into v_on, v_lead
+      from luma.reminder_prefs p where p.user_id = r.user_id;
+    continue when not v_on;
+    v_now := timezone(luma.user_tz(r.user_id), now());
+    v_today := v_now::date;
+    continue when extract(dow from v_today)::int <> r.weekday;
+    continue when r.start_date is not null and v_today < r.start_date;
+    continue when r.end_date is not null and v_today > r.end_date;
+    continue when exists (select 1 from luma.study_class_skips s where s.class_id = r.id and s.skip_date = v_today);
+    continue when exists (select 1 from luma.study_breaks b where b.user_id = r.user_id and v_today between b.start_date and b.end_date);
+    v_left := (extract(hour from r.start_time)::int * 60 + extract(minute from r.start_time)::int) - (extract(hour from v_now)::int * 60 + extract(minute from v_now)::int);
+    continue when v_left < 0 or v_left > v_lead;
+    continue when exists (
+      select 1 from luma.notifications n
+      where n.user_id = r.user_id and n.type = 'reminder_class' and n.ref = r.id and n.created_at > now() - interval '6 hours');
+    insert into luma.notifications (user_id, type, title, body, link, ref)
+    values (r.user_id, 'reminder_class',
+      '🎓 ' || r.course_name || case when v_left = 0 then ' starts now' else ' starts in ' || v_left || ' min' end,
+      to_char(r.start_time, 'FMHH12:MI am') || coalesce(' · ' || nullif(r.room, ''), ''),
+      'study', r.id);
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end;
+$$;
+revoke execute on function luma.run_class_reminders() from public, anon, authenticated;
+
+do $$
+begin
+  create extension if not exists pg_cron;
+  if exists (select 1 from cron.job where jobname = 'luma-class-reminders') then perform cron.unschedule('luma-class-reminders'); end if;
+  perform cron.schedule('luma-class-reminders', '* * * * *', 'select luma.run_class_reminders()');
+exception when others then
+  raise notice 'Could not schedule the class reminder job (%). Enable pg_cron under Database → Extensions, then re-run this file.', sqlerrm;
+end $$;
+
+
+-- ################################################################
+-- 053_study_notes.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 053: notes per subject, shareable with your contacts.
+--   • study_notes: your notes for a subject (private by default).
+--   • Share a note with accepted contacts: they can READ it under "Shared with me" (only you can edit it); you can stop sharing
+--     at any time, and a person can remove a note shared with them.
+-- Same rules as the other Study tables. Depends on 045, 046, 048 (luma.person_name). Safe to re-run.
+-- Run in Supabase Dashboard → SQL Editor.
+-- ============================================================
+
+create table if not exists luma.study_notes (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  course_id  uuid references luma.study_courses(id) on delete set null,
+  title      text not null check (length(btrim(title)) between 1 and 120),
+  body       text not null default '' check (length(body) <= 20000),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists study_notes_user on luma.study_notes (user_id, course_id);
+alter table luma.study_notes enable row level security;
+drop policy if exists study_notes_read on luma.study_notes;
+drop policy if exists study_notes_insert on luma.study_notes;
+drop policy if exists study_notes_update on luma.study_notes;
+drop policy if exists study_notes_delete on luma.study_notes;
+create policy study_notes_read on luma.study_notes for select to authenticated using (user_id = auth.uid());
+create policy study_notes_insert on luma.study_notes for insert to authenticated with check (user_id = auth.uid() and luma.has_my_addon('study'));
+create policy study_notes_update on luma.study_notes for update to authenticated using (user_id = auth.uid() and luma.has_my_addon('study')) with check (user_id = auth.uid());
+create policy study_notes_delete on luma.study_notes for delete to authenticated using (user_id = auth.uid());
+revoke all on luma.study_notes from anon;
+grant select, insert, update, delete on luma.study_notes to authenticated;
+
+drop trigger if exists study_notes_owner on luma.study_notes;
+create trigger study_notes_owner before insert or update on luma.study_notes for each row execute function luma.study_check_owner();
+drop trigger if exists study_notes_cap on luma.study_notes;
+create trigger study_notes_cap before insert on luma.study_notes for each row execute function luma.study_cap('300', 'notes');
+drop trigger if exists set_study_notes_updated_at on luma.study_notes;
+create trigger set_study_notes_updated_at before update on luma.study_notes for each row execute function luma.set_updated_at();
+
+create table if not exists luma.study_note_shares (
+  note_id     uuid not null references luma.study_notes(id) on delete cascade,
+  shared_with uuid not null references auth.users(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (note_id, shared_with)
+);
+alter table luma.study_note_shares enable row level security;
+revoke all on luma.study_note_shares from anon, authenticated;
+
+-- share one of your notes with accepted contacts
+create or replace function luma.share_study_note(p_note uuid, p_users uuid[])
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_title text; v_user uuid; v_count int := 0; v_total int;
+begin
+  select title into v_title from luma.study_notes where id = p_note and user_id = auth.uid();
+  if not found then raise exception 'You can only share your own notes'; end if;
+  select count(*) into v_total from luma.study_note_shares where note_id = p_note;
+  foreach v_user in array coalesce(p_users, '{}'::uuid[]) loop
+    continue when v_user = auth.uid();
+    if not exists (select 1 from luma.contacts c where c.status = 'accepted'
+                   and ((c.requester_id = auth.uid() and c.addressee_id = v_user) or (c.addressee_id = auth.uid() and c.requester_id = v_user))) then
+      raise exception 'You can only share with people in your contacts';
+    end if;
+    continue when exists (select 1 from luma.study_note_shares where note_id = p_note and shared_with = v_user);
+    if v_total >= 30 then raise exception 'A note can be shared with up to 30 people'; end if;
+    insert into luma.study_note_shares (note_id, shared_with) values (p_note, v_user);
+    v_total := v_total + 1; v_count := v_count + 1;
+    perform luma.notify(v_user, 'note_share', '📝 ' || luma.person_name(auth.uid()) || ' shared a note with you', v_title, 'study');
+  end loop;
+  return v_count;
+end;
+$$;
+revoke execute on function luma.share_study_note(uuid, uuid[]) from public, anon;
+grant execute on function luma.share_study_note(uuid, uuid[]) to authenticated;
+
+-- the owner stops sharing with someone, or a person removes a note shared with them (p_user = themselves)
+create or replace function luma.unshare_study_note(p_note uuid, p_user uuid)
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if p_user <> auth.uid() and not exists (select 1 from luma.study_notes where id = p_note and user_id = auth.uid()) then
+    raise exception 'Not allowed';
+  end if;
+  delete from luma.study_note_shares where note_id = p_note and shared_with = p_user;
+  return true;
+end;
+$$;
+revoke execute on function luma.unshare_study_note(uuid, uuid) from public, anon;
+grant execute on function luma.unshare_study_note(uuid, uuid) to authenticated;
+
+-- who one of my notes is shared with
+create or replace function luma.study_note_shared_with(p_note uuid)
+returns table (user_id uuid, name text)
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select s.shared_with, luma.person_name(s.shared_with)
+  from luma.study_note_shares s
+  join luma.study_notes n on n.id = s.note_id
+  where s.note_id = p_note and n.user_id = auth.uid()
+  order by 2;
+$$;
+revoke execute on function luma.study_note_shared_with(uuid) from public, anon;
+grant execute on function luma.study_note_shared_with(uuid) to authenticated;
+
+-- notes other people shared with me
+create or replace function luma.shared_study_notes()
+returns table (id uuid, title text, body text, course_name text, owner_name text, updated_at timestamptz)
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select n.id, n.title, n.body, coalesce(c.name, ''), luma.person_name(n.user_id), n.updated_at
+  from luma.study_note_shares s
+  join luma.study_notes n on n.id = s.note_id
+  left join luma.study_courses c on c.id = n.course_id
+  where s.shared_with = auth.uid()
+  order by n.updated_at desc;
+$$;
+revoke execute on function luma.shared_study_notes() from public, anon;
+grant execute on function luma.shared_study_notes() to authenticated;
+
+
+-- ################################################################
+-- 054_study_groups.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 054: group projects for Study.
+--   • Create a project, invite your ACCEPTED CONTACTS (classmates), split the work into tasks and assign them, keep shared notes,
+--     and give a teammate a nudge.
+--   • Members only ever see the projects they are in. Everything goes through the functions below (the tables themselves can't be
+--     read or written directly), and each function checks who is asking.
+--   • The organiser pays: invited classmates can use the group even without their own Study add-on.
+--   • Limits: 20 projects you own, 12 members and 200 tasks per project, a nudge to the same person at most once every 6 hours.
+-- Depends on 044, 046, 008 (notifications), 048 (luma.person_name). Safe to re-run.
+-- Run in Supabase Dashboard → SQL Editor.
+-- ============================================================
+
+create table if not exists luma.study_projects (
+  id          uuid primary key default gen_random_uuid(),
+  owner_id    uuid not null references auth.users(id) on delete cascade,
+  title       text not null check (length(btrim(title)) between 1 and 120),
+  course_name text not null default '' check (length(course_name) <= 80),
+  due_date    date,
+  notes       text not null default '' check (length(notes) <= 5000),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create table if not exists luma.study_project_members (
+  project_id uuid not null references luma.study_projects(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  status     text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  invited_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  primary key (project_id, user_id)
+);
+create index if not exists study_project_members_user on luma.study_project_members (user_id, status);
+create table if not exists luma.study_project_tasks (
+  id          uuid primary key default gen_random_uuid(),
+  project_id  uuid not null references luma.study_projects(id) on delete cascade,
+  title       text not null check (length(btrim(title)) between 1 and 140),
+  assignee_id uuid references auth.users(id) on delete set null,
+  status      text not null default 'todo' check (status in ('todo', 'in_progress', 'done')),
+  due_date    date,
+  created_by  uuid references auth.users(id) on delete set null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists study_project_tasks_project on luma.study_project_tasks (project_id);
+create table if not exists luma.study_nudges (
+  id         uuid primary key default gen_random_uuid(),
+  from_user  uuid not null references auth.users(id) on delete cascade,
+  to_user    uuid not null references auth.users(id) on delete cascade,
+  project_id uuid not null references luma.study_projects(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists study_nudges_pair on luma.study_nudges (from_user, to_user, project_id, created_at desc);
+
+alter table luma.study_projects enable row level security;
+alter table luma.study_project_members enable row level security;
+alter table luma.study_project_tasks enable row level security;
+alter table luma.study_nudges enable row level security;
+revoke all on luma.study_projects, luma.study_project_members, luma.study_project_tasks, luma.study_nudges from anon, authenticated;
+
+-- is p_user an accepted member (or the owner) of the project?
+create or replace function luma.in_project(p_project uuid, p_user uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select exists (select 1 from luma.study_project_members m where m.project_id = p_project and m.user_id = p_user and m.status = 'accepted');
+$$;
+revoke execute on function luma.in_project(uuid, uuid) from public, anon, authenticated;
+
+create or replace function luma.is_contact(p_a uuid, p_b uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select exists (select 1 from luma.contacts c where c.status = 'accepted'
+                 and ((c.requester_id = p_a and c.addressee_id = p_b) or (c.addressee_id = p_a and c.requester_id = p_b)));
+$$;
+revoke execute on function luma.is_contact(uuid, uuid) from public, anon, authenticated;
+
+-- create a project (needs the Study add-on); you become its first member
+create or replace function luma.create_study_project(p_title text, p_course text, p_due date, p_notes text)
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_id uuid;
+begin
+  if not luma.has_my_addon('study') then raise exception 'Creating a group project needs the Study add-on'; end if;
+  if (select count(*) from luma.study_projects where owner_id = auth.uid()) >= 20 then raise exception 'You can own up to 20 group projects'; end if;
+  insert into luma.study_projects (owner_id, title, course_name, due_date, notes)
+    values (auth.uid(), btrim(coalesce(p_title, '')), left(coalesce(p_course, ''), 80), p_due, left(coalesce(p_notes, ''), 5000)) returning id into v_id;
+  insert into luma.study_project_members (project_id, user_id, status, invited_by) values (v_id, auth.uid(), 'accepted', auth.uid());
+  return v_id;
+end;
+$$;
+revoke execute on function luma.create_study_project(text, text, date, text) from public, anon;
+grant execute on function luma.create_study_project(text, text, date, text) to authenticated;
+
+-- owner invites accepted contacts
+create or replace function luma.invite_to_study_project(p_project uuid, p_users uuid[])
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_title text; v_user uuid; v_count int := 0; v_total int; v_old text;
+begin
+  select title into v_title from luma.study_projects where id = p_project and owner_id = auth.uid();
+  if not found then raise exception 'Only the project owner can invite people'; end if;
+  select count(*) into v_total from luma.study_project_members where project_id = p_project and status <> 'declined';
+  foreach v_user in array coalesce(p_users, '{}'::uuid[]) loop
+    continue when v_user = auth.uid();
+    if not luma.is_contact(auth.uid(), v_user) then raise exception 'You can only invite people in your contacts'; end if;
+    select status into v_old from luma.study_project_members where project_id = p_project and user_id = v_user;
+    continue when found and v_old <> 'declined';
+    if v_total >= 12 then raise exception 'A group project can have up to 12 members'; end if;
+    insert into luma.study_project_members (project_id, user_id, status, invited_by) values (p_project, v_user, 'pending', auth.uid())
+      on conflict (project_id, user_id) do update set status = 'pending', invited_by = auth.uid(), created_at = now();
+    v_total := v_total + 1; v_count := v_count + 1;
+    perform luma.notify(v_user, 'project_invite', '🤝 ' || luma.person_name(auth.uid()) || ' invited you to a group project', v_title || '. Open Study → Groups to join.', 'study');
+  end loop;
+  return v_count;
+end;
+$$;
+revoke execute on function luma.invite_to_study_project(uuid, uuid[]) from public, anon;
+grant execute on function luma.invite_to_study_project(uuid, uuid[]) to authenticated;
+
+-- the invited person joins or declines
+create or replace function luma.respond_study_project(p_project uuid, p_accept boolean)
+returns text
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_owner uuid; v_title text;
+begin
+  update luma.study_project_members set status = case when p_accept then 'accepted' else 'declined' end
+    where project_id = p_project and user_id = auth.uid() and status = 'pending';
+  if not found then raise exception 'No invitation found'; end if;
+  select owner_id, title into v_owner, v_title from luma.study_projects where id = p_project;
+  perform luma.notify(v_owner, 'project_reply', (case when p_accept then '✅ ' else '❌ ' end) || luma.person_name(auth.uid()) || (case when p_accept then ' joined ' else ' declined ' end) || v_title, 'Open Study → Groups.', 'study');
+  return case when p_accept then 'accepted' else 'declined' end;
+end;
+$$;
+revoke execute on function luma.respond_study_project(uuid, boolean) from public, anon;
+grant execute on function luma.respond_study_project(uuid, boolean) to authenticated;
+
+-- a member leaves; or the owner removes someone (their tasks become unassigned)
+create or replace function luma.leave_study_project(p_project uuid, p_user uuid)
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if exists (select 1 from luma.study_projects where id = p_project and owner_id = p_user) then raise exception 'The owner cannot leave; delete the project instead'; end if;
+  if p_user <> auth.uid() and not exists (select 1 from luma.study_projects where id = p_project and owner_id = auth.uid()) then raise exception 'Not allowed'; end if;
+  delete from luma.study_project_members where project_id = p_project and user_id = p_user;
+  update luma.study_project_tasks set assignee_id = null where project_id = p_project and assignee_id = p_user;
+  return true;
+end;
+$$;
+revoke execute on function luma.leave_study_project(uuid, uuid) from public, anon;
+grant execute on function luma.leave_study_project(uuid, uuid) to authenticated;
+
+-- my projects (accepted, and invitations waiting for me)
+create or replace function luma.my_study_projects()
+returns table (id uuid, title text, course_name text, due_date date, owner_id uuid, owner_name text, my_status text, members integer, tasks_total integer, tasks_done integer, updated_at timestamptz)
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select p.id, p.title, p.course_name, p.due_date, p.owner_id, luma.person_name(p.owner_id), m.status,
+         (select count(*)::int from luma.study_project_members x where x.project_id = p.id and x.status = 'accepted'),
+         (select count(*)::int from luma.study_project_tasks t where t.project_id = p.id and m.status = 'accepted'),
+         (select count(*)::int from luma.study_project_tasks t where t.project_id = p.id and t.status = 'done' and m.status = 'accepted'),
+         p.updated_at
+  from luma.study_project_members m
+  join luma.study_projects p on p.id = m.project_id
+  where m.user_id = auth.uid() and m.status in ('pending', 'accepted')
+  order by p.updated_at desc;
+$$;
+revoke execute on function luma.my_study_projects() from public, anon;
+grant execute on function luma.my_study_projects() to authenticated;
+
+-- one project with its members and tasks (invited people see only the basics until they join)
+create or replace function luma.study_project_detail(p_project uuid)
+returns jsonb
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v_status text; v_p record;
+begin
+  select status into v_status from luma.study_project_members where project_id = p_project and user_id = auth.uid();
+  if v_status is null or v_status = 'declined' then raise exception 'Not allowed'; end if;
+  select * into v_p from luma.study_projects where id = p_project;
+  return jsonb_build_object(
+    'project', jsonb_build_object('id', v_p.id, 'title', v_p.title, 'course_name', v_p.course_name, 'due_date', v_p.due_date, 'owner_id', v_p.owner_id,
+                                  'notes', case when v_status = 'accepted' then v_p.notes else '' end),
+    'me', jsonb_build_object('user_id', auth.uid(), 'status', v_status),
+    'members', coalesce((select jsonb_agg(jsonb_build_object('user_id', m.user_id, 'name', luma.person_name(m.user_id), 'status', m.status) order by (m.user_id = v_p.owner_id) desc, luma.person_name(m.user_id))
+                         from luma.study_project_members m where m.project_id = p_project and m.status <> 'declined'), '[]'::jsonb),
+    'tasks', case when v_status = 'accepted' then coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'title', t.title, 'assignee_id', t.assignee_id, 'status', t.status, 'due_date', t.due_date, 'created_by', t.created_by) order by t.created_at)
+                         from luma.study_project_tasks t where t.project_id = p_project), '[]'::jsonb) else '[]'::jsonb end);
+end;
+$$;
+revoke execute on function luma.study_project_detail(uuid) from public, anon;
+grant execute on function luma.study_project_detail(uuid) to authenticated;
+
+-- owner edits the project; any member can edit the shared notes (p_fields: title, course_name, due_date, notes)
+create or replace function luma.update_study_project(p_project uuid, p_fields jsonb)
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_owner boolean;
+begin
+  if not luma.in_project(p_project, auth.uid()) then raise exception 'Not allowed'; end if;
+  v_owner := exists (select 1 from luma.study_projects where id = p_project and owner_id = auth.uid());
+  if not v_owner and (p_fields ? 'title' or p_fields ? 'course_name' or p_fields ? 'due_date') then raise exception 'Only the owner can change the title, subject and due date'; end if;
+  update luma.study_projects set
+    title = case when p_fields ? 'title' then btrim(p_fields ->> 'title') else title end,
+    course_name = case when p_fields ? 'course_name' then left(coalesce(p_fields ->> 'course_name', ''), 80) else course_name end,
+    due_date = case when p_fields ? 'due_date' then nullif(p_fields ->> 'due_date', '')::date else due_date end,
+    notes = case when p_fields ? 'notes' then left(coalesce(p_fields ->> 'notes', ''), 5000) else notes end,
+    updated_at = now()
+  where id = p_project;
+  return true;
+end;
+$$;
+revoke execute on function luma.update_study_project(uuid, jsonb) from public, anon;
+grant execute on function luma.update_study_project(uuid, jsonb) to authenticated;
+
+create or replace function luma.delete_study_project(p_project uuid)
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  delete from luma.study_projects where id = p_project and owner_id = auth.uid();
+  if not found then raise exception 'Only the owner can delete the project'; end if;
+  return true;
+end;
+$$;
+revoke execute on function luma.delete_study_project(uuid) from public, anon;
+grant execute on function luma.delete_study_project(uuid) to authenticated;
+
+-- tasks: any member can add, assign and update; the creator or the owner can delete
+create or replace function luma.add_study_project_task(p_project uuid, p_title text, p_assignee uuid, p_due date)
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_id uuid; v_title text;
+begin
+  if not luma.in_project(p_project, auth.uid()) then raise exception 'Not allowed'; end if;
+  if (select count(*) from luma.study_project_tasks where project_id = p_project) >= 200 then raise exception 'A project can have up to 200 tasks'; end if;
+  if p_assignee is not null and not luma.in_project(p_project, p_assignee) then raise exception 'That person is not on this project'; end if;
+  insert into luma.study_project_tasks (project_id, title, assignee_id, due_date, created_by) values (p_project, btrim(coalesce(p_title, '')), p_assignee, p_due, auth.uid()) returning id into v_id;
+  update luma.study_projects set updated_at = now() where id = p_project;
+  if p_assignee is not null and p_assignee <> auth.uid() then
+    select title into v_title from luma.study_projects where id = p_project;
+    perform luma.notify(p_assignee, 'project_task', '📌 ' || luma.person_name(auth.uid()) || ' gave you a task', btrim(p_title) || ' · ' || v_title, 'study');
+  end if;
+  return v_id;
+end;
+$$;
+revoke execute on function luma.add_study_project_task(uuid, text, uuid, date) from public, anon;
+grant execute on function luma.add_study_project_task(uuid, text, uuid, date) to authenticated;
+
+-- p_fields: any of title, assignee_id (null = unassign), status, due_date (null = clear)
+create or replace function luma.update_study_project_task(p_task uuid, p_fields jsonb)
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_t record; v_new uuid; v_title text;
+begin
+  select * into v_t from luma.study_project_tasks where id = p_task;
+  if not found or not luma.in_project(v_t.project_id, auth.uid()) then raise exception 'Not allowed'; end if;
+  if p_fields ? 'assignee_id' then
+    v_new := nullif(p_fields ->> 'assignee_id', '')::uuid;
+    if v_new is not null and not luma.in_project(v_t.project_id, v_new) then raise exception 'That person is not on this project'; end if;
+  else
+    v_new := v_t.assignee_id;
+  end if;
+  update luma.study_project_tasks set
+    title = case when p_fields ? 'title' then btrim(p_fields ->> 'title') else title end,
+    assignee_id = v_new,
+    status = case when p_fields ? 'status' then p_fields ->> 'status' else status end,
+    due_date = case when p_fields ? 'due_date' then nullif(p_fields ->> 'due_date', '')::date else due_date end,
+    updated_at = now()
+  where id = p_task;
+  update luma.study_projects set updated_at = now() where id = v_t.project_id;
+  if p_fields ? 'assignee_id' and v_new is not null and v_new is distinct from v_t.assignee_id and v_new <> auth.uid() then
+    select title into v_title from luma.study_projects where id = v_t.project_id;
+    perform luma.notify(v_new, 'project_task', '📌 ' || luma.person_name(auth.uid()) || ' gave you a task', v_t.title || ' · ' || v_title, 'study');
+  end if;
+  return true;
+end;
+$$;
+revoke execute on function luma.update_study_project_task(uuid, jsonb) from public, anon;
+grant execute on function luma.update_study_project_task(uuid, jsonb) to authenticated;
+
+create or replace function luma.delete_study_project_task(p_task uuid)
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_t record;
+begin
+  select * into v_t from luma.study_project_tasks where id = p_task;
+  if not found then return true; end if;
+  if not luma.in_project(v_t.project_id, auth.uid()) then raise exception 'Not allowed'; end if;
+  if v_t.created_by is distinct from auth.uid() and not exists (select 1 from luma.study_projects where id = v_t.project_id and owner_id = auth.uid()) then
+    raise exception 'Only the person who added a task, or the owner, can delete it';
+  end if;
+  delete from luma.study_project_tasks where id = p_task;
+  return true;
+end;
+$$;
+revoke execute on function luma.delete_study_project_task(uuid) from public, anon;
+grant execute on function luma.delete_study_project_task(uuid) to authenticated;
+
+-- give a teammate a nudge (about the project, or one task); once every 6 hours per person
+create or replace function luma.nudge_study_project_member(p_project uuid, p_user uuid, p_task uuid default null)
+returns text
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_title text; v_task text;
+begin
+  if not luma.in_project(p_project, auth.uid()) or not luma.in_project(p_project, p_user) or p_user = auth.uid() then raise exception 'Not allowed'; end if;
+  if exists (select 1 from luma.study_nudges n where n.from_user = auth.uid() and n.to_user = p_user and n.project_id = p_project and n.created_at > now() - interval '6 hours') then
+    return 'too_soon';
+  end if;
+  select title into v_title from luma.study_projects where id = p_project;
+  if p_task is not null then select title into v_task from luma.study_project_tasks where id = p_task and project_id = p_project; end if;
+  insert into luma.study_nudges (from_user, to_user, project_id) values (auth.uid(), p_user, p_project);
+  perform luma.notify(p_user, 'nudge', '👋 ' || luma.person_name(auth.uid()) || ' nudged you', coalesce('About "' || v_task || '" in ', 'About ') || v_title || '. Any update?', 'study');
+  return 'sent';
+end;
+$$;
+revoke execute on function luma.nudge_study_project_member(uuid, uuid, uuid) from public, anon;
+grant execute on function luma.nudge_study_project_member(uuid, uuid, uuid) to authenticated;
