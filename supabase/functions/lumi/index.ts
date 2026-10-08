@@ -173,16 +173,23 @@ Deno.serve(async (req) => {
   if (!u?.user) return json({ error: "Please sign in again." }, 401);
   const body = await req.json().catch(() => null);
   if (!body) return json({ error: "Bad request" }, 400);
-  const mode = body.mode === "insights" ? "insights" : "chat", limit = mode === "chat" ? CHAT_LIMIT : INSIGHT_LIMIT;
+  const mode = body.mode === "insights" ? "insights" : "chat";
+  // the plan decides the limits (luma.plan_limits via migration 033); without it, fall back to the defaults below
+  const { data: planInfo } = await client.rpc("my_limits");
+  const L = (planInfo?.limits ?? {}) as Record<string, number | null>, plan = String(planInfo?.plan ?? "");
+  const num = (v: unknown, d: number) => (typeof v === "number" ? v : d);
+  const chatLimit = num(L.lumi_questions, CHAT_LIMIT), insightLimit = num(L.insights, INSIGHT_LIMIT), canAct = num(L.lumi_actions, 1) !== 0;
+  const limit = mode === "chat" ? chatLimit : insightLimit;
   const tz = String(body.tz || "Asia/Kuala_Lumpur"), today = isDate(body.today) ? body.today : new Date().toISOString().slice(0, 10), now = String(body.now || today);
   const name = String(u.user.user_metadata?.full_name || u.user.user_metadata?.name || "").slice(0, 60);
 
   if (body.check) { // just report the allowance (for the chat, or for AI insights when kind is "insights"), without using one
-    const kind = body.kind === "insights" ? "insights" : "chat", lim = kind === "chat" ? CHAT_LIMIT : INSIGHT_LIMIT;
+    const kind = body.kind === "insights" ? "insights" : "chat", lim = kind === "chat" ? chatLimit : insightLimit;
     const { data } = await client.rpc("assistant_left", { p_kind: kind, p_limit: lim });
     return json({ left: data ?? lim, limit: lim });
   }
 
+  if (limit === 0) return json({ error: mode === "chat" ? "Lumi isn't included in your plan." : "AI insights are available on the Glow and Zenith plans. Upgrade in Settings → Plans.", left: 0, limit: 0 }, 403);
   const { data: left, error: qerr } = await client.rpc("use_assistant", { p_kind: mode, p_limit: limit });
   if (qerr) return json({ error: "Lumi isn't set up yet — run migration 029_assistant.sql." }, 500);
   if (left < 0) return json({ error: mode === "chat" ? `You've used your ${limit} questions for today. Lumi resets at midnight.` : "Insight limit reached for today.", left: 0, limit }, 429);
@@ -199,10 +206,11 @@ Deno.serve(async (req) => {
 
     const history = (Array.isArray(body.messages) ? body.messages : []).slice(-8).map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 1000) }));
     if (!history.length || history[history.length - 1].role !== "user") return json({ error: "Say something first." }, 400);
-    const msgs: any[] = [{ role: "system", content: SYSTEM(now, tz, name) }, ...history];
+    const msgs: any[] = [{ role: "system", content: SYSTEM(now, tz, name) + (canAct ? "" : "\n- On the user's current plan you can only read and answer. You cannot add or log anything. If asked to, say that adding things through Lumi is available on the Glow and Zenith plans.") }, ...history];
+    const tools = canAct ? TOOLS : TOOLS.filter((t: any) => t.function.name === "get_overview");
     const actions: unknown[] = [];
     for (let i = 0; i < 4; i++) {
-      const m = await chat(msgs, TOOLS);
+      const m = await chat(msgs, tools);
       if (!m.tool_calls?.length) return json({ reply: String(m.content || "Done.").trim(), actions, left, limit });
       msgs.push({ role: "assistant", content: m.content || "", tool_calls: m.tool_calls });
       for (const tc of m.tool_calls) {

@@ -240,6 +240,15 @@ Lumi can add events / tasks / notes / expenses and log health; it can't delete a
    (or Dashboard → Edge Functions → Secrets). Optional: `LUMI_DAILY_LIMIT`, `LUMI_INSIGHTS_LIMIT`, `GEMINI_MODEL`, `GROQ_MODEL`.
 4. Deploy: `npx supabase functions deploy lumi` (leave JWT verification ON — it is how Lumi knows who is asking).
 
+## Plans (Dawn / Glow / Zenith)
+
+New accounts start on **Dawn** (free); on the first login they are offered the plans once. Picking Glow or Zenith opens WhatsApp with
+their name, email, plan and price already typed in, so you can arrange payment and then upgrade them by hand.
+1. Run `supabase/migrations/033_plans.sql` (existing accounts become Zenith so nobody loses anything). Re-deploy the Lumi function.
+2. Put your WhatsApp number in `assets/plan-config.js` (`window.LUMA_WHATSAPP`, international format, digits only, e.g. `60123456789`).
+3. To change someone's plan: `update luma.profiles set plan = 'glow' where email = 'them@example.com';` (users cannot change their own plan).
+4. Every limit lives in the `luma.plan_limits` table. Edit a row to change a limit (NULL = unlimited).
+
 ## File structure
 
 ```
@@ -291,6 +300,7 @@ supabase/migrations/
   030_more_reminders.sql       event / task / bill / goal reminders + budget alerts (inbox + push)
   031_reminder_prefs.sql       Settings → Reminders: on/off + timing per reminder type
   032_reminders.sql            Reminders page: your own reminders (e.g. last weekday of the month), inbox + push
+  033_plans.sql                plans Dawn / Glow / Zenith: limits table + enforcement (existing accounts become Zenith)
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:

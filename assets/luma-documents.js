@@ -12,7 +12,7 @@
   const client = window.LumaAuth.client;
   const db = () => client.schema("luma");
   const BUCKET = "luma-documents";
-  const MAX_BYTES = 25 * 1024 * 1024;
+  const MAX_BYTES = 50 * 1024 * 1024; // the hard ceiling; each plan has its own (smaller) file size and storage limits
   const DOC_COLS = "id, category_id, name, mime_type, size_bytes, storage_path, created_at";
 
   window.LumaDocuments = {
@@ -49,7 +49,17 @@
     // Uploads the bytes first, then records the metadata row; if the row
     // insert fails the orphaned file is removed again.
     async upload(file, { name, categoryId = null } = {}) {
-      if (file.size > MAX_BYTES) return { data: null, error: { message: "File is larger than 25 MB." } };
+      if (file.size > MAX_BYTES) return { data: null, error: { message: "File is larger than 50 MB." } };
+      const plan = window.LumaPlan;
+      if (plan && plan.ready) { // friendly checks up front (the database enforces the same limits)
+        const fileMb = plan.get("file_mb"), storeMb = plan.get("storage_mb");
+        if (fileMb !== null && file.size > fileMb * 1048576) return { data: null, error: { message: `Plan limit: the ${plan.name()} plan allows files up to ${fileMb} MB. Upgrade your plan in Settings for bigger files.` } };
+        if (storeMb !== null) {
+          const { data: rows } = await db().from("documents").select("size_bytes");
+          const used = (rows || []).reduce((t, r) => t + Number(r.size_bytes || 0), 0);
+          if (used + file.size > storeMb * 1048576) return { data: null, error: { message: `Plan limit: the ${plan.name()} plan includes ${storeMb} MB of file storage and it is full. Delete files or upgrade your plan in Settings.` } };
+        }
+      }
       const session = await window.LumaAuth.getSession();
       if (!session) return { data: null, error: { message: "Not signed in" } };
       const safe = file.name.replace(/[^\w.\-]+/g, "_");

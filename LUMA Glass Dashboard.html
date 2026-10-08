@@ -4185,7 +4185,15 @@
     .plan-card li { display:flex; gap:8px; font-size:0.76rem; color:rgba(255,255,255,0.88); line-height:1.4; }
     .plan-card li i { color:var(--pc); font-size:0.7rem; margin-top:3px; flex:none; }
     .plan-card .pb { align-self:flex-start; font-size:0.62rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; background:rgba(139,92,246,0.3); color:#ddd6fe; }
+    .plan-card button.pbtn.up { cursor:pointer; background:linear-gradient(135deg,#16a34a,#22c55e); border-color:transparent; color:#fff; }
+    .plan-card button.pbtn.up:hover { filter:brightness(1.1); }
+    .plan-card button.pbtn[data-stay] { cursor:pointer; color:#fff; }
     .plan-card button.pbtn { margin-top:6px; height:38px; border-radius:12px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7); font:600 0.78rem inherit; font-family:inherit; cursor:default; }
+
+    /* plan locks */
+    .plan-lock { position:relative; opacity:0.55; }
+    .plan-lock::after { content:'\f023'; font-family:'Font Awesome 6 Free'; font-weight:900; position:absolute; top:6px; right:8px; font-size:0.7rem; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.6); }
+    .lu-select.plan-locked { opacity:0.55; pointer-events:none; }
 
     /* page switcher */
     .page {
@@ -8245,10 +8253,10 @@
   <div class="modal-overlay confirm-overlay" id="planOverlay">
     <div class="profile-edit-modal" style="width:900px;max-width:100%">
       <div class="pem-head">
-        <div class="pem-title">Plans</div>
+        <div class="pem-title" id="planTitle">Plans</div>
         <button class="x" id="planClose"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="ls" style="margin-bottom:14px">Dawn is free forever. Glow and Zenith add more of everything. This is a preview: everyone has full access for now, and pricing is coming soon.</div>
+      <div class="ls" id="planNote" style="margin-bottom:14px"></div>
       <div class="plan-grid" id="planGrid"></div>
       <div class="pem-actions"><button class="confirm-btn cancel" id="planDone" style="flex:1">Close</button></div>
     </div>
@@ -8979,6 +8987,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="assets/supabase-config.js"></script>
   <script src="assets/luma-auth.js"></script>
+  <script src="assets/plan-config.js"></script>
+  <script src="assets/luma-plan.js"></script>
   <script src="assets/luma-contacts.js"></script>
   <script src="assets/luma-tasks.js"></script>
   <script src="assets/luma-documents.js"></script>
@@ -9522,6 +9532,7 @@
 
       const { data, error } = await LumaAuth.getProfile();
       if (!error) LUMA_PROFILE = data;
+      await LumaPlan.load(); // which plan this account is on, and its limits
       setAppTimezone((LUMA_PROFILE && LUMA_PROFILE.timezone) || (LUMA_USER.user_metadata && LUMA_USER.user_metadata.timezone)); // the time zone chosen at sign-up / in Edit profile
       if (error) console.info("LUMA: luma.profiles not reachable yet (run supabase/migrations/001_profiles_contacts_chat.sql and expose the schema) — using signup metadata instead.", error.message);
 
@@ -9530,7 +9541,7 @@
       initReminders();
       loadDashboard().catch(() => { }).then(() => LumaLoader.release('app'));
       resyncPush();
-      maybePromptPush();
+      maybePromptPlan().then(() => maybePromptPush()); // the plan offer first, then the push offer
     })();
 
     // ---------- Background wallpaper ----------
@@ -9763,6 +9774,7 @@
       acSend.disabled = true; acSend.textContent = 'Sending…';
       const { data, error } = await LumaContacts.requestByEmail(email);
       acSend.disabled = false; acSend.textContent = 'Send request';
+      if (error && /^Plan limit/i.test(error.message)) return acShowError(error.message);
       if (error) return acShowError("Couldn't send that request: " + error.message + " (has supabase/migrations/001_profiles_contacts_chat.sql been run and the luma schema exposed?)");
       if (!data || !data.ok) return acShowError(ADD_CONTACT_REASONS[data && data.reason] || "Couldn't send that request.");
       acShowOk('Request sent — waiting for them to accept.');
@@ -10062,6 +10074,10 @@
       const v = { ...REM_DEFAULTS, ...(data || {}) };
       const dim = () => box.querySelectorAll('.setting-row').forEach(r => { const sw = r.querySelector('.switch'); r.classList.toggle('rem-off', !!sw && !sw.classList.contains('on')); });
       box.querySelectorAll('select[data-rem]').forEach(sel => { sel.value = String(v[sel.dataset.rem]); skinSelect(sel); });
+      if (!LumaPlan.has('timing')) { // choosing the times is a Glow / Zenith feature; the on/off switches still work
+        box.querySelectorAll('select[data-rem]').forEach(sel => { const b = sel._luWrap && sel._luWrap.querySelector('button'); if (b) b.disabled = true; sel._luWrap && sel._luWrap.classList.add('plan-locked'); });
+        const note = document.createElement('div'); note.className = 'ls'; note.style.cssText = 'margin:2px 0 6px;color:#fcd34d'; note.innerHTML = '<i class="fa-solid fa-lock"></i> Choosing reminder times is available on Glow and Zenith. You can still switch each reminder on or off.'; box.querySelector('#remError').after(note);
+      }
       box.querySelectorAll('.switch[data-rem]').forEach(sw => sw.classList.toggle('on', !!v[sw.dataset.rem]));
       dim();
       const save = async patch => {
@@ -10210,16 +10226,16 @@
           <div class="section-title"><i class="fa-regular fa-image"></i> Background</div>
           <p class="ls" style="margin-bottom:0.9rem">Choose a wallpaper or upload your own.</p>
           <div class="bg-grid" id="bgGrid">
-            ${BGS.map((b, i) => `<div class="bg-thumb" data-bg="${b.url}" style="background-image:url('${b.thumb}')" title="${b.name}"></div>`).join('')}
-            <div class="bg-upload" id="bgUpload"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload<br>your own</div>
+            ${BGS.map((b, i) => `<div class="bg-thumb ${i >= (LumaPlan.get('wallpapers') ?? 99) ? 'plan-lock' : ''}" data-bg="${b.url}" style="background-image:url('${b.thumb}')" title="${b.name}${i >= (LumaPlan.get('wallpapers') ?? 99) ? ' · Glow and Zenith' : ''}"></div>`).join('')}
+            <div class="bg-upload ${LumaPlan.has('own_wallpaper') ? '' : 'plan-lock'}" id="bgUpload"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload<br>your own</div>
           </div>
           <input type="file" id="bgFile" accept="image/*" style="display:none">
         </div>
         <div class="grid-2">
           ${card(`<div class="section-title"><i class="fa-solid fa-user"></i> Profile</div><div style="display:flex;align-items:center;gap:16px"><div id="profAvatar" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#3b82f6);display:grid;place-items:center;color:#fff;font-size:1.4rem;font-weight:600">${lumaInitial()}</div><div style="flex:1">
             <div id="profNameView" style="font-size:1rem;font-weight:600;color:#fff">${lumaFullName()}</div>
-            <div class="ls" id="profEmailView">${lumaEmail()}</div><button type="button" class="pill pill-violet" id="planPill" title="See the plans" style="margin-top:8px;border:none;cursor:pointer;font-family:inherit"><i class="fa-solid fa-sun" style="font-size:0.6rem"></i> Zenith plan <i class="fa-solid fa-chevron-right" style="font-size:0.5rem"></i></button></div><div style="display:flex;flex-direction:column;gap:8px"><button id="profEditBtn" class="create-btn" style="background:rgba(255,255,255,0.06);box-shadow:none;justify-content:center">Edit</button><button id="logoutBtn" class="create-btn" style="background:rgba(239,68,68,0.12);color:#fca5a5;box-shadow:none;justify-content:center">Log out</button></div></div>`)}
-          ${card(`<div class="section-title"><i class="fa-solid fa-palette"></i> Theme</div><div style="display:flex;gap:12px" id="themeGrid">${[['Midnight Navy', '#0f172a', 'midnight'], ['Slate', '#1e293b', 'slate'], ['Obsidian', '#0a0a0f', 'obsidian']].map(t => `<div class="theme-opt" data-theme="${t[2]}" data-swatch="${t[1]}" style="flex:1;padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);text-align:center;cursor:pointer"><div style="height:44px;border-radius:10px;background:${t[1]};border:1px solid rgba(255,255,255,0.08);margin-bottom:9px"></div><span style="font-size:0.7rem;color:#fff">${t[0]}</span></div>`).join('')}</div>`)}
+            <div class="ls" id="profEmailView">${lumaEmail()}</div><button type="button" class="pill pill-violet" id="planPill" title="See the plans" style="margin-top:8px;border:none;cursor:pointer;font-family:inherit"><i class="fa-solid fa-sun" style="font-size:0.6rem"></i> ${LumaPlan.name()} plan <i class="fa-solid fa-chevron-right" style="font-size:0.5rem"></i></button></div><div style="display:flex;flex-direction:column;gap:8px"><button id="profEditBtn" class="create-btn" style="background:rgba(255,255,255,0.06);box-shadow:none;justify-content:center">Edit</button><button id="logoutBtn" class="create-btn" style="background:rgba(239,68,68,0.12);color:#fca5a5;box-shadow:none;justify-content:center">Log out</button></div></div>`)}
+          ${card(`<div class="section-title"><i class="fa-solid fa-palette"></i> Theme</div><div style="display:flex;gap:12px" id="themeGrid">${[['Midnight Navy', '#0f172a', 'midnight'], ['Slate', '#1e293b', 'slate'], ['Obsidian', '#0a0a0f', 'obsidian']].map((t, ti) => `<div class="theme-opt ${ti >= (LumaPlan.get('themes') ?? 99) ? 'plan-lock' : ''}" data-theme="${t[2]}" data-swatch="${t[1]}" style="flex:1;padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);text-align:center;cursor:pointer"><div style="height:44px;border-radius:10px;background:${t[1]};border:1px solid rgba(255,255,255,0.08);margin-bottom:9px"></div><span style="font-size:0.7rem;color:#fff">${t[0]}</span></div>`).join('')}</div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-bell"></i> Push notifications</div><div class="pem-msg error" id="setPushError"></div><div class="setting-row"><div class="sr-main"><div class="sr-t">Notifications on this device</div><div class="sr-s" id="setPushState">Checking…</div></div><button type="button" class="np-btn" id="setPushBtn" style="display:none">Enable</button></div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-sliders"></i> Preferences</div>${prefs.map(p => `<div class="setting-row"><div class="sr-main"><div class="sr-t">${p[1]}</div><div class="sr-s">${p[2]}</div></div><button class="switch ${(savedPrefs[p[0]] ?? p[3]) ? 'on' : ''}" data-key="${p[0]}"><span class="knob"></span></button></div>`).join('')}`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-plug"></i> Integrations</div>${integ.map(g => `<div class="lrow"><div class="licon" style="color:${g[3]};background:${g[3]}22"><i class="fa-${g[2] === 'fa-spotify' ? 'brands' : 'solid'} ${g[2]}"></i></div><div class="lmain"><div class="lt">${g[0]}</div><div class="ls">${g[1]}</div></div><span class="pill" style="background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5)">Coming soon</span></div>`).join('')}`)}
@@ -10770,7 +10786,7 @@
     const mForm = { id: null, kind: 'expense', category: 'Other' };
 
     const mCatInfo = (name, kind) => (kind === 'income' ? [...M_INCOME_CATS, ['Salary', 'fa-arrow-trend-up', '#4ade80']] : M_CATS).find(c => c[0] === name) || (kind === 'income' ? M_INCOME_CATS[M_INCOME_CATS.length - 1] : M_CATS[M_CATS.length - 1]);
-    const mIsMY = () => lumaCountry() === 'Malaysia';
+    const mIsMY = () => lumaCountry() === 'Malaysia' && LumaPlan.has('payroll'); // the payroll calculator is a Glow / Zenith feature
     // take-home pay: Malaysia works out the deductions, other countries use the income as entered
     const mPay = () => mIsMY() ? myPayroll(MSET.gross_salary, { epfRate: MSET.epf_rate, pcbOverride: MSET.pcb_override == null ? null : Number(MSET.pcb_override) }) : { gross: MSET.gross_salary, net: MSET.gross_salary };
 
@@ -11142,6 +11158,7 @@
       docEl('billDueLbl').innerHTML = (isSub ? `Next renewal date (renews every ${bForm.recurrence === 'yearly' ? 'year' : bForm.recurrence === 'weekly' ? 'week' : 'month'} on this ${bForm.recurrence === 'weekly' ? 'weekday' : 'day'})` : bForm.recurrence === 'once' ? 'Due date' : bForm.recurrence === 'weekly' ? 'First due date (repeats every 7 days)' : bForm.recurrence === 'monthly' ? 'First due date (repeats on this day each month)' : 'First due date (repeats on this day each year)') + ' <span style="color:#fca5a5">*</span>';
     }
     function openBillModal(b, preset, mode) {
+      if (!b && planBlocked('bills', BILLS.length, 'bills and subscriptions')) return;
       const src = b || preset || {}, sub = mode === 'sub';
       bForm.mode = sub ? 'sub' : 'bill'; bForm.id = b ? b.id : null; bForm.category = sub ? 'Subscription' : src.category || 'Other'; bForm.recurrence = src.recurrence || 'monthly';
       const word = sub ? 'subscription' : 'bill';
@@ -11382,6 +11399,7 @@
       paintGoalHint();
     }
     function openGoalModal(g, preset) {
+      if (!g && planBlocked('goals', GOALS.filter(x => !x.completed_at).length, 'active goals')) return;
       const src = g || preset || {};
       gForm.id = g ? g.id : null; gForm.category = src.category || 'Personal';
       docEl('goalModalTitle').textContent = g ? 'Edit goal' : 'New goal';
@@ -11623,13 +11641,14 @@
     }
 
     let anAiLeft = null, anAiLimit = 10;
-    const anAiLeftTxt = () => anAiLeft == null ? `${anAiLimit} AI insights per day` : `${anAiLeft} of ${anAiLimit} AI insights left today`;
+    const anAiLeftTxt = () => LumaPlan.get('insights') === 0 ? 'AI insights are on the Glow and Zenith plans' : anAiLeft == null ? `${anAiLimit} AI insights per day` : `${anAiLeft} of ${anAiLimit} AI insights left today`;
     function anAiPaintLeft() { const el = document.getElementById('anAiLeft'); if (!el) return; el.textContent = anAiLeftTxt(); el.style.color = anAiLeft === 0 ? '#fca5a5' : anAiLeft != null && anAiLeft <= 2 ? '#fcd34d' : 'rgba(255,255,255,0.6)'; const b = document.getElementById('anAiBtn'); if (b && anAiLeft === 0) { b.disabled = true; b.title = 'You have used all your AI insights for today'; } }
-    async function anAiCheckLeft() { const r = await lumiCall({ mode: 'chat', check: true, kind: 'insights' }); if (r && r.left != null) { anAiLeft = r.left; anAiLimit = r.limit || anAiLimit; anAiPaintLeft(); } }
+    async function anAiCheckLeft() { if (LumaPlan.get('insights') === 0) { anAiLeft = 0; anAiLimit = 0; return anAiPaintLeft(); } anAiLimit = LumaPlan.get('insights') ?? anAiLimit; const r = await lumiCall({ mode: 'chat', check: true, kind: 'insights' }); if (r && r.left != null) { anAiLeft = r.left; anAiLimit = r.limit || anAiLimit; anAiPaintLeft(); } }
     const anAiKey = () => `luma_ai_ins_${LUMA_USER ? LUMA_USER.id : ''}_${hToday()}_${anRange}`;
     function anAiGet() { try { const v = JSON.parse(localStorage.getItem(anAiKey()) || 'null'); return Array.isArray(v) && v.length ? v : null; } catch (e) { return null; } }
     async function anAskAi() {
       const btn = document.getElementById('anAiBtn'); if (!btn || !an) return;
+      if (LumaPlan.get('insights') === 0) return planLocked('AI insights', 'the Glow and Zenith plans');
       const cur = anCalc(anKeys(anRange)), prev = anCalc(anKeys(anRange, anRange)), P = v => v == null ? null : Math.round(v * 100);
       const cats = [...cur.cats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n, v]) => [n, Math.round(v)]);
       const metrics = { period_days: anRange, productivity_score_pct: [P(cur.score), P(prev.score)], task_completion_pct: [P(cur.taskRate), P(prev.taskRate)], habit_consistency_pct: [P(cur.habit), P(prev.habit)], health_goal_progress_pct: [P(cur.health), P(prev.health)], tasks_completed: [cur.done, prev.done], spending_rm: [Math.round(cur.spend), Math.round(prev.spend)], income_rm: Math.round(cur.income), top_spending_categories: cats, overdue_open_tasks: an.tasks.filter(t => t.status !== 'done' && t.due_date && t.due_date < hToday()).length, note: 'each pair is [this period, previous period]' };
@@ -11907,6 +11926,7 @@
       docEl('remHint').textContent = { month_last_weekday: 'Fires on the last Monday–Friday of each month, so it never lands on a weekend.', month_last_day: 'Fires on the last calendar day of each month.', weekdays: 'Fires Monday to Friday.', weekends: 'Fires every Saturday and Sunday.', daily: 'Fires every day.', weekly: remForm.days.size ? '' : 'Pick the days. If you pick none, it uses the weekday of today.', once: '', monthly: 'On short months it fires on the last day of the month.', yearly: '' }[k] || '';
     }
     function openRemModal(r, preset) {
+      if (!r && planBlocked('reminders', REMS.length, 'custom reminders')) return;
       if (!remSkinned) { skinDate(docEl('remDate')); skinTime(docEl('remTime')); remSkinned = true; }
       const p = r || preset || {};
       remForm.id = r ? r.id : null; remForm.kind = p.kind || 'once'; remForm.active = r ? r.active : true;
@@ -12000,24 +12020,63 @@
     })();
 
     // ----- Plans popup (a preview for now: nothing is enforced or sold yet) -----
+    // true (and an upgrade prompt) when adding one more would go over the plan's limit — the database enforces it too
+    function planBlocked(key, count, what) {
+      const lim = LumaPlan.get(key);
+      if (lim === null || count < lim) return false;
+      luConfirm({ title: 'Plan limit reached', message: `Your ${LumaPlan.name()} plan includes up to ${lim} ${what}. Upgrade to add more.`, ok: 'See plans', icon: 'fa-lock', tone: 'info' }).then(ok => { if (ok) openPlans(); });
+      return true;
+    }
+    function planLocked(feature, need) { // for features a lower plan doesn't have
+      luConfirm({ title: 'Not in your plan', message: `${feature} is available on ${need}. Want to see the plans?`, ok: 'See plans', icon: 'fa-lock', tone: 'info' }).then(ok => { if (ok) openPlans(); });
+    }
     const PLANS = [
-      { id: 'dawn', name: 'Dawn', icon: 'fa-seedling', color: '#34d399', tag: 'Start here', price: 'Free forever', perks: ['Lumi: 3 questions a day (answers only)', '50 MB of file storage (5 MB per file)', '5 custom reminders', '5 habits, 3 goals, 5 bills', '3 contacts', 'Core calendar, tasks, notes, money and health', '2 wallpapers, 1 theme'] },
-      { id: 'glow', name: 'Glow', icon: 'fa-sun', color: '#fbbf24', tag: 'The full toolkit', price: 'Pricing coming soon', perks: ['Lumi: 10 questions a day, and it can add things for you', '3 AI insights a day in Analytics', '300 MB of file storage (20 MB per file)', '25 custom reminders', '10 habits, 5 goals, 12 bills', '12 contacts', 'Adjustable reminder times', 'Malaysian payroll calculator', 'All built-in wallpapers and themes'] },
-      { id: 'zenith', name: 'Zenith', icon: 'fa-rocket', color: '#a78bfa', tag: 'No limits', price: 'Pricing coming soon', perks: ['Lumi: 15 questions a day, and it can add things for you', '10 AI insights a day in Analytics', '1 GB of file storage (50 MB per file)', 'Unlimited reminders, habits, goals, bills and contacts', 'Everything in Glow', 'Upload your own wallpaper', 'Early access to new features'] },
+      { id: 'dawn', name: 'Dawn', icon: 'fa-seedling', color: '#34d399', tag: 'Start here', price: 'Free forever', rank: 0, perks: ['Lumi: 3 questions a day (answers only)', '50 MB of file storage (5 MB per file)', '5 custom reminders', '5 habits, 3 goals, 5 bills', '3 contacts', 'Core calendar, tasks, notes, money and health', '2 wallpapers, 1 theme'] },
+      { id: 'glow', name: 'Glow', icon: 'fa-sun', color: '#fbbf24', tag: 'The full toolkit', price: 'RM9 / month', rank: 1, perks: ['Lumi: 10 questions a day, and it can add things for you', '3 AI insights a day in Analytics', '300 MB of file storage (20 MB per file)', '25 custom reminders', '10 habits, 5 goals, 12 bills', '12 contacts', 'Adjustable reminder times', 'Malaysian payroll calculator', 'All built-in wallpapers and themes'] },
+      { id: 'zenith', name: 'Zenith', icon: 'fa-rocket', color: '#a78bfa', tag: 'No limits', price: 'RM19 / month', rank: 2, perks: ['Lumi: 15 questions a day, and it can add things for you', '10 AI insights a day in Analytics', '1 GB of file storage (50 MB per file)', 'Unlimited reminders, habits, goals, bills and contacts', 'Everything in Glow', 'Upload your own wallpaper', 'Early access to new features'] },
     ];
-    const CUR_PLAN = 'zenith';
-    function openPlans() {
-      docEl('planGrid').innerHTML = PLANS.map(p => `<div class="plan-card ${p.id === CUR_PLAN ? 'cur' : ''}" style="--pc:${p.color}">
-        ${p.id === CUR_PLAN ? '<span class="pb">Your plan</span>' : ''}
+    let planFirst = false, planResolve = null; // planFirst: the welcome version shown once after the first login
+    function openPlans(first) {
+      planFirst = first === true;
+      const cur = PLANS.find(p => p.id === LumaPlan.plan) || PLANS[0];
+      docEl('planTitle').textContent = planFirst ? 'Welcome to LUMA! Pick your plan' : 'Plans';
+      docEl('planNote').innerHTML = planFirst ? 'You start on <b>Dawn</b>, free forever. Want more? Tap a plan to upgrade. We\'ll open WhatsApp with your details filled in. Not now? You can always upgrade later from Settings.' : 'To upgrade, tap a plan. We\'ll open WhatsApp with your name, email, plan and price filled in.';
+      docEl('planDone').textContent = planFirst ? 'Maybe later' : 'Close';
+      docEl('planGrid').innerHTML = PLANS.map(p => `<div class="plan-card ${p.id === cur.id ? 'cur' : ''}" style="--pc:${p.color}">
+        ${p.id === cur.id ? '<span class="pb">Your plan</span>' : ''}
         <div class="pn"><span class="pi"><i class="fa-solid ${p.icon}"></i></span>${p.name}</div><div class="pt">${p.tag}</div><div class="pp">${p.price}</div>
         <ul>${p.perks.map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('')}</ul>
-        <button type="button" class="pbtn" disabled>${p.id === CUR_PLAN ? 'Current plan' : p.id === 'dawn' ? 'Included' : 'Coming soon'}</button></div>`).join('');
+        ${p.rank > cur.rank ? `<button type="button" class="pbtn up" data-up="${p.id}"><i class="fa-brands fa-whatsapp"></i> Upgrade to ${p.name}</button>` : p.id === cur.id ? (planFirst ? `<button type="button" class="pbtn" data-stay>Stay on ${p.name}</button>` : '<button type="button" class="pbtn" disabled>Current plan</button>') : '<button type="button" class="pbtn" disabled>Included</button>'}</div>`).join('');
       docEl('planOverlay').classList.add('open');
       docEl('planOverlay').querySelectorAll('.pem-body, .profile-edit-modal').forEach(el => { el.scrollTop = 0; });
     }
-    const closePlans = () => docEl('planOverlay').classList.remove('open');
+    // opens WhatsApp with the person's details and the plan they picked already typed in
+    function requestUpgrade(planId) {
+      const p = PLANS.find(x => x.id === planId); if (!p) return;
+      const num = String(window.LUMA_WHATSAPP || '').replace(/\D/g, '');
+      if (!num) return luAlert('The upgrade WhatsApp number isn\'t set up yet. Please email aeinscape@gmail.com to upgrade.', 'Almost there');
+      const msg = `Hi LUMA! I'd like to upgrade my plan.\n\nName: ${lumaFullName()}\nEmail: ${lumaEmail()}\nCurrent plan: ${LumaPlan.name()}\nUpgrade to: ${p.name}\nPrice: ${p.price}`;
+      window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+      closePlans();
+    }
+    const closePlans = () => { docEl('planOverlay').classList.remove('open'); if (planResolve) { const r = planResolve; planResolve = null; r(); } };
     docEl('planClose').onclick = docEl('planDone').onclick = closePlans;
-    docEl('planOverlay').onclick = e => { if (e.target === docEl('planOverlay')) closePlans(); };
+    docEl('planOverlay').onclick = e => {
+      if (e.target === docEl('planOverlay')) return closePlans();
+      const up = e.target.closest('[data-up]'); if (up) return requestUpgrade(up.dataset.up);
+      if (e.target.closest('[data-stay]')) closePlans();
+    };
+    // first login on the free plan: offer the upgrade once; whatever they choose, never show it again
+    function maybePromptPlan() {
+      return new Promise(resolve => {
+        try {
+          const prefs = (LUMA_PROFILE && LUMA_PROFILE.preferences) || {};
+          if (prefs.plan_prompted || LumaPlan.plan !== 'dawn' || !LumaPlan.ready) return resolve();
+          setLumaPref('plan_prompted', true);
+          planResolve = resolve; openPlans(true);
+        } catch (e) { resolve(); }
+      });
+    }
 
     function paintHabits() { paintHabitsPage(); paintDashHabits(); if (document.getElementById('dashChips') && dashTasks) paintDashboard(); }
 
@@ -12167,6 +12226,7 @@
       docEl('habitAmtLbl').textContent = f.mode === 'sleep' ? 'Hours of sleep needed' : 'Daily amount';
     }
     function openHabitModal(h, preset) {
+      if (!h && planBlocked('habits', HABITS.length, 'habits')) return;
       const src = h || preset || {};
       habitForm.id = h ? h.id : null;
       habitForm.icon = src.icon || H_ICONS[Math.floor(Math.random() * H_ICONS.length)];
@@ -12571,7 +12631,7 @@
       let editing = null, editingShared = false;
       // upload queue: files picked or dropped, uploaded together on Upload
       let queue = []; // { file, status: 'pending'|'uploading'|'done'|'error', msg }
-      const MAX = LumaDocuments.MAX_BYTES;
+      const maxBytes = () => { const mb = LumaPlan.get('file_mb'); return mb === null ? LumaDocuments.MAX_BYTES : mb * 1048576; };
       const syncUploadUi = () => {
         const n = queue.filter(q => q.status !== 'done').length;
         docEl('docNameField').style.display = (editing || queue.length === 1) ? '' : 'none';
@@ -12585,7 +12645,7 @@
       const addFiles = list => {
         for (const f of list) {
           if (queue.some(q => q.file.name === f.name && q.file.size === f.size)) continue;
-          queue.push(f.size > MAX ? { file: f, status: 'error', msg: 'Over 25 MB' } : { file: f, status: 'pending' });
+          queue.push(f.size > maxBytes() ? { file: f, status: 'error', msg: 'Over ' + Math.round(maxBytes() / 1048576) + ' MB (your plan limit)' } : { file: f, status: 'pending' });
         }
         if (queue.length === 1 && !docEl('docName').value) docEl('docName').value = queue[0].file.name;
         showErr(docEl('docError'), ''); syncUploadUi();
@@ -12642,7 +12702,7 @@
           if (res.error) return showErr(docEl('docError'), res.error.message);
           Object.assign(editing, res.data); closeDocModal(); return render();
         }
-        const todo = queue.filter(q => q.status === 'pending' || q.status === 'error' && q.file.size <= MAX);
+        const todo = queue.filter(q => q.status === 'pending' || q.status === 'error' && q.file.size <= maxBytes());
         if (!todo.length) return showErr(docEl('docError'), 'Choose or drop at least one file.');
         showErr(docEl('docError'), '');
         btn.disabled = true; btn.textContent = 'Uploading…';
@@ -13418,6 +13478,7 @@
         const markTheme = (t) => pg.querySelectorAll('.theme-opt').forEach(o => o.style.borderColor = o.dataset.theme === t ? '#3b82f6' : 'rgba(255,255,255,0.06)');
         markTheme(curTheme);
         pg.querySelectorAll('.theme-opt').forEach(o => o.addEventListener('click', async () => {
+          if (o.classList.contains('plan-lock')) return planLocked('More themes', 'the Glow and Zenith plans');
           const t = o.dataset.theme; applyTheme(t); markTheme(t);
           const { data, error } = await LumaAuth.updateProfile({ theme: t });
           if (!error) LUMA_PROFILE = data;
@@ -13427,13 +13488,14 @@
         const mark = (val) => pg.querySelectorAll('.bg-thumb').forEach(t => t.classList.toggle('active', t.dataset.bg === val));
         mark((LUMA_PROFILE && LUMA_PROFILE.background_url) || BGS[0].url);
         pg.querySelectorAll('.bg-thumb').forEach(t => t.addEventListener('click', async () => {
+          if (t.classList.contains('plan-lock')) return planLocked('More wallpapers', 'the Glow and Zenith plans');
           const url = t.dataset.bg; applyBg(url); mark(url);
           const { data, error } = await LumaAuth.updateProfile({ background_url: url });
           if (!error) LUMA_PROFILE = data;
           else console.warn("LUMA: couldn't save background (is the luma schema exposed yet?)", error.message);
         }));
         const file = pg.querySelector('#bgFile');
-        pg.querySelector('#bgUpload').addEventListener('click', () => file.click());
+        pg.querySelector('#bgUpload').addEventListener('click', () => LumaPlan.has('own_wallpaper') ? file.click() : planLocked('Uploading your own wallpaper', 'the Zenith plan'));
         file.addEventListener('change', e => {
           const f = e.target.files[0]; if (!f) return;
           const r = new FileReader();
@@ -13489,6 +13551,7 @@
       } catch (e) { return { error: 'Lumi could not be reached. Please check your connection.' }; }
     }
     function lumiPaintLeft() {
+      if (lumiLeft == null) lumiLimit = LumaPlan.get('lumi_questions') ?? lumiLimit;
       const known = lumiLeft != null, txt = known ? `${lumiLeft} of ${lumiLimit} questions left today` : `${lumiLimit} questions per day`;
       document.querySelectorAll('#chatPop .chat-pop-head .s').forEach(el => { el.innerHTML = `<span class="dot"></span> Online · ${txt}`; });
       document.querySelectorAll('.lumi-left').forEach(el => { el.textContent = txt; el.style.color = known && lumiLeft === 0 ? '#fca5a5' : known && lumiLeft <= 3 ? '#fcd34d' : 'rgba(255,255,255,0.7)'; });
