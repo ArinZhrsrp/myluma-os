@@ -8211,19 +8211,18 @@
     <div class="profile-edit-modal" style="width:480px;max-width:100%">
       <div class="pem-head">
         <div class="pem-title" id="remModalTitle">New reminder</div>
-        <button class="x" id="remClose"><i class="fa-solid fa-xmark"></i></button>
+        <button class="x" id="crClose"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="pem-msg error" id="remError"></div>
+      <div class="pem-msg error" id="crError"></div>
       <div class="pem-field"><label>Remind me to <span style="color:#fca5a5">*</span></label><input id="remTitle" type="text" maxlength="120" placeholder="e.g. Fill in the timesheet" autocomplete="off"></div>
       <div class="pem-field"><label>Repeat</label><div class="h-tpls" id="remKinds"></div><div class="pem-hint" id="remHint" style="margin:6px 0 0"></div></div>
       <div class="pem-field" id="remDaysWrap"><label>On</label><div class="h-days" id="remDays"></div></div>
       <div class="pem-field" id="remDateWrap"><label id="remDateLbl">Date</label><input id="remDate" type="text"></div>
       <div class="pem-field"><label>Time <span style="color:#fca5a5">*</span></label><input id="remTime" type="text" value="09:00"></div>
       <div class="pem-field"><label>Note <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="remNote" type="text" maxlength="300" placeholder="Shown in the notification" autocomplete="off"></div>
-      <div class="pem-actions">
-        <button class="confirm-btn cancel" id="remCancel">Cancel</button>
-        <button class="confirm-btn danger" id="remDelete" style="display:none">Delete</button>
-        <button class="confirm-btn" id="remSave">Add reminder</button>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="remDelete" title="Delete reminder" aria-label="Delete reminder" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="crSave" style="flex:1">Add reminder</button>
       </div>
     </div>
   </div>
@@ -8460,7 +8459,6 @@
       <div class="pem-hint">Changing your email or password may require confirming via a link sent to your inbox before
         it takes effect.</div>
       <div class="pem-actions">
-        <button class="confirm-btn cancel" id="pemCancel">Cancel</button>
         <button class="confirm-btn save" id="pemSave">Save changes</button>
       </div>
     </div>
@@ -9605,7 +9603,6 @@
     }
     function closeProfileEditModal() { pemOverlay.classList.remove('open'); }
     document.getElementById('pemClose').addEventListener('click', closeProfileEditModal);
-    document.getElementById('pemCancel').addEventListener('click', closeProfileEditModal);
     pemOverlay.addEventListener('click', (e) => { if (e.target === pemOverlay) closeProfileEditModal(); });
 
     pemSave.addEventListener('click', async () => {
@@ -11807,7 +11804,7 @@
     ];
     let REMS = [], REM_ERR = null;
     const remForm = { id: null, kind: 'once', days: new Set(), active: true };
-    const remErr = m => { docEl('remError').textContent = m; docEl('remError').style.display = m ? 'flex' : 'none'; };
+    const remErr = m => { docEl('crError').textContent = m; docEl('crError').style.display = m ? 'flex' : 'none'; };
     const remLastDay = k => { const d = new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7), 0)); return d.toISOString().slice(0, 10); };
     function remDue(r, k) {
       if (k < r.start_date) return false;
@@ -11882,7 +11879,7 @@
       const p = r || preset || {};
       remForm.id = r ? r.id : null; remForm.kind = p.kind || 'once'; remForm.active = r ? r.active : true;
       remForm.days = new Set(p.days ? p.days.map(Number) : []);
-      docEl('remModalTitle').textContent = r ? 'Edit reminder' : 'New reminder'; docEl('remSave').textContent = r ? 'Save changes' : 'Add reminder';
+      docEl('remModalTitle').textContent = r ? 'Edit reminder' : 'New reminder'; docEl('crSave').textContent = r ? 'Save changes' : 'Add reminder';
       docEl('remTitle').value = p.title || ''; docEl('remNote').value = p.note || '';
       const today = mytDayKey(Date.now());
       docEl('remDate').value = r ? r.start_date : p.day ? (+today.slice(8) <= p.day ? today.slice(0, 8) + String(p.day).padStart(2, '0') : bAddMonths(bFirst(today), 1).slice(0, 8) + String(p.day).padStart(2, '0')) : today;
@@ -11892,12 +11889,12 @@
       docEl('reminderOverlay').classList.add('open'); setTimeout(() => docEl('remTitle').focus(), 50);
     }
     const closeRemModal = () => docEl('reminderOverlay').classList.remove('open');
-    docEl('remClose').onclick = docEl('remCancel').onclick = closeRemModal;
+    docEl('crClose').onclick = closeRemModal;
     docEl('reminderOverlay').onclick = e => { if (e.target === docEl('reminderOverlay')) closeRemModal(); };
     docEl('remKinds').onclick = e => { const b = e.target.closest('button'); if (b) { remForm.kind = b.dataset.k; paintRemForm(); } };
     docEl('remDays').onclick = e => { const b = e.target.closest('button'); if (!b) return; const d = +b.dataset.d; remForm.days.has(d) ? remForm.days.delete(d) : remForm.days.add(d); paintRemForm(); };
     let remSkinned = false; // the date / time pickers are set up the first time the popup opens (they rely on helpers defined further down)
-    docEl('remSave').onclick = async () => {
+    docEl('crSave').onclick = async () => {
       const title = docEl('remTitle').value.trim(), time = docEl('remTime').value, k = remForm.kind, today = mytDayKey(Date.now());
       if (!title) return remErr('Give the reminder a name.');
       if (!time) return remErr('Choose the time.');
@@ -11906,7 +11903,7 @@
       if (k === 'once' && !remForm.id && (date < today || (date === today && mytNowMin() > +time.slice(0, 2) * 60 + +time.slice(3, 5) + 10))) return remErr('That time has already passed. Pick a later time or date.');
       const fields = { title, note: docEl('remNote').value.trim(), kind: k, start_date: date, remind_time: time, days: k === 'weekly' ? [...remForm.days].sort() : [], active: remForm.active };
       if (remForm.id) fields.last_fired_on = null; // an edited reminder can fire again
-      const btn = docEl('remSave'); btn.disabled = true; remErr('');
+      const btn = docEl('crSave'); btn.disabled = true; remErr('');
       const { data, error } = remForm.id ? await LumaReminders.update(remForm.id, fields) : await LumaReminders.add(fields);
       btn.disabled = false;
       if (error) return remErr(/reminders|schema cache|does not exist/i.test(error.message) ? 'Reminders aren\'t set up yet — run supabase/migrations/032_reminders.sql in the Supabase SQL Editor.' : error.message);
@@ -11939,6 +11936,36 @@
       REM_ERR = error || null; if (!error) REMS = data || [];
       paintReminders();
     }
+
+    // ----- edit popups: "Save" stays disabled until something has actually changed -----
+    (function initDirtyWatch() {
+      const sig = m => JSON.stringify([[...m.querySelectorAll('input,select,textarea')].map(el => el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value), [...m.querySelectorAll('.on,.sel,.active,.selected')].map(el => el.id + '|' + el.textContent.trim().slice(0, 30))]);
+      const shown = id => { const e = document.getElementById(id); return !!e && e.style.display !== 'none'; };
+      [
+        ['calEventOverlay', 'calEvSave', () => shown('calEvDelete')],
+        ['taskOverlay', 'tkSave', () => shown('tkDelete')],
+        ['moneyEntryOverlay', 'mEntrySave', () => shown('mEntryDelete')],
+        ['billOverlay', 'billSave', () => shown('billDelete')],
+        ['goalOverlay', 'goalSave', () => shown('goalDelete')],
+        ['habitOverlay', 'habitSave', () => shown('habitDelete')],
+        ['reminderOverlay', 'crSave', () => shown('remDelete')],
+        ['profileEditOverlay', 'pemSave', () => true],
+        ['noteOverlay', 'noteSave', () => /edit/i.test((document.getElementById('noteHeading') || {}).textContent || '')],
+        ['moneyIncomeOverlay', 'mIncSave', () => true],
+      ].forEach(([ovId, saveId, isEdit]) => {
+        const ov = document.getElementById(ovId), save = document.getElementById(saveId); if (!ov || !save) return;
+        let base = null, was = false;
+        const refresh = () => { if (base == null) return; save.disabled = sig(ov) === base; };
+        new MutationObserver(() => {
+          const on = ov.classList.contains('open');
+          if (on && !was && isEdit()) { base = null; save.disabled = true; setTimeout(() => { base = sig(ov); refresh(); }, 150); }
+          if (!on && was) { base = null; save.disabled = false; }
+          was = on;
+        }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+        const later = () => setTimeout(refresh, 0);
+        ov.addEventListener('input', later); ov.addEventListener('change', later); ov.addEventListener('click', later);
+      });
+    })();
 
     function paintHabits() { paintHabitsPage(); paintDashHabits(); if (document.getElementById('dashChips') && dashTasks) paintDashboard(); }
 
