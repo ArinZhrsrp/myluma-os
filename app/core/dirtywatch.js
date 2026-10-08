@@ -18,7 +18,7 @@
         ['sdClassOverlay', 'sdClassSave', () => shown('sdClassDelete')],
         ['sdTaskOverlay', 'sdTaskSave', () => shown('sdTaskDelete')],
         ['sdSemOverlay', 'sdSemSave', () => shown('sdSemDelete')],
-        ['sdNoteOverlay', 'sdNoteSave', () => shown('sdNoteDelete')],
+        ['sdNoteOverlay', 'sdNoteSave', () => shown('sdNoteDelete') || (typeof SDN !== 'undefined' && SDN.mode === 'shared')],
         ['sdProjOverlay', 'sdProjSave', () => true],
       ].forEach(([ovId, saveId, isEdit]) => {
         const ov = document.getElementById(ovId), save = document.getElementById(saveId); if (!ov || !save) return;

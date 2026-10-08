@@ -175,11 +175,16 @@
       <div class="pem-body">
         <div class="pem-field"><label>Title <span style="color:#fca5a5">*</span></label><input id="sdNoteTitle" type="text" maxlength="120" placeholder="e.g. Chapter 3 summary" autocomplete="off"></div>
         <div class="pem-field"><label>Subject <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><select id="sdNoteCourse"></select></div>
-        <div class="pem-field"><label>Note</label><textarea id="sdNoteBody" maxlength="20000" style="min-height:220px" placeholder="Write or paste your notes…"></textarea></div>
-        <div class="pem-field"><label>Shared with <span style="color:rgba(255,255,255,0.35);font-weight:400">(they can read it, only you can edit)</span></label>
+        <div class="pem-field"><label>Note</label>
+          <div class="sd-md-bar" id="sdNoteBar"><button type="button" data-md="b" title="Bold"><b>B</b></button><button type="button" data-md="i" title="Italic"><i>I</i></button><button type="button" data-md="h" title="Heading">H</button><button type="button" data-md="ul" title="Bulleted list"><i class="fa-solid fa-list-ul"></i></button><button type="button" data-md="ol" title="Numbered list"><i class="fa-solid fa-list-ol"></i></button><button type="button" data-md="chk" title="Checklist"><i class="fa-regular fa-square-check"></i></button><button type="button" data-md="a" title="Link"><i class="fa-solid fa-link"></i></button><span class="sp"></span><button type="button" id="sdNotePrev" title="See how it will look"><i class="fa-regular fa-eye"></i> Preview</button></div>
+          <textarea id="sdNoteBody" maxlength="20000" style="min-height:220px" placeholder="Write or paste your notes… (use the buttons above for bold, lists and links)"></textarea>
+          <div class="sd-note-text sd-md" id="sdNotePreview" style="display:none"></div></div>
+        <div class="pem-field" id="sdNoteSharedBox"><label>Shared with</label>
           <div class="cal-guests" id="sdNoteShares"></div><input type="hidden" id="sdNoteShareSig">
-          <button type="button" class="np-btn" id="sdNoteShareBtn"><i class="fa-solid fa-user-plus"></i> Share with contacts</button>
+          <div class="sd-shareadd"><div class="h-tpls" id="sdNotePerm"></div><button type="button" class="np-btn" id="sdNoteShareBtn"><i class="fa-solid fa-user-plus"></i> Share with contacts</button></div>
         </div>
+        <div class="pem-field" id="sdNoteFilesBox"><label>Files <span style="color:rgba(255,255,255,0.35);font-weight:400">(the people it is shared with can open them)</span></label><div id="sdNoteFiles"></div>
+          <button type="button" class="np-btn" id="sdNoteAttach" style="margin-top:8px"><i class="fa-solid fa-paperclip"></i> Attach a file</button><input type="file" id="sdNoteFile" style="display:none"><div class="pem-hint" id="sdNoteFilesHint" style="margin:6px 0 0;display:none">Save the note first, then you can attach files.</div></div>
       </div>
       <div class="pem-actions" style="gap:10px">
         <button type="button" class="h-del" id="sdNoteDelete" title="Delete note" aria-label="Delete note" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
@@ -194,7 +199,7 @@
         <div class="pem-title" id="sdNoteViewHead">Shared note</div>
         <button class="x" id="sdNoteViewClose"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div class="pem-body"><div class="ls" id="sdNoteViewMeta" style="margin-bottom:10px"></div><div class="sd-note-text" id="sdNoteViewBody"></div></div>
+      <div class="pem-body"><div class="ls" id="sdNoteViewMeta" style="margin-bottom:10px"></div><div class="sd-note-text sd-md" id="sdNoteViewBody"></div><div id="sdNoteViewFiles" style="margin-top:14px"></div></div>
       <div class="pem-actions"><button type="button" class="h-del" id="sdNoteViewRemove" title="Remove from my list" aria-label="Remove from my list"><i class="fa-regular fa-trash-can"></i></button></div>
     </div>
   </div>

@@ -322,3 +322,21 @@
     .sd-cmt .h button { margin-left:auto; border:0; width:22px; height:22px; border-radius:50%; background:transparent; color:rgba(255,255,255,0.45); cursor:pointer; font-size:0.6rem; }
     .sd-cmt .h button:hover { background:rgba(255,255,255,0.14); color:#fff; }
     .sd-cmt p { margin:2px 0 0; color:rgba(255,255,255,0.85); font-size:0.82rem; line-height:1.45; white-space:pre-wrap; word-break:break-word; }
+
+    /* notes: formatting bar, rendered text, sharing choices */
+    .sd-md-bar { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-bottom:8px; }
+    .sd-md-bar button { height:30px; min-width:32px; padding:0 9px; border-radius:9px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#fff; font:600 0.78rem inherit; font-family:inherit; cursor:pointer; }
+    .sd-md-bar button:hover:not(:disabled) { background:rgba(255,255,255,0.15); }
+    .sd-md-bar button:disabled { opacity:0.35; cursor:default; }
+    .sd-md-bar .sp { flex:1; }
+    .sd-md h3, .sd-md h4, .sd-md h5 { color:#fff; margin:12px 0 6px; }
+    .sd-md p { margin:0 0 8px; }
+    .sd-md ul, .sd-md ol { margin:0 0 10px; padding-left:22px; }
+    .sd-md ul.chk { list-style:none; padding-left:4px; }
+    .sd-md ul.chk i { color:#a7f3d0; margin-right:6px; }
+    .sd-md code { background:rgba(255,255,255,0.12); padding:1px 6px; border-radius:6px; font-size:0.85em; }
+    .sd-md a { color:#93c5fd; text-decoration:underline; }
+    #sdNotePreview { min-height:220px; padding:12px 14px; border-radius:14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); }
+    .sd-shareadd { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .cal-gchip .pm { width:auto; height:auto; padding:2px 8px; border-radius:999px; background:rgba(255,255,255,0.12); color:#fff; font-size:0.6rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; }
+    .cal-gchip small { color:rgba(255,255,255,0.65); font-size:0.64rem; }
