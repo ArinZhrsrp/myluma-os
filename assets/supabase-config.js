@@ -11,7 +11,7 @@
   var PROD_HOSTS = ["myluma-os.vercel.app"];
 
   var STAGING = {
-    url: "https://rbrpgjcwiptuvuluqrxs.supabase.co",
+    url: "https://yzinmyjmhmacnyjsgyfu.supabase.co",
     key: "sb_publishable_7MlbvuMMZWJkt_KIcqkFvA_bHe7gzHZ",
   };
 
