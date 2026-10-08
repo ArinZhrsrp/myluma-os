@@ -10,7 +10,7 @@ STAGING_REF="rbrpgjcwiptuvuluqrxs"
 PROD_REF=""   # <- paste your production project's reference here
 
 case "${1:-}" in
-  staging) REF="$STAGING_REF" ;;
+  staging) REF="dknrujlwixgtgdomukqy" ;;
   prod|production) REF="$PROD_REF" ;;
   *) echo "Usage: $0 staging|prod"; exit 1 ;;
 esac

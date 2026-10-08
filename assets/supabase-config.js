@@ -12,7 +12,7 @@
 
   var STAGING = {
     url: "https://rbrpgjcwiptuvuluqrxs.supabase.co",
-    key: "sb_publishable_wtJUFH-GEQJiKW25WztC4A_07MkH6qM",
+    key: "sb_publishable_7MlbvuMMZWJkt_KIcqkFvA_bHe7gzHZ",
   };
 
   // Fill these in after creating the production project. Until you do, production keeps using STAGING (nothing breaks).
