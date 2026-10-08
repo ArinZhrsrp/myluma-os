@@ -11798,7 +11798,7 @@
     // =====================================================
     //  REMINDERS — your own reminders, separate from tasks (delivered by the server: inbox + push)
     // =====================================================
-    const REM_KINDS = [['once', 'Does not repeat'], ['daily', 'Every day'], ['weekdays', 'Every weekday (Mon–Fri)'], ['weekly', 'Every week'], ['monthly', 'Every month on a date'], ['month_last_weekday', 'Last weekday of every month'], ['month_last_day', 'Last day of every month'], ['yearly', 'Every year']];
+    const REM_KINDS = [['once', 'Does not repeat'], ['daily', 'Every day'], ['weekdays', 'Every weekday (Mon–Fri)'], ['weekends', 'Every weekend (Sat–Sun)'], ['weekly', 'Every week'], ['monthly', 'Every month on a date'], ['month_last_weekday', 'Last weekday of every month'], ['month_last_day', 'Last day of every month'], ['yearly', 'Every year']];
     const REM_TPLS = [
       { title: 'Fill in the timesheet', kind: 'month_last_weekday', time: '09:00', note: 'Submit your hours for the month' },
       { title: 'Pay rent', kind: 'monthly', time: '09:00', day: 1 },
@@ -11816,6 +11816,7 @@
         case 'once': return k === r.start_date;
         case 'daily': return true;
         case 'weekdays': return dow >= 1 && dow <= 5;
+        case 'weekends': return dow === 0 || dow === 6;
         case 'weekly': return (r.days && r.days.length ? r.days.map(Number) : [hDow(r.start_date)]).includes(dow);
         case 'monthly': return +k.slice(8) === Math.min(+r.start_date.slice(8), cLast(k));
         case 'yearly': return k.slice(5, 7) === r.start_date.slice(5, 7) && +k.slice(8) === Math.min(+r.start_date.slice(8), cLast(k));
@@ -11839,7 +11840,7 @@
     }
     function remDesc(r) {
       const t = fmt12(r.remind_time), dn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const when = { once: `${cFmt(r.start_date, { day: 'numeric', month: 'short', year: 'numeric' })}`, daily: 'Every day', weekdays: 'Every weekday', monthly: `Day ${+r.start_date.slice(8)} of every month`, yearly: `Every ${cFmt(r.start_date, { day: 'numeric', month: 'long' })}`, month_last_day: 'Last day of every month', month_last_weekday: 'Last weekday of every month',
+      const when = { once: `${cFmt(r.start_date, { day: 'numeric', month: 'short', year: 'numeric' })}`, daily: 'Every day', weekdays: 'Every weekday', weekends: 'Every weekend (Sat & Sun)', monthly: `Day ${+r.start_date.slice(8)} of every month`, yearly: `Every ${cFmt(r.start_date, { day: 'numeric', month: 'long' })}`, month_last_day: 'Last day of every month', month_last_weekday: 'Last weekday of every month',
         weekly: 'Every ' + (r.days && r.days.length ? [...r.days].map(Number).sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map(d => dn[d]).join(', ') : dn[hDow(r.start_date)]) }[r.kind];
       return `${when} · ${t}`;
     }
@@ -11874,7 +11875,7 @@
       docEl('remDateLbl').innerHTML = (k === 'once' ? 'Date' : k === 'monthly' ? 'First date <span style="color:rgba(255,255,255,0.4);font-weight:400">(repeats on this day each month)</span>' : 'Date <span style="color:rgba(255,255,255,0.4);font-weight:400">(repeats every year)</span>') + ' <span style="color:#fca5a5">*</span>';
       docEl('remDaysWrap').style.display = k === 'weekly' ? '' : 'none';
       docEl('remDays').innerHTML = H_DAY_ORDER.map(([d, l]) => `<button type="button" data-d="${d}" class="${remForm.days.has(d) ? 'on' : ''}">${l}</button>`).join('');
-      docEl('remHint').textContent = { month_last_weekday: 'Fires on the last Monday–Friday of each month, so it never lands on a weekend.', month_last_day: 'Fires on the last calendar day of each month.', weekdays: 'Fires Monday to Friday.', daily: 'Fires every day.', weekly: remForm.days.size ? '' : 'Pick the days. If you pick none, it uses the weekday of today.', once: '', monthly: 'On short months it fires on the last day of the month.', yearly: '' }[k] || '';
+      docEl('remHint').textContent = { month_last_weekday: 'Fires on the last Monday–Friday of each month, so it never lands on a weekend.', month_last_day: 'Fires on the last calendar day of each month.', weekdays: 'Fires Monday to Friday.', weekends: 'Fires every Saturday and Sunday.', daily: 'Fires every day.', weekly: remForm.days.size ? '' : 'Pick the days. If you pick none, it uses the weekday of today.', once: '', monthly: 'On short months it fires on the last day of the month.', yearly: '' }[k] || '';
     }
     function openRemModal(r, preset) {
       if (!remSkinned) { skinDate(docEl('remDate')); skinTime(docEl('remTime')); remSkinned = true; }

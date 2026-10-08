@@ -11,8 +11,8 @@ create table if not exists luma.reminders (
   user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   title text not null check (length(trim(title)) > 0 and length(title) <= 120),
   note text not null default '' check (length(note) <= 300),
-  -- once | daily | weekdays (Mon–Fri) | weekly | monthly | yearly | month_last_day | month_last_weekday
-  kind text not null default 'once' check (kind in ('once', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly', 'month_last_day', 'month_last_weekday')),
+  -- once | daily | weekdays (Mon–Fri) | weekends (Sat–Sun) | weekly | monthly | yearly | month_last_day | month_last_weekday
+  kind text not null default 'once',
   start_date date not null,                                   -- the date (once), or the first date it can fire
   remind_time text not null check (remind_time ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
   days smallint[] not null default '{}',                      -- weekly: weekdays 0 (Sun) … 6 (Sat); empty = the weekday of start_date
@@ -21,6 +21,10 @@ create table if not exists luma.reminders (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- (re-running this file also updates the list of allowed kinds)
+alter table luma.reminders drop constraint if exists reminders_kind_check;
+alter table luma.reminders add constraint reminders_kind_check check (kind in ('once', 'daily', 'weekdays', 'weekends', 'weekly', 'monthly', 'yearly', 'month_last_day', 'month_last_weekday'));
 
 create index if not exists reminders_user on luma.reminders (user_id, active);
 
@@ -51,6 +55,7 @@ as $$
     when p_kind = 'once' then p_day = p_start
     when p_kind = 'daily' then true
     when p_kind = 'weekdays' then extract(dow from p_day) between 1 and 5
+    when p_kind = 'weekends' then extract(dow from p_day) in (0, 6)
     when p_kind = 'weekly' then extract(dow from p_day)::int = any (case when cardinality(p_days) = 0 then array[extract(dow from p_start)::smallint] else p_days end)
     when p_kind = 'monthly' then luma.day_matches(p_start, 'monthly', p_day)
     when p_kind = 'yearly' then luma.day_matches(p_start, 'yearly', p_day)
