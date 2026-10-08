@@ -305,3 +305,20 @@
     </div>
   </div>
 
+  <div class="modal-overlay confirm-overlay" id="sdCopyOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Start from a previous semester</div>
+        <button class="x" id="sdCopyClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdCopyError"></div>
+      <div class="pem-body">
+        <div class="ls" id="sdCopyTo" style="margin-bottom:12px"></div>
+        <div class="pem-field"><label>Copy from</label><select id="sdCopyFrom"></select></div>
+        <div class="pem-field"><label>What to copy</label><div class="h-tpls" id="sdCopyWhat"></div>
+          <div class="pem-hint" id="sdCopyHint" style="margin:8px 0 0"></div></div>
+      </div>
+      <div class="pem-actions"><button class="confirm-btn save" id="sdCopyGo" style="flex:1">Copy into this semester</button></div>
+    </div>
+  </div>
+

@@ -313,7 +313,7 @@
         const list = SD.courses.filter(c => c.semester_id === sem.id), g = sdGpa(list), total = Math.ceil((sdDiff(sem.start_date, sem.end_date) + 1) / 7);
         const state = t > sem.end_date ? 'Ended' : t < sem.start_date ? `Starts in ${sdDiff(t, sem.start_date)} days` : `Week ${Math.min(total, Math.floor(sdDiff(sem.start_date, t) / 7) + 1)} of ${total}`;
         return `<div class="card sd-sem ${sem.is_active ? 'cur' : ''}" data-sem="${sem.id}"><div class="sm-top"><div class="sm-main"><div class="sm-t">${escapeHtml(sem.name)}${sem.is_active ? '<em>Active</em>' : '<em class="off">Inactive</em>'}</div><div class="sm-s">${sdShort(sem.start_date)} to ${sdShort(sem.end_date)} · ${total} weeks · ${state}</div></div><div class="sm-gpa"><b>${g ? g.gpa.toFixed(2) : '—'}</b><span>GPA</span></div><button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
-          <div class="sm-done">${sem.is_active ? `<button type="button" class="np-btn" data-finish-sem="${sem.id}"><i class="fa-solid fa-box-archive"></i> Done with this semester</button>` : cur ? `<button type="button" class="np-btn" disabled title="Archive ${escapeHtml(cur.name)} first: only one semester can be active"><i class="fa-solid fa-lock"></i> Activate (archive ${escapeHtml(cur.name)} first)</button>` : `<button type="button" class="np-btn act" data-activate-sem="${sem.id}"><i class="fa-solid fa-bolt"></i> Make this the active semester</button>`}</div>
+          <div class="sm-done">${sem.is_active ? `<button type="button" class="np-btn" data-copy-sem="${sem.id}"><i class="fa-regular fa-copy"></i> Start from a previous semester</button><button type="button" class="np-btn" data-finish-sem="${sem.id}"><i class="fa-solid fa-box-archive"></i> Done with this semester</button>` : cur ? `<button type="button" class="np-btn" disabled title="Archive ${escapeHtml(cur.name)} first: only one semester can be active"><i class="fa-solid fa-lock"></i> Activate (archive ${escapeHtml(cur.name)} first)</button>` : `<button type="button" class="np-btn act" data-activate-sem="${sem.id}"><i class="fa-solid fa-bolt"></i> Make this the active semester</button>`}</div>
           <div class="sm-subj">${list.length ? list.map(c => { const m = sdMark(c); return `<span class="sd-cc" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}${m != null ? ` <b>${sdLetter(m)[1]}</b>` : ''}</span>`; }).join('') : '<span class="ls">No subjects in this semester yet. Pick it when you add or edit a subject.</span>'}</div></div>`;
       }).join('');
       const tail = archivedSems.length ? `<div class="sd-endednote"><button type="button" data-open-archive>Archived semesters (${archivedSems.length}) · open the archive</button></div>` : '';
@@ -665,7 +665,7 @@
       const sem = sdSem(id); if (!sem) return; sdArchId = id;
       const cs = SD.courses.filter(c => c.semester_id === id), ids = cs.map(c => c.id), tk = SD.tasks.filter(t => ids.includes(t.course_id) || t.semester_id === id), open = tk.filter(t => t.status !== 'done').length, cl = SD.classes.filter(c => ids.includes(c.course_id)).length;
       docEl('sdArchTitle').textContent = 'Archive “' + sem.name + '”';
-      docEl('sdArchSummary').innerHTML = `${cs.length} subject${cs.length === 1 ? '' : 's'}, ${cl} class${cl === 1 ? '' : 'es'} and ${tk.length} assignment${tk.length === 1 ? '' : 's'}${open ? ` (<b>${open} still open</b>)` : ''}, plus the notes, group projects, reminders and other items you added in it, move to <b>Study → Archive</b>. They leave your timetable, Calendar and reminders, and your GPA keeps them. You can restore the semester any time.`;
+      docEl('sdArchSummary').innerHTML = `${cs.length} subject${cs.length === 1 ? '' : 's'}, ${cl} class${cl === 1 ? '' : 'es'} and ${tk.length} assignment${tk.length === 1 ? '' : 's'}${open ? ` (<b>${open} still open</b>)` : ''}, plus the notes, group projects, reminders and other items you added in it, move to <b>Study → Archive</b>. They leave your timetable, Calendar and reminders, and your GPA keeps them. You can restore the semester any time. Next semester, use <b>Start from a previous semester</b> to copy your subjects and timetable.`;
       docEl('sdArchRemark').value = sem.remark || ''; sdErr('sdArchError', ''); sdOpen('sdArchOverlay'); setTimeout(() => docEl('sdArchRemark').focus(), 50);
     }
     docEl('sdArchClose').onclick = () => sdClose('sdArchOverlay');
@@ -690,6 +690,60 @@
       if (err) return luAlert('Could not change some subjects: ' + err);
       flashToast(on ? 'Archived' : 'Restored', `${ids.length} subject${ids.length === 1 ? '' : 's'}`, 'fa-box-archive', '#34d399');
     }
+
+    // ---------- start a new semester from an old one: copy the subjects and timetable (and what is still unfinished) ----------
+    const SDC = { what: new Set(['setup']) };
+    function sdCopyCounts() {
+      const from = docEl('sdCopyFrom').value, cs = SD.courses.filter(c => c.semester_id === from), ids = cs.map(c => c.id);
+      return { subjects: cs.length, classes: SD.classes.filter(k => ids.includes(k.course_id)).length, open: SD.tasks.filter(t => t.status !== 'done' && (ids.includes(t.course_id) || t.semester_id === from)).length };
+    }
+    function sdCopyPaint() {
+      sdChips('sdCopyWhat', [['setup', 'Subjects and timetable', 'fa-book'], ['open', 'Unfinished assignments', 'fa-list-check']].map(([k, n, i]) => [k, n, i]), '', 'cw');
+      docEl('sdCopyWhat').querySelectorAll('[data-cw]').forEach(b => b.classList.toggle('on', SDC.what.has(b.dataset.cw)));
+      const c = sdCopyCounts(), to = sdActiveSem();
+      docEl('sdCopyHint').textContent = `${c.subjects} subject${c.subjects === 1 ? '' : 's'}, ${c.classes} class${c.classes === 1 ? '' : 'es'} and ${c.open} unfinished assignment${c.open === 1 ? '' : 's'} in the semester you pick. Classes run for the dates of ${to ? to.name : 'this semester'}. Marks, scores and notes are not copied.`;
+    }
+    function openCopySemester() {
+      const to = sdActiveSem(); if (!to) return sdNeedSem();
+      const others = SD.semesters.filter(x => x.id !== to.id).sort((a, b) => b.start_date.localeCompare(a.start_date));
+      if (!others.length) return luAlert('You have no other semester to copy from yet.', 'Nothing to copy');
+      SDC.what = new Set(['setup']); sdErr('sdCopyError', '');
+      docEl('sdCopyTo').innerHTML = `Copying into <b>${escapeHtml(to.name)}</b> (your active semester).`;
+      docEl('sdCopyFrom').innerHTML = others.map(x => `<option value="${x.id}">${escapeHtml(x.name)}${x.archived_at ? ' (archived)' : ''}</option>`).join(''); skinSelect(docEl('sdCopyFrom'));
+      sdCopyPaint(); sdOpen('sdCopyOverlay');
+    }
+    docEl('sdCopyClose').onclick = () => sdClose('sdCopyOverlay');
+    docEl('sdCopyOverlay').onclick = e => { if (e.target === docEl('sdCopyOverlay')) return sdClose('sdCopyOverlay'); const w = e.target.closest('[data-cw]'); if (w) { SDC.what.has(w.dataset.cw) ? SDC.what.delete(w.dataset.cw) : SDC.what.add(w.dataset.cw); sdCopyPaint(); } };
+    docEl('sdCopyFrom').addEventListener('change', sdCopyPaint);
+    docEl('sdCopyGo').onclick = async () => {
+      const to = sdActiveSem(), from = docEl('sdCopyFrom').value; if (!to || !from) return;
+      if (!SDC.what.size) return sdErr('sdCopyError', 'Pick what to copy.');
+      sdErr('sdCopyError', ''); sdBtn('sdCopyGo', true);
+      try {
+        const today = sdKey(), srcCourses = SD.courses.filter(c => c.semester_id === from), srcIds = srcCourses.map(c => c.id), made = { subjects: 0, classes: 0, tasks: 0 }, idMap = {};
+        const mine = SD.courses.filter(c => c.semester_id === to.id); // a subject already in this semester is reused, not copied twice
+        const fresh = [];
+        srcCourses.forEach(c => { const ex = mine.find(m => m.name.toLowerCase() === c.name.toLowerCase() && (m.code || '') === (c.code || '')); if (ex) idMap[c.id] = ex.id; else fresh.push(c); });
+        if (SDC.what.has('setup') || (SDC.what.has('open') && fresh.length)) {
+          if (fresh.length) {
+            const r = await LumaStudy.courses.addMany(fresh.map(c => ({ name: c.name, code: c.code || '', color: c.color, lecturer: c.lecturer || '', credit_hours: c.credit_hours, target_percent: c.target_percent })));
+            if (r.error) throw new Error(r.error.message);
+            (r.data || []).forEach((row, i) => { idMap[fresh[i].id] = row.id; SD.courses.push(row); }); made.subjects = fresh.length;
+          }
+        }
+        if (SDC.what.has('setup')) {
+          const start = today > to.start_date ? today : to.start_date, rows = SD.classes.filter(k => srcIds.includes(k.course_id) && idMap[k.course_id]).map(k => ({ course_id: idMap[k.course_id], weekday: k.weekday, start_time: k.start_time, end_time: k.end_time, room: k.room || '', kind: k.kind, start_date: start, end_date: to.end_date }));
+          if (rows.length && to.end_date >= start) { const r = await LumaStudy.classes.addMany(rows); if (r.error) throw new Error(r.error.message); made.classes = rows.length; }
+        }
+        if (SDC.what.has('open')) {
+          const rows = SD.tasks.filter(t => t.status !== 'done' && (srcIds.includes(t.course_id) || t.semester_id === from)).map(t => ({ course_id: t.course_id ? (idMap[t.course_id] || null) : null, title: t.title, kind: t.kind, due_date: t.due_date && t.due_date >= today ? t.due_date : null, due_time: t.due_date && t.due_date >= today ? t.due_time : null, weight: t.weight, notes: t.notes || '', status: 'todo' }));
+          if (rows.length) { const r = await LumaStudy.tasks.addMany(rows); if (r.error) throw new Error(r.error.message); made.tasks = rows.length; }
+        }
+        sdClose('sdCopyOverlay'); await sdLoad(); sdAfterSave();
+        flashToast('Copied into ' + to.name, `${made.subjects} subject${made.subjects === 1 ? '' : 's'}, ${made.classes} class${made.classes === 1 ? '' : 'es'}, ${made.tasks} assignment${made.tasks === 1 ? '' : 's'}`, 'fa-copy', '#34d399');
+      } catch (e) { sdErr('sdCopyError', sdHint(e.message || String(e))); }
+      sdBtn('sdCopyGo', false, 'Copy into this semester');
+    };
 
     // ---------- pick people from your contacts (used by shared notes and group projects) ----------
     let SD_CONTACTS = null, sdPickResolve = null;
@@ -832,6 +886,7 @@
       pg.querySelector('#sdRoot').addEventListener('click', e => {
         const chk = e.target.closest('[data-check]'); if (chk) return sdToggleDone(chk.dataset.check);
         if (e.target.closest('[data-goto-sem]')) { SD.tab = 'semesters'; return sdPaint(); }
+        const cp = e.target.closest('[data-copy-sem]'); if (cp) return openCopySemester();
         const act = e.target.closest('[data-activate-sem]'); if (act) return sdActivateSemester(act.dataset.activateSem);
         const fin = e.target.closest('[data-finish-sem]'); if (fin) return sdFinishSemester(fin.dataset.finishSem);
         if (e.target.closest('[data-open-archive]')) return goTo('studyarchive');
