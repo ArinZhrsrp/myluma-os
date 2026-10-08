@@ -4203,9 +4203,9 @@
     .srch-bar input { flex:1; min-width:0; height:100%; background:none; border:none; outline:none; color:#fff; font:inherit; font-size:0.95rem; }
     .srch-bar input::placeholder { color:rgba(255,255,255,0.4); }
     kbd { font:600 0.62rem inherit; font-family:inherit; padding:3px 6px; border-radius:6px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.7); }
-    .srch-list { flex:1 1 auto; min-height:0; overflow-y:auto; padding:8px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
-    .srch-g { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.5); font-weight:700; padding:10px 10px 4px; }
-    .srch-it { display:flex; align-items:center; gap:12px; padding:9px 10px; border-radius:12px; cursor:pointer; }
+    .srch-list { flex:1 1 auto; min-height:0; overflow-y:auto; padding:8px 10px 6px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    .srch-g { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.5); font-weight:700; padding:12px 12px 8px; }
+    .srch-it { display:flex; align-items:center; gap:14px; padding:10px 12px; border-radius:14px; cursor:pointer; margin-bottom:6px; }
     .srch-it.hl, .srch-it:hover { background:rgba(255,255,255,0.08); }
     .srch-it .si { width:32px; height:32px; flex:none; border-radius:10px; display:grid; place-items:center; font-size:0.8rem; color:var(--c); background:color-mix(in srgb, var(--c) 18%, transparent); }
     .srch-it .st { min-width:0; flex:1; }
@@ -8285,7 +8285,7 @@
 
   <div class="modal-overlay" id="searchOverlay">
     <div class="srch-panel">
-      <div class="srch-bar"><i class="fa-solid fa-search"></i><input id="srchInput" type="text" placeholder="Search tasks, events, notes, bills, habits and more…" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div>
+      <div class="srch-bar"><i class="fa-solid fa-search"></i><input id="srchInput" type="text" placeholder="Search tasks, events, notes, bills, habits and more…" autocomplete="off" spellcheck="false"><button class="x" id="srchClose" title="Close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button></div>
       <div class="srch-list" id="srchList"></div>
       <div class="srch-foot"><span><kbd>↑</kbd><kbd>↓</kbd> to move</span><span><kbd>Enter</kbd> to open</span></div>
     </div>
@@ -12189,8 +12189,8 @@
       if (e.key === 'ArrowDown') { e.preventDefault(); srchSel = Math.min(n - 1, srchSel + 1); srchMark(); }
       else if (e.key === 'ArrowUp') { e.preventDefault(); srchSel = Math.max(0, srchSel - 1); srchMark(); }
       else if (e.key === 'Enter') { e.preventDefault(); srchGo(srchFlat[srchSel]); }
-      else if (e.key === 'Escape') { e.preventDefault(); closeSearch(); }
     });
+    docEl('srchClose').onclick = closeSearch;
     docEl('searchOverlay').onclick = e => { if (e.target === docEl('searchOverlay')) return closeSearch(); const it = e.target.closest('.srch-it'); if (it) srchGo(srchFlat[+it.dataset.i]); };
     document.addEventListener('keydown', e => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); docEl('searchOverlay').classList.contains('open') ? closeSearch() : openSearch(); }
