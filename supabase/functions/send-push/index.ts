@@ -49,6 +49,10 @@ Deno.serve(async (req) => {
     if (count) return new Response("skipped: message burst");
   }
 
+  // Focus mode (Settings → Preferences): only urgent things (reminders and budget alerts) are pushed
+  const { data: prof } = await db.from("profiles").select("preferences").eq("id", n.user_id).maybeSingle();
+  if (prof?.preferences?.focus === true && !/^(reminder_|budget_)/.test(n.type ?? "")) return new Response("skipped: focus mode");
+
   const { data: subs, error } = await db
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth")
