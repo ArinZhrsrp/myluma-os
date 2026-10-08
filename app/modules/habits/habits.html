@@ -1,0 +1,67 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="goneOverlay">
+    <div class="profile-edit-modal" style="width:440px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Deleted habits</div>
+        <button class="x" id="goneClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="goneError"></div>
+      <div class="ls" style="margin-bottom:10px">Taken off your list. They don't count in Consistency and don't send
+        reminders.</div>
+      <div id="goneList"></div>
+      <div class="pem-actions"><button class="confirm-btn cancel" id="goneClear" style="flex:1">Clear all
+          deleted</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="habitOverlay">
+    <div class="profile-edit-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="habitModalTitle">New habit</div>
+        <button class="x" id="habitClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="habitError"></div>
+      <div class="pem-field" id="habitTplWrap"><label>Start from a template</label>
+        <div class="h-tpls" id="habitTpls"></div>
+      </div>
+      <div class="pem-field"><label>Name <span style="color:#fca5a5">*</span></label><input id="habitName" type="text"
+          maxlength="80" placeholder="e.g. Meditate" autocomplete="off"></div>
+      <div class="pem-field"><label>Frequency</label>
+        <div class="h-days" id="habitPeriod"></div>
+      </div>
+      <div class="pem-field" id="habitTimesWrap"><label id="habitTimesLbl">Times per week</label><input id="habitTimes"
+          type="number" min="1" max="7" step="1" value="1"></div>
+      <div class="pem-field" id="habitDaysWrap"><label>Repeat on</label>
+        <div class="h-days" id="habitDays"></div>
+      </div>
+      <div class="pem-field" id="habitModeWrap"><label>Track by</label>
+        <div class="h-days" id="habitMode"></div>
+      </div>
+      <div class="pem-row" id="habitAmtWrap">
+        <div class="pem-field"><label id="habitAmtLbl">Daily amount</label><input id="habitGoal" type="number" min="0"
+            step="any" placeholder="e.g. 5"></div>
+        <div class="pem-field" id="habitUnitWrap"><label>Unit</label><input id="habitUnit" type="text" maxlength="20"
+            placeholder="pages, min, km…" autocomplete="off"></div>
+      </div>
+      <div class="pem-field" id="habitTargetWrap"><label>Note <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="habitTarget"
+          type="text" maxlength="40" placeholder="e.g. before 8pm" autocomplete="off"></div>
+      <div class="pem-field" id="habitRemindWrap"><label>Remind me at <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="habitRemind"
+          type="text" placeholder="No reminder">
+        <div class="pem-hint" style="margin:6px 0 0">Sent as a notification at this time (in your time zone) while the
+          habit isn't done yet. Turn on push in Settings to get it when LUMA is closed.</div>
+      </div>
+      <div class="pem-field"><label>Icon</label>
+        <div class="h-icons" id="habitIcons"></div>
+      </div>
+      <div class="pem-field"><label>Colour</label>
+        <div class="h-colors" id="habitColors"></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="habitDelete" title="Delete habit" aria-label="Delete habit"
+          style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="habitSave" style="flex:1">Save habit</button>
+      </div>
+    </div>
+  </div>

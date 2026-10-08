@@ -1,0 +1,64 @@
+// LUMA — module: support
+      // ---------------- SUPPORT ----------------
+    MODULES.support = function () {
+        const channels = [
+          ['Email us', 'aeinscape@gmail.com · replies in 24h', 'fa-envelope', '#8b5cf6', 'mailto:aeinscape@gmail.com'],
+          ['WhatsApp', '+60 12-210 8459 · Mon–Fri 9–6', 'fa-whatsapp', '#25d366', 'https://wa.me/60122108459'],
+        ];
+        const faqs = [
+          ["How do I get started?", "Create an account, then type the 6-digit code we email you. That verifies your email and signs you in. You start on the free Dawn plan, and the dashboard fills up as you add tasks, events, habits, bills and more."],
+          ["What are the Dawn, Glow and Zenith plans?", "Dawn is free forever and covers the core tools. Glow adds Lumi actions, AI insights, more storage and the full toolkit. Zenith has the highest limits, and unlimited reminders, habits, goals, bills and contacts. Tap your plan name in Settings to compare them."],
+          ["How do I upgrade my plan?", "Settings → tap your plan name → choose Upgrade. WhatsApp opens with your name, email, plan and price already filled in. Send it, and our team switches your plan once payment is sorted. You'll get a notification when it's done."],
+          ["What can Lumi do for me?", "Lumi answers questions about your own data, such as your spending or what to focus on. On Glow and Zenith it can also add events, tasks, notes and expenses, and log your sleep, water, steps and mood. It can't delete or edit things, and it only helps with LUMA. Questions per day: Dawn 3, Glow 10, Zenith 15, resetting at midnight."],
+          ["How does Lumi use my data?", "When you ask, Lumi reads only what it needs from your own account to answer, and sends your message and that information to an AI service (Google Gemini or Groq) to write the reply. Nothing is shared with other LUMA users."],
+          ["Where do I set reminders?", "Your own one-off or repeating reminders, like filling in a timesheet on the last weekday of every month, live on the Reminders page. Settings → Reminders chooses which built-in reminders you get (events, tasks, bills, subscriptions, goals, habits, health, budget) and when. Water, steps and sleep times are on the Health page, and each habit has its own reminder time."],
+          ["Why am I not getting push notifications?", "Turn on Notifications in Settings → Preferences and allow them in your browser or phone. On iPhone, add LUMA to your Home Screen first. If Focus mode is on, only reminders and budget alerts come through, and chat messages and nudges stay quiet."],
+          ["How do I change my time zone?", "Settings → Edit profile → Time zone. Your dashboard times and every reminder follow it, so change it when you travel."],
+          ["How does the Malaysian salary calculator work?", "On Glow and Zenith, with Malaysia as your country, Money → Income & salary works out your EPF, SOCSO, EIS and LINDUNG 24 Jam from your gross pay. PCB is only what you enter from your payslip. On Dawn, you just enter the income you receive."],
+          ["What's the difference between Bills and Subscriptions?", "They share one list. A subscription is a bill in the Subscription category, so adding it in either place shows it in both. Ticking one as paid counts it as spending in Money. Pausing a subscription hides it from Bills and its totals."],
+          ["How much can I store, and how many contacts can I chat with?", "File storage: Dawn 50 MB, Glow 300 MB, Zenith 1 GB, with files up to 5, 20 and 50 MB. Contacts: Dawn 3, Glow 12, Zenith unlimited. Everyone can send up to 50 chat messages a day."],
+          ["Can I change my background or theme?", "Yes: Settings → Background and Theme. Dawn has 2 wallpapers and 1 theme, Glow has all the built-in ones, and Zenith can also upload its own wallpaper."],
+          ["How do I change my password or download my data?", "Settings → Account & data. You can email yourself a password reset link, export your data as a file, or sign out of your other devices. If you can't sign in, use “Forgot password?” on the sign-in page."],
+          ["How do I downgrade or delete my account?", "Message us on WhatsApp or email and our team will change your plan or delete your account. After a downgrade your data stays, but you can't add more than the new plan allows until you're under its limits."],
+        ];
+        return head('Support', 'We\u2019re here to help \u2014 reach customer service or admin') +
+          `<div class="grid-2" style="margin-bottom:0.9rem">
+          ${channels.map(c => `<div class="card supp-ch" data-action="${c[4]}" style="cursor:pointer"><div class="lrow" style="border:none;padding:2px 0"><div class="licon" style="color:${c[3]};background:${c[3]}22"><i class="fa-${c[2] === 'fa-whatsapp' ? 'brands' : 'solid'} ${c[2]}"></i></div><div class="lmain"><div class="lt">${c[0]}</div><div class="ls">${c[1]}</div></div><i class="fa-solid fa-arrow-right" style="color:rgba(255,255,255,0.3)"></i></div></div>`).join('')}
+        </div>
+        <div class="grid-2">
+          ${card(`<div class="section-title"><i class="fa-solid fa-paper-plane"></i> Send us a message</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div><label class="ls" style="display:block;margin-bottom:5px">Subject</label><div style="position:relative"><select id="suppTopic" style="width:100%;height:42px;border-radius:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:0 42px 0 14px;font-size:0.82rem;outline:none;appearance:none;-webkit-appearance:none;-moz-appearance:none"><option>Billing &amp; plans</option><option>Technical issue</option><option>Feature request</option><option>Account &amp; privacy</option><option>Other</option></select><i class="fa-solid fa-chevron-down" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:0.68rem;color:rgba(255,255,255,0.4);pointer-events:none"></i></div></div>
+              <div><label class="ls" style="display:block;margin-bottom:5px">Message</label><textarea id="suppMsg" placeholder="Describe your issue\u2026" style="width:100%;height:110px;border-radius:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;padding:11px 12px;font-size:0.82rem;outline:none;resize:none;font-family:inherit"></textarea></div>
+              <button class="create-btn" id="suppSend" style="justify-content:center"><i class="fa-solid fa-paper-plane"></i> Send message</button>
+              <div id="suppOk" style="display:none;align-items:center;gap:8px;font-size:0.78rem;color:#6ee7b7;padding-top:4px"><i class="fa-solid fa-circle-check"></i> Thanks! Our team will reply to your account email shortly.</div>
+            </div>`)}
+          ${card(`<div class="supp-faq-in"><div class="section-title"><i class="fa-regular fa-circle-question"></i> Frequently asked</div><div class="faq-wrap">${faqs.map((f, i) => `<div class="faq" data-i="${i}" style="border-bottom:1px solid rgba(255,255,255,0.05)"><div class="faq-q" style="display:flex;align-items:center;gap:10px;padding:12px 2px;cursor:pointer"><i class="fa-solid fa-chevron-right faq-ic" style="font-size:0.7rem;color:rgba(255,255,255,0.4);transition:0.2s"></i><span class="lt" style="flex:1">${f[0]}</span></div><div class="faq-a" style="display:none;font-size:0.76rem;color:rgba(255,255,255,0.55);line-height:1.55;padding:0 2px 12px 22px">${f[1]}</div></div>`).join('')}</div><div style="flex:none;margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);font-size:0.76rem;color:rgba(255,255,255,0.8)"><i class="fa-regular fa-clock" style="color:#93c5fd;margin-right:7px"></i>Support hours: Mon–Fri, 9am–6pm (MYT)</div></div>`, 'supp-faq')}
+        </div>`;
+    };
+
+      // Support — channels, contact form, FAQ accordion
+    WIRE.support = function (pg, key) {
+        const topic = pg.querySelector('#suppTopic');
+        if (topic) { topic.nextElementSibling?.remove(); skinSelect(topic); } // drop the old chevron icon; the themed dropdown draws its own
+        pg.querySelectorAll('.supp-ch').forEach(c => c.addEventListener('click', () => {
+          const a = c.dataset.action;
+          if (a === 'chat') { document.getElementById('fab')?.click(); }
+          else if (a) { window.open(a, '_blank'); }
+        }));
+        const sendBtn = pg.querySelector('#suppSend');
+        sendBtn && sendBtn.addEventListener('click', () => {
+          const msg = pg.querySelector('#suppMsg');
+          if (!msg.value.trim()) { msg.style.borderColor = '#ef4444'; return; }
+          msg.style.borderColor = 'rgba(255,255,255,0.1)'; msg.value = '';
+          pg.querySelector('#suppOk').style.display = 'flex';
+        });
+        pg.querySelectorAll('.faq-q').forEach(q => q.addEventListener('click', () => {
+          const faq = q.closest('.faq');
+          const ans = faq.querySelector('.faq-a');
+          const ic = faq.querySelector('.faq-ic');
+          const open = ans.style.display === 'block';
+          pg.querySelectorAll('.faq').forEach(o => { o.querySelector('.faq-a').style.display = 'none'; o.querySelector('.faq-ic').style.transform = 'none'; }); // only one answer open at a time
+          if (!open) { ans.style.display = 'block'; ic.style.transform = 'rotate(90deg)'; faq.scrollIntoView({ block: 'nearest' }); }
+        }));
+    };

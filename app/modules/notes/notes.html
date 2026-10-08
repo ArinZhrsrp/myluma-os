@@ -1,0 +1,68 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="noteViewOverlay">
+    <div class="profile-edit-modal" style="width:560px;max-width:100%">
+      <div class="pem-head">
+        <div style="min-width:0">
+          <div class="n-tag" id="nvTag"
+            style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.06em;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:6px;margin-bottom:6px">
+          </div>
+          <div class="pem-title" id="nvTitle" style="word-break:break-word"></div>
+        </div>
+        <button class="x" id="nvClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="nvBody"
+        style="font-size:0.85rem;line-height:1.7;color:rgba(255,255,255,0.85);white-space:pre-wrap;word-break:break-word;max-height:50vh;overflow-y:auto">
+      </div>
+      <div id="nvDocs" style="margin-top:16px"></div>
+      <div class="ls" id="nvDate" style="margin-top:14px"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="noteOverlay">
+    <div class="profile-edit-modal" style="width:560px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="noteHeading">New note</div>
+        <button class="x" id="noteClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="noteError"></div>
+      <div class="pem-field"><label>Title <span style="color:#fca5a5">*</span></label><input id="noteTitle" type="text"
+          placeholder="Give your note a title" autocomplete="off" maxlength="120"></div>
+      <div class="pem-field"><label>Note <span style="color:#fca5a5">*</span></label><textarea id="noteBody"
+          placeholder="Write something…"></textarea></div>
+      <div class="pem-field"><label>Tag <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label>
+        <div id="noteTagChips" class="tag-chips"></div>
+        <div id="noteTagColors" class="tag-colors"></div>
+        <input id="noteTag" type="hidden">
+      </div>
+      <div class="att-section">
+        <div class="att-head"><label>Documents <span
+              style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span> <span id="noteAttCount"
+              style="color:rgba(255,255,255,0.35)"></span></label></div>
+        <div class="att-box">
+          <div id="noteAtts" class="att-chips"></div>
+          <div class="att-btns">
+            <button type="button" id="noteAttachBtn"><i class="fa-solid fa-paperclip"></i> Attach from
+              Documents</button>
+            <button type="button" id="noteUploadBtn"><i class="fa-solid fa-upload"></i> Upload new</button>
+            <input type="file" id="noteUploadInput" style="display:none">
+          </div>
+        </div>
+      </div>
+      <div class="pem-actions">
+        <button class="confirm-btn save" id="noteSave" style="flex:1">Save note</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="attachOverlay">
+    <div class="profile-edit-modal" style="width:440px">
+      <div class="pem-head">
+        <div class="pem-title">Attach documents</div>
+        <button class="x" id="attachClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <input class="pick-search" id="attachSearch" placeholder="Search your documents…" autocomplete="off">
+      <div id="attachList" class="chk-list"></div>
+      <div class="pem-actions"><button class="confirm-btn save" id="attachDone" style="flex:1">Done</button></div>
+    </div>
+  </div>

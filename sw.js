@@ -20,7 +20,7 @@ self.addEventListener("push", (event) => {
     await self.registration.showNotification(d.title || "LUMA", {
       body: d.body || "",
       tag: d.id || undefined,
-      icon: "assets/luma-mark.svg",
+      icon: "/shared/luma-mark.svg",
       silent: visible,
       data: { link: d.link || "" },
     });
@@ -37,7 +37,7 @@ self.addEventListener("notificationclick", (event) => {
   const link = (event.notification.data && event.notification.data.link) || "";
 
   event.waitUntil((async () => {
-    const base = new URL("LUMA%20Glass%20Dashboard.html", self.registration.scope).href;
+    const base = new URL("app/", self.registration.scope).href;
     const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const c of wins) {
       if (c.url.startsWith(base)) {

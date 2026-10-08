@@ -1,0 +1,84 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="docOverlay">
+    <div class="profile-edit-modal" style="width:420px">
+      <div class="pem-head">
+        <div class="pem-title" id="docTitle">Upload document</div>
+        <button class="x" id="docClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="docError"></div>
+      <div class="pem-field" id="docFileField">
+        <label>Files <span style="color:#fca5a5">*</span></label>
+        <div class="dropzone" id="docDrop" tabindex="0">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+          <div class="dz-title">Drag &amp; drop files here</div>
+          <div class="dz-sub">or <span>browse</span> · multiple files · max 25 MB each</div>
+        </div>
+        <input id="docFile" type="file" multiple style="display:none">
+        <div id="docQueue"></div>
+      </div>
+      <div class="pem-field" id="docNameField"><label>Name <span style="color:#fca5a5">*</span></label><input
+          id="docName" type="text" placeholder="Document name" autocomplete="off"></div>
+      <div class="pem-field" style="margin-bottom:0"><label>Category <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><select
+          id="docCategory"></select></div>
+      <div class="pem-hint">Files are stored privately — only you can open them.</div>
+      <div class="pem-actions">
+        <button class="confirm-btn cancel" id="docCancel">Cancel</button>
+        <button class="confirm-btn save" id="docSave">Upload</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="shareOverlay">
+    <div class="profile-edit-modal" style="width:400px">
+      <div class="pem-head">
+        <div class="pem-title" id="shareTitle"
+          style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Share document</div>
+        <button class="x" id="shareClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="shareError"></div>
+      <div class="pem-msg ok" id="shareOk"></div>
+      <div id="shareList" class="chk-list"></div>
+      <div class="pem-hint">Contacts you share with can view and download this file, but can't change or delete it.
+        Unticking removes their access.</div>
+      <div class="pem-actions">
+        <button class="confirm-btn save" id="shareSave" style="flex:1">Share</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="viewerOverlay">
+    <div class="profile-edit-modal viewer-box" style="width:min(960px,100%);max-width:none">
+      <div class="pem-head" style="margin-bottom:12px">
+        <div style="min-width:0">
+          <div class="pem-title" id="viewerTitle" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          </div>
+          <div class="ls" id="viewerSub" style="margin-top:3px"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <a class="confirm-btn cancel" id="viewerDownload"
+            style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:0 14px;height:34px"><i
+              class="fa-solid fa-download"></i> Download</a>
+          <button class="x" id="viewerClose"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div class="viewer-body" id="viewerBody"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="catOverlay">
+    <div class="profile-edit-modal" style="width:480px">
+      <div class="pem-head">
+        <div class="pem-title">Manage categories</div>
+        <button class="x" id="catClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="catError"></div>
+      <div id="catList" style="max-height:320px;overflow-y:auto"></div>
+      <div class="cat-row" style="margin-top:10px"><button type="button" class="color-dot" id="catNewColor"
+          title="Pick a colour (random if you skip)"></button><input id="catNew" placeholder="New top-level category"
+          autocomplete="off"><button class="confirm-btn save" id="catAdd"
+          style="flex:none;padding:0 16px;height:38px">Add</button></div>
+      <div class="pem-hint">Rename by editing, move with the dropdown, or use + to nest a subcategory. Deleting one
+        keeps its documents (uncategorised).</div>
+    </div>
+  </div>

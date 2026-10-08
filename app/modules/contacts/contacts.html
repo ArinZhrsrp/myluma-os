@@ -1,0 +1,42 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="addContactOverlay">
+    <div class="profile-edit-modal" style="width:400px">
+      <div class="pem-head">
+        <div class="pem-title">Add contact</div>
+        <button class="x" id="acClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="acError"></div>
+      <div class="pem-msg ok" id="acOk"></div>
+      <div class="pem-field" style="margin-bottom:0"><label>Email address <span
+            style="color:#fca5a5">*</span></label><input id="acEmail" type="email" placeholder="name@example.com"
+          autocomplete="off"></div>
+      <div class="pem-hint">They'll need to accept before you're connected and can chat.</div>
+      <div class="pem-actions">
+        <button class="confirm-btn cancel" id="acCancel">Cancel</button>
+        <button class="confirm-btn save" id="acSend">Send request</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="contactChatOverlay">
+    <div class="profile-edit-modal" style="width:480px;padding:22px 22px 26px">
+      <div class="pem-head">
+        <div style="display:flex;align-items:center;gap:12px;min-width:0">
+          <div id="chatAvatar"
+            style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:0.85rem;flex-shrink:0">
+          </div>
+          <div class="pem-title" id="chatContactName" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            Chat</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex:none">
+          <button type="button" class="nudge-btn" id="chatNudge" title="Send a nudge notification"><i
+              class="fa-solid fa-bell"></i> Nudge</button>
+          <button class="x" id="contactChatClose" style="margin-left:0"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div id="contactChatScroll" class="chat-scroll" style="max-height:400px;min-height:220px"></div>
+      <div class="chat-input"><input id="contactChatInput" placeholder="Message…" autocomplete="off"><button
+          class="chat-send" id="contactChatSend"><i class="fa-solid fa-arrow-up"></i></button></div>
+      <div id="chatLeft" style="font-size:0.68rem;color:rgba(255,255,255,0.6);text-align:right;margin-top:6px">50 messages a day</div>
+    </div>
+  </div>

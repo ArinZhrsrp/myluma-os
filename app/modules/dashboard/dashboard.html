@@ -1,0 +1,137 @@
+<!--@page-->
+        <div class="dashboard-grid">
+
+          <!-- AI Greeting Panel -->
+          <div class="card full-width"
+            style="background:linear-gradient(120deg, rgba(37,99,235,0.16), rgba(139,92,246,0.12) 60%, rgba(255,255,255,0.04)); border-color:rgba(255,255,255,0.09); padding:1.5rem 1.7rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+              <div>
+                <div id="greetDate"
+                  style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.12em;color:#93c5fd;font-weight:600;margin-bottom:0.5rem;">
+                  Friday · 11 July · 10:30 AM</div>
+                <h2 id="greetName" style="color:#fff;font-size:1.6rem;font-weight:600;letter-spacing:-0.02em;">Good
+                  morning</h2>
+                <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;margin-top:0.35rem;">Here's what matters today.
+                </p>
+                <div id="dashChips" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-top:1rem;min-height:34px;">
+                </div>
+              </div>
+              <div
+                style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#7c3aed);display:grid;place-items:center;color:#fff;font-size:1.4rem;box-shadow:0 0 30px rgba(59,130,246,0.35);flex-shrink:0;">
+                <i class="fa-solid fa-robot"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Recommendation Card (featured) -->
+          <div class="card full-width" id="dashRec"
+            style="display:none;background:linear-gradient(125deg, rgba(37,99,235,0.24), rgba(139,92,246,0.22));border:1px solid rgba(139,92,246,0.32);padding:1.4rem 1.6rem;">
+            <div style="display:flex;gap:16px;align-items:flex-start;">
+              <div
+                style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:grid;place-items:center;color:#fff;font-size:1.1rem;flex-shrink:0;box-shadow:0 0 20px rgba(59,130,246,0.4);">
+                <i class="fa-solid fa-wand-magic-sparkles"></i></div>
+              <div style="flex:1;">
+                <div
+                  style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:#c4b5fd;font-weight:600;margin-bottom:0.5rem;">
+                  Suggestion</div>
+                <div id="dashRecText" style="font-size:1.05rem;font-weight:600;color:#fff;line-height:1.45;"></div>
+                <div style="display:flex;gap:10px;margin-top:14px;">
+                  <button class="create-btn" id="dashRecGo" style="padding:9px 16px;font-size:0.78rem;"><i
+                      class="fa-solid fa-arrow-right"></i> <span>Open</span></button>
+                  <button class="create-btn dismiss-rec" id="dashRecNo"
+                    style="padding:9px 16px;font-size:0.78rem;background:rgba(255,255,255,0.06);box-shadow:none;">Not
+                    now</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="card full-width">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-bolt"></i> Quick Actions</span></div>
+            <div class="quick-actions">
+              <span class="quick-btn"><i class="fa-solid fa-plus-circle"></i> Add Task</span>
+              <span class="quick-btn"><i class="fa-solid fa-wallet"></i> Log Expense</span>
+              <span class="quick-btn"><i class="fa-solid fa-calendar-plus"></i> New Event</span>
+              <span class="quick-btn"><i class="fa-solid fa-pen"></i> Add Note</span>
+              <span class="quick-btn"><i class="fa-solid fa-comment-dots"></i> AI Chat</span>
+            </div>
+          </div>
+
+          <!-- Today's Schedule -->
+          <div class="card">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-regular fa-calendar"></i> Today's
+                Schedule</span><span class="wgt-link nav-cal">View calendar</span></div>
+            <div id="dashSched" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;">
+              <div class="wgt-sub">Loading…</div>
+            </div>
+          </div>
+
+          <!-- Today's Priorities -->
+          <div class="card">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-list-check"></i> Today's
+                Priorities</span><span class="wgt-link nav-tasks">All tasks</span></div>
+            <div class="dash-checks" id="dashTasks">
+              <div class="wgt-sub">Loading…</div>
+            </div>
+          </div>
+
+          <!-- Finance -->
+          <div class="card">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-wallet"></i> This Month</span><span
+                class="wgt-link nav-money">Money</span></div>
+            <div id="dashMoney">
+              <div class="wgt-sub">Loading…</div>
+            </div>
+          </div>
+
+          <!-- Habit Streaks -->
+          <div class="card">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-fire"></i> Habit Streaks</span><span
+                class="wgt-link nav-habits">Habits</span></div>
+            <div style="display:flex;flex-direction:column;gap:0.8rem;" id="dashHabits">
+              <div class="wgt-sub">Loading…</div>
+            </div>
+          </div>
+
+          <!-- Wellness -->
+          <div class="card">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-heart-pulse"></i> Wellness</span><span
+                class="wgt-link nav-health">Health</span></div>
+            <div id="dashWell" style="display:flex;gap:10px;">
+              <div class="wgt-sub">Loading…</div>
+            </div>
+          </div>
+
+          <!-- Productivity -->
+          <div class="card">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-chart-line"></i>
+                Productivity</span><span id="dashProdPill"></span></div>
+            <div id="dashProd">
+              <div class="wgt-sub">Loading…</div>
+            </div>
+          </div>
+
+          <!-- Reminders -->
+          <div class="card">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-regular fa-bell"></i> Upcoming
+                Reminders</span><span class="wgt-link" data-go="reminders">View all</span></div>
+            <div id="dashRem">
+              <div class="wgt-sub">Loading…</div>
+            </div>
+          </div>
+
+          <!-- Overview -->
+          <div class="card">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-chart-pie"></i> Today's Overview</span>
+            </div>
+            <div class="stats-grid" id="dashOver" style="font-size:0.78rem;"></div>
+          </div>
+
+          <!-- Tip -->
+          <div class="card full-width tip-card">
+            <i class="fa-regular fa-lightbulb"></i>
+            <div class="tip-text" id="dashTip" style="font-size:0.78rem;"></div>
+          </div>
+
+        </div>

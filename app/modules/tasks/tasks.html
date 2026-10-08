@@ -1,0 +1,36 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="taskOverlay">
+    <div class="profile-edit-modal" style="width:500px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="tkModalTitle">New task</div>
+        <button class="x" id="tkClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="tkError"></div>
+      <div class="pem-field"><label>Task <span style="color:#fca5a5">*</span></label><input id="tkTitle" type="text"
+          maxlength="200" placeholder="What needs doing?" autocomplete="off"></div>
+      <div class="pem-field"><label>Status</label>
+        <div class="h-days" id="tkStatus"></div>
+      </div>
+      <div class="pem-row">
+        <div class="pem-field"><label>Due date <span style="color:#fca5a5">*</span></label><input id="tkDue"
+            type="text"></div>
+        <div class="pem-field"><label>Priority</label>
+          <div class="h-days" id="tkPriority"></div>
+        </div>
+      </div>
+      <div class="pem-field"><label>Tag</label><input id="tkTag" type="text" maxlength="30"
+          placeholder="e.g. Work, Personal" autocomplete="off">
+        <div class="h-tpls" id="tkTags" style="margin-top:8px"></div>
+      </div>
+      <div class="pem-field"><label>Notes <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><textarea id="tkNotes"
+          maxlength="2000"
+          placeholder="e.g. Done on my side — waiting for team lead review, then director approval, then testing."
+          style="min-height:110px"></textarea></div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="tkDelete" title="Delete task" aria-label="Delete task"
+          style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="tkSave" style="flex:1">Save task</button>
+      </div>
+    </div>
+  </div>

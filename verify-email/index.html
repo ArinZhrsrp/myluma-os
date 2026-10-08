@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/shared/luma-loader.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUMA · Verify email</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="verify-email.css">
+</head>
+<body>
+  <form class="auth" id="verifyForm" autocomplete="off">
+    <div class="brand">
+      <div class="ic"><i class="fa-solid fa-bolt"></i></div>
+      <div><h1>LUMA</h1><p>Your Personal OS</p></div>
+    </div>
+    <div class="head">
+      <h2>Check your email</h2>
+      <span id="headSub">We sent a 6-digit code to your email.</span>
+    </div>
+    <div class="msg error" id="formError"></div>
+    <div class="msg ok" id="formOk"></div>
+    <div class="field" id="emailField" style="display:none"><label>Email</label><div class="inp"><i class="fa-regular fa-envelope"></i><input type="email" id="email" placeholder="you@luma.os"></div></div>
+    <div class="field codebox"><label>Verification code</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="••••••" required></div>
+    <button class="btn" type="submit" id="submitBtn">Verify and continue <i class="fa-solid fa-arrow-right"></i></button>
+    <div class="resend">Didn't get it? <button type="button" id="resendBtn">Send a new code</button></div>
+    <div class="tip">Check your spam folder too. The code works for a limited time, and a new code replaces the old one.</div>
+    <div class="foot"><a href="/register/">Wrong email? Start over</a> &nbsp;·&nbsp; <a href="/login/">Back to sign in</a></div>
+  </form>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/shared/supabase-config.js"></script>
+  <script src="/shared/luma-auth.js"></script>
+  <script src="verify-email.js"></script>
+</body>
+</html>

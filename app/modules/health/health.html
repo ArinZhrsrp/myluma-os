@@ -1,0 +1,197 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="healthOverlay">
+    <div class="profile-edit-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="healthTitle">Log health entry</div>
+        <button class="x" id="healthClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="healthError"></div>
+      <div class="pem-field"><label>Date <span style="color:#fca5a5">*</span></label><input id="hDate" type="date">
+      </div>
+      <div class="pem-row">
+        <div class="pem-field"><label><i class="fa-solid fa-bed" style="color:#a78bfa"></i> Bedtime <span
+              style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="hBed"
+            type="text"></div>
+        <div class="pem-field"><label><i class="fa-solid fa-sun" style="color:#fbbf24"></i> Wake-up time <span
+              style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="hWake"
+            type="text"></div>
+      </div>
+      <div class="pem-row">
+        <div class="pem-field"><label><i class="fa-solid fa-moon" style="color:#a78bfa"></i> Sleep (hours)</label><input
+            id="hSleep" type="number" min="0" max="24" step="0.1" placeholder="e.g. 7.5"></div>
+        <div class="pem-field"><label><i class="fa-solid fa-droplet" style="color:#38bdf8"></i> Water (ml)</label><input
+            id="hWater" type="number" min="0" max="20000" step="50" placeholder="e.g. 1500"></div>
+      </div>
+      <div class="pem-row">
+        <div class="pem-field"><label><i class="fa-solid fa-shoe-prints" style="color:#34d399"></i> Steps</label><input
+            id="hSteps" type="number" min="0" max="200000" step="1" placeholder="e.g. 6500"></div>
+        <div class="pem-field"><label><i class="fa-solid fa-fire" style="color:#fb923c"></i> Active
+            (minutes)</label><input id="hActive" type="number" min="0" max="1440" step="1" placeholder="e.g. 30"></div>
+      </div>
+      <div class="pem-field"><label>Mood</label>
+        <div class="mood-pick" id="hMood"></div>
+      </div>
+      <div class="pem-field" style="margin-bottom:0"><label>Note <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><textarea id="hNote"
+          placeholder="How did the day feel?" style="min-height:70px"></textarea></div>
+      <div class="pem-hint" id="hSleepHint" style="margin-top:-2px">Set a bedtime and wake-up time and the sleep hours
+        are worked out for you.</div>
+      <div class="pem-hint">Log just one thing or several — only the fields you change are saved, and the rest of the
+        day stays as it is.</div>
+      <div class="pem-actions"><button class="confirm-btn save" id="healthSave" style="flex:1">Save entry</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="remindersOverlay">
+    <div class="profile-edit-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Health reminders</div>
+        <button class="x" id="remClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="remError"></div>
+
+      <div class="rem-sec" id="remDevice">
+        <div class="rem-head">
+          <div>
+            <div class="rem-title"><i class="fa-solid fa-bell" style="color:#fcd34d"></i> Notifications on this device
+            </div>
+            <div class="ls" id="remBrowserState"></div>
+          </div><button type="button" class="np-btn" id="remBrowserBtn" style="display:none">Enable</button>
+        </div>
+      </div>
+      <div class="rem-sec" id="remWater">
+        <div class="rem-head">
+          <div>
+            <div class="rem-title"><i class="fa-solid fa-droplet" style="color:#38bdf8"></i> Drink water</div>
+            <div class="ls">A nudge to drink regularly. Skipped once you've reached your daily goal.</div>
+          </div><button type="button" class="switch" id="remWaterSw"><span class="knob"></span></button>
+        </div>
+        <div class="rem-body">
+          <div class="pem-field"><label>Remind me every</label><select id="rWEvery">
+              <option value="30">30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="90">1.5 hours</option>
+              <option value="120">2 hours</option>
+            </select></div>
+          <div class="pem-row">
+            <div class="pem-field"><label>From</label><input id="rWFrom" type="text"></div>
+            <div class="pem-field"><label>Until</label><input id="rWTo" type="text"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rem-sec" id="remSteps">
+        <div class="rem-head">
+          <div>
+            <div class="rem-title"><i class="fa-solid fa-shoe-prints" style="color:#34d399"></i> Get your steps in</div>
+            <div class="ls">A nudge to move. Skipped once you've reached your steps goal.</div>
+          </div><button type="button" class="switch" id="remStepsSw"><span class="knob"></span></button>
+        </div>
+        <div class="rem-body">
+          <div class="pem-field"><label>Remind me every</label><select id="rSEvery">
+              <option value="60">1 hour</option>
+              <option value="120">2 hours</option>
+              <option value="180">3 hours</option>
+              <option value="240">4 hours</option>
+            </select></div>
+          <div class="pem-row">
+            <div class="pem-field"><label>From</label><input id="rSFrom" type="text"></div>
+            <div class="pem-field"><label>Until</label><input id="rSTo" type="text"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rem-sec" id="remActive">
+        <div class="rem-head">
+          <div>
+            <div class="rem-title"><i class="fa-solid fa-fire" style="color:#fb923c"></i> Stay active</div>
+            <div class="ls">A nudge to get your active minutes in. Skipped once you've reached your daily goal.</div>
+          </div><button type="button" class="switch" id="remActiveSw"><span class="knob"></span></button>
+        </div>
+        <div class="rem-body">
+          <div class="pem-field"><label>Remind me every</label><select id="rAEvery">
+              <option value="60">1 hour</option>
+              <option value="120">2 hours</option>
+              <option value="180">3 hours</option>
+              <option value="240">4 hours</option>
+            </select></div>
+          <div class="pem-row">
+            <div class="pem-field"><label>From</label><input id="rAFrom" type="text"></div>
+            <div class="pem-field"><label>Until</label><input id="rATo" type="text"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rem-sec" id="remSleep">
+        <div class="rem-head">
+          <div>
+            <div class="rem-title"><i class="fa-solid fa-moon" style="color:#a78bfa"></i> Sleep</div>
+            <div class="ls">A wind-down reminder before bedtime.</div>
+          </div><button type="button" class="switch" id="remSleepSw"><span class="knob"></span></button>
+        </div>
+        <div class="rem-body">
+          <div class="pem-row">
+            <div class="pem-field"><label>Bedtime</label><input id="rBed" type="text"></div>
+            <div class="pem-field"><label>Wake-up time</label><input id="rWake" type="text"></div>
+          </div>
+          <div class="pem-field"><label>Remind me</label><select id="rLead">
+              <option value="0">At bedtime</option>
+              <option value="15">15 minutes before</option>
+              <option value="30">30 minutes before</option>
+              <option value="45">45 minutes before</option>
+              <option value="60">1 hour before</option>
+            </select></div>
+        </div>
+      </div>
+
+      <div class="pem-hint">Reminders are created on the server at the times you set, so they are waiting in your
+        notifications whenever you open LUMA. With device notifications on, they also reach you when LUMA is closed.
+        Times are in your time zone.</div>
+      <div class="pem-actions"><button class="confirm-btn save" id="remSave" style="flex:1">Save reminders</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="goalsOverlay">
+    <div class="profile-edit-modal" style="width:420px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Daily goals</div>
+        <button class="x" id="goalsClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="goalsError"></div>
+      <div class="pem-row">
+        <div class="pem-field"><label><i class="fa-solid fa-moon" style="color:#a78bfa"></i> Sleep (hours) <span
+              style="color:#fca5a5">*</span></label><input id="gSleep" type="number" min="1" max="24" step="0.5"></div>
+        <div class="pem-field"><label><i class="fa-solid fa-droplet" style="color:#38bdf8"></i> Water (ml) <span
+              style="color:#fca5a5">*</span></label><input id="gWater" type="number" min="500" max="20000" step="50">
+        </div>
+      </div>
+      <div class="pem-row">
+        <div class="pem-field"><label><i class="fa-solid fa-shoe-prints" style="color:#34d399"></i> Steps <span
+              style="color:#fca5a5">*</span></label><input id="gSteps" type="number" min="100" max="200000" step="100">
+        </div>
+        <div class="pem-field"><label><i class="fa-solid fa-fire" style="color:#fb923c"></i> Active (minutes) <span
+              style="color:#fca5a5">*</span></label><input id="gActive" type="number" min="5" max="1440" step="5"></div>
+      </div>
+      <div class="att-section" style="margin-top:6px;padding-top:14px">
+        <div class="att-head"><label>Quick-add amounts <span style="color:rgba(255,255,255,0.35);font-weight:400">(the +
+              buttons on each ring)</span></label></div>
+        <div class="pem-row">
+          <div class="pem-field"><label><i class="fa-solid fa-moon" style="color:#a78bfa"></i> Sleep (hours) <span
+                style="color:#fca5a5">*</span></label><input id="qSleep" type="number" min="0.5" max="12"></div>
+          <div class="pem-field"><label><i class="fa-solid fa-droplet" style="color:#38bdf8"></i> Water (ml) <span
+                style="color:#fca5a5">*</span></label><input id="qWater" type="number" min="10" max="5000"></div>
+        </div>
+        <div class="pem-row">
+          <div class="pem-field"><label><i class="fa-solid fa-shoe-prints" style="color:#34d399"></i> Steps <span
+                style="color:#fca5a5">*</span></label><input id="qSteps" type="number" min="10" max="20000"></div>
+          <div class="pem-field"><label><i class="fa-solid fa-fire" style="color:#fb923c"></i> Active (minutes) <span
+                style="color:#fca5a5">*</span></label><input id="qActive" type="number" min="1" max="600"></div>
+        </div>
+      </div>
+      <div class="pem-hint">The rings measure today against your goals; the + and − buttons add or take away the
+        quick-add amount.</div>
+      <div class="pem-actions"><button class="confirm-btn save" id="goalsSave" style="flex:1">Save goals</button></div>
+    </div>
+  </div>

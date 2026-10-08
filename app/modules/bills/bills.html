@@ -1,0 +1,40 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="billOverlay">
+    <div class="profile-edit-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="billModalTitle">Add bill</div>
+        <button class="x" id="billClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="billError"></div>
+      <div class="pem-field" id="billTplWrap"><label>Quick start</label>
+        <div class="h-tpls" id="billTpls"></div>
+      </div>
+      <div class="pem-field"><label id="billNameLbl">Bill name <span style="color:#fca5a5">*</span></label><input
+          id="billName" type="text" maxlength="80" placeholder="e.g. Internet (Unifi)" autocomplete="off"></div>
+      <div class="pem-field"><label>Amount (RM) <span style="color:#fca5a5">*</span></label><input id="billAmount"
+          type="text" inputmode="decimal" placeholder="e.g. 129" autocomplete="off"></div>
+      <div class="pem-field" id="billCatsWrap"><label>Category</label>
+        <div class="g-cats" id="billCats"></div>
+      </div>
+      <div class="pem-field" id="billTypeWrap" style="display:none"><label>Type <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(shown under the name)</span></label>
+        <div class="h-tpls" id="billTypes"></div>
+      </div>
+      <div class="pem-field"><label>Repeats</label>
+        <div class="h-days" id="billRepeat"></div>
+      </div>
+      <div class="pem-field"><label id="billDueLbl">Due date <span style="color:#fca5a5">*</span></label><input
+          id="billDue" type="text">
+        <div class="pem-hint" id="billSubHint" style="margin:6px 0 0;display:none"><i class="fa-regular fa-bell"></i>
+          You'll get a notification 3 days before it renews (a push too, if notifications are on in Settings).</div>
+      </div>
+      <div class="pem-field"><label>Note <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="billNote"
+          type="text" maxlength="120" placeholder="e.g. Account 1234-567" autocomplete="off"></div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="billDelete" title="Delete bill" aria-label="Delete bill"
+          style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="billSave" style="flex:1">Save bill</button>
+      </div>
+    </div>
+  </div>

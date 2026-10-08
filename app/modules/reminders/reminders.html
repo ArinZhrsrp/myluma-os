@@ -1,0 +1,20 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="reminderOverlay">
+    <div class="profile-edit-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="remModalTitle">New reminder</div>
+        <button class="x" id="crClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="crError"></div>
+      <div class="pem-field"><label>Remind me to <span style="color:#fca5a5">*</span></label><input id="remTitle" type="text" maxlength="120" placeholder="e.g. Fill in the timesheet" autocomplete="off"></div>
+      <div class="pem-field"><label>Repeat</label><div class="h-tpls" id="remKinds"></div><div class="pem-hint" id="remHint" style="margin:6px 0 0"></div></div>
+      <div class="pem-field" id="remDaysWrap"><label>On</label><div class="h-days" id="remDays"></div></div>
+      <div class="pem-field" id="remDateWrap"><label id="remDateLbl">Date</label><input id="remDate" type="text"></div>
+      <div class="pem-field"><label>Time <span style="color:#fca5a5">*</span></label><input id="remTime" type="text" value="09:00"></div>
+      <div class="pem-field"><label>Note <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="remNote" type="text" maxlength="300" placeholder="Shown in the notification" autocomplete="off"></div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="remDelete" title="Delete reminder" aria-label="Delete reminder" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="crSave" style="flex:1">Add reminder</button>
+      </div>
+    </div>
+  </div>

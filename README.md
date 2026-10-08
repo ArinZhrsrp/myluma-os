@@ -28,30 +28,30 @@ its JS SDK from a CDN.
   Settings → Profile
 - **Tasks & Work** — a three-column board (To do / In progress / Done) backed
   by `luma.tasks`; add, advance, reopen and delete tasks. See
-  `assets/luma-tasks.js`.
+  `app/modules/tasks/tasks.data.js`.
 - **Documents** — upload files (private Supabase Storage, 25 MB each), rename
   them, file them under categories, filter by category, preview them in-app (images, PDFs, Word .docx, Excel/CSV sheets, video, text), share them read-only with
   accepted contacts, delete. Categories are per-user and editable (add / rename /
-  delete). See `assets/luma-documents.js`.
+  delete). See `app/modules/documents/documents.data.js`.
 - **Notes & Docs** — create/edit/delete notes with tags, search and tag
   filters, and attach documents from the Documents menu (own files or files
   shared with you), or upload a file straight from the note. See
-  `assets/luma-notes.js`.
+  `app/modules/notes/notes.data.js`.
 - **Health** — log a day (sleep, water, steps, active minutes, mood, note), set
   daily goals, see today's rings, 7-day mood/sleep/steps charts and recent
-  entries (edit/delete); one-tap +250 ml water. See `assets/luma-health.js`.
-- **Habits** — create habits (icon, colour, goal, repeat days), tick them off for today or any of the last 7 days, streaks, consistency heat-map and weekly chart; the dashboard's Habit Streaks widget shows your top 3. Run `016_habits.sql`. See `assets/luma-habits.js`.
+  entries (edit/delete); one-tap +250 ml water. See `app/modules/health/health.data.js`.
+- **Habits** — create habits (icon, colour, goal, repeat days), tick them off for today or any of the last 7 days, streaks, consistency heat-map and weekly chart; the dashboard's Habit Streaks widget shows your top 3. Run `016_habits.sql`. See `shared/luma-habits.js`.
 - **Notifications** — a bell with an unread badge; the dropdown shows today's
   notifications with *Mark all as read* and *See all notifications* (full page,
   grouped by day, All/Unread filter, delete). Created by database triggers for:
   welcome after registration, a document shared with you, and contact
   requests / acceptances. New ones slide in live as a toast. See
-  `assets/luma-notifications.js`.
+  `app/modules/notifications/notifications.data.js`.
 - **Contacts** — add another LUMA user by email (request → accept, not
   instant), 1:1 chat with accepted contacts (realtime, via Supabase), and a
   "Follow-ups" panel for contacts you haven't messaged in 7+ days, and a **Nudge**
   button that sends the contact a notification to read your message. See
-  `luma.contacts` / `luma.messages` in the schema and `assets/luma-contacts.js`.
+  `luma.contacts` / `luma.messages` in the schema and `app/modules/contacts/contacts.data.js`.
 
 **Still mock / static UI:** every other dashboard module — Calendar,
 Money, Subscriptions, Bills, Goals, Habits,
@@ -67,7 +67,7 @@ contacts, messages, tasks, documents) that each of those modules builds on next.
 Create a project at [supabase.com](https://supabase.com) (or reuse one — see
 *Multi-project workspaces* below). From **Project Settings → API**, copy the
 **Project URL** and the **`anon` / `publishable`** key into
-[`assets/supabase-config.js`](assets/supabase-config.js):
+[`shared/supabase-config.js`](shared/supabase-config.js):
 
 ```js
 window.LUMA_SUPABASE_URL = "https://xxxxx.supabase.co";
@@ -187,7 +187,7 @@ The app is static (no build step), so Vercel just serves the folder.
 
 `index.html` forwards the site root to the sign-in page; `vercel.json` stops browsers
 caching the pages and the service worker, so a new deploy shows up on the next load.
-The Supabase *publishable* key in `assets/supabase-config.js` is meant to be public — never
+The Supabase *publishable* key in `shared/supabase-config.js` is meant to be public — never
 commit the Supabase service-role key or the VAPID private key.
 
 ## Background reminders & push (optional)
@@ -209,7 +209,7 @@ messages, nudges, shares, etc. To set it up:
 1. Serve the app over `http://localhost` or `https` — service workers don't run from
    `file://`. (`python3 -m http.server 8000`, then open `http://localhost:8000/LUMA%20Login.html`.)
 2. Generate keys once: `npx web-push generate-vapid-keys`. Put the **public** key in
-   [`assets/push-config.js`](assets/push-config.js).
+   [`shared/push-config.js`](shared/push-config.js).
 3. Deploy the Edge Function and give it its secrets:
    ```bash
    supabase functions deploy send-push --no-verify-jwt
@@ -245,13 +245,13 @@ Lumi can add events / tasks / notes / expenses and log health; it can't delete a
 New accounts start on **Dawn** (free); on the first login they are offered the plans once. Picking Glow or Zenith opens WhatsApp with
 their name, email, plan and price already typed in, so you can arrange payment and then upgrade them by hand.
 1. Run `supabase/migrations/033_plans.sql` (existing accounts become Zenith so nobody loses anything). Re-deploy the Lumi function.
-2. Put your WhatsApp number in `assets/plan-config.js` (`window.LUMA_WHATSAPP`, international format, digits only, e.g. `60123456789`).
+2. Put your WhatsApp number in `shared/plan-config.js` (`window.LUMA_WHATSAPP`, international format, digits only, e.g. `60123456789`).
 3. To change someone's plan: `update luma.profiles set plan = 'glow' where email = 'them@example.com';` (users cannot change their own plan).
 4. Every limit lives in the `luma.plan_limits` table. Edit a row to change a limit (NULL = unlimited).
 
 ## Email verification (6-digit code) and the admin account
 
-**How sign-up works now:** Register → we email a 6-digit code → the person types it on `LUMA Verify Email.html` → they are verified and
+**How sign-up works now:** Register → we email a 6-digit code → the person types it on `/verify-email/` → they are verified and
 signed in at once. People who try to sign in before verifying are sent a fresh code automatically.
 
 Set this up in the Supabase dashboard (one time):
@@ -288,7 +288,7 @@ Two Supabase projects, two websites, three git branches, one codebase:
 | `main` | approved code, the source of truth (nothing deploys from it to users) | preview link only | none |
 | `production` | exactly what real users get | `myluma-os.vercel.app` | the **production** project |
 
-`assets/supabase-config.js` picks the Supabase project from the address the site is opened on (`PROD_HOSTS`), so the same code runs in both.
+`shared/supabase-config.js` picks the Supabase project from the address the site is opened on (`PROD_HOSTS`), so the same code runs in both.
 Staging shows a yellow STAGING tag in the corner.
 
 **Releasing a change**
@@ -306,21 +306,32 @@ the `luma` schema exposed in the Data API settings, the Edge Function secrets, a
 ## File structure
 
 ```
-LUMA Login.html              Sign-in page
-LUMA Register.html           Sign-up page
-LUMA Reset Password.html     Password-reset landing page (opened from email link)
-LUMA Glass Dashboard.html    The main app — session-gated, all modules live here
-assets/
-  supabase-config.js         Your project's URL + publishable key
-  luma-auth.js                Shared auth helpers (signUp/signIn/signOut/session/profile)
-  luma-contacts.js             Shared contacts + chat helpers (request/accept, messages, realtime)
-  luma-tasks.js                Tasks helpers (list/add/update/remove)
-  push-config.js               Web Push public (VAPID) key
-  luma-notifications.js        Notifications helpers (list/mark read/delete/realtime)
-  luma-notes.js                Notes helpers (CRUD + document attachments)
-  luma-documents.js            Documents helpers (upload, categories, signed links)
-  luma-mark.svg                App mark
-  luma-ambient-bg.jpg          Background texture used on the auth pages
+index.html                   Site root: sends visitors to /login/
+login/                       Sign-in page                (index.html, login.css, login.js)
+register/                    Sign-up page
+verify-email/                6-digit email code page
+reset-password/              Password-reset landing page (opened from the email link)
+app/                         The main app (needs a signed-in session)
+  index.html                 Shell: lists the stylesheets, then core/boot.js starts everything
+  core/                      Shared by every module
+    boot.js                  Fetches the markup, puts it in place, then loads the scripts in order
+    core.css, shell.html     The shared look (layout, cards, buttons, popups) + sidebar / top bar
+    router.js                Menu, pages (goTo), and the MODULES / WIRE registries each module fills
+    ui.js  time.js  dialogs.js  session.js  appearance.js  shell.js  push.js
+    plans.js search.js dirtywatch.js skins.js      Plans popup, global search, themed pickers…
+    start.js                 Signed-in start-up (runs last)
+  modules/<name>/            ONE FOLDER PER MODULE
+    <name>.html              its page markup and popups   (<!--@page--> and <!--@modals--> sections)
+    <name>.css               its styles
+    <name>.js                its code (renderer, wiring, popups)
+    <name>.data.js           its Supabase helpers (when it has a table)
+    dashboard  calendar  tasks  reminders  money  bills  subscriptions  goals  habits  health
+    notes  documents  contacts  assistant (Lumi)  analytics  settings  support  notifications
+    focus  admin  adminreport
+shared/                      Used by every page: supabase-config.js, luma-auth.js, luma-loader.js,
+                             luma-plan.js, plan-config.js, push-config.js, recovery-redirect.js,
+                             luma-mark.svg, luma-ambient-bg.jpg
+sw.js                        Service worker (shows push notifications)
 supabase/migrations/
   001_profiles_contacts_chat.sql   profiles, contacts, messages, read markers
   002_tasks.sql                    tasks
@@ -367,25 +378,35 @@ supabase/migrations/
   034_weekly_review.sql        Sunday 18:00 weekly review notification (Settings → Preferences → Weekly review)
 ```
 
-`assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:
+### How the app starts, and adding a module
+`app/index.html` loads the stylesheets and the shared helpers, then `app/core/boot.js` fetches every module's `.html`, builds the page
+(sidebar, one container per page, popups), and finally loads the scripts one after another in the order listed in `boot.js`
+(core first, then modules, then `skins.js` and `start.js`). All scripts share one global scope, so a module can use helpers from
+`core/` directly (`docEl`, `card`, `luConfirm`, `flashToast`, `goTo`…).
+
+To add a module `foo`: create `app/modules/foo/foo.html|css|js`, register its page with `MODULES.foo = function () { … }` and its wiring
+with `WIRE.foo = function (pg) { … }`, then add its files to `app/index.html` (css) and `app/core/boot.js` (markup + script lists, and its
+page name in `PAGES`) and a menu item in `app/core/shell.html`.
+
+`shared/luma-auth.js` exposes a global `LumaAuth` object used by every page:
 `signUp`, `signIn`, `signOut`, `sendPasswordReset`, `updatePassword`,
 `getSession`, `requireSession` (guards a page, redirects signed-out visitors
 to Login), `redirectIfSignedIn` (sends already-signed-in visitors away from
 Login/Register), `getProfile` / `updateProfile` (reads/writes `luma.profiles`),
 and `displayName` / `fullName` / `initial` (formatting helpers for the UI).
 
-`assets/luma-contacts.js` (dashboard only, depends on `luma-auth.js` for its
+`app/modules/contacts/contacts.data.js` (dashboard only, depends on `luma-auth.js` for its
 Supabase client) exposes `LumaContacts`: `requestByEmail`, `listContacts`,
 `acceptRequest` / `declineRequest` / `removeContact`, `listMessages` /
 `sendMessage`, `subscribeToMessages` / `unsubscribe` (realtime), and
 `needsFollowUp` / `relativeTime` helpers behind the "Follow-ups" panel.
 
-`assets/luma-documents.js` exposes `LumaDocuments`: `listDocuments`, `upload`,
+`app/modules/documents/documents.data.js` exposes `LumaDocuments`: `listDocuments`, `upload`,
 `updateDocument`, `remove`, `download`, `signedUrl`, `listMyShares` /
 `listSharedWithMe` / `share` / `unshare`, and `listCategories` / `addCategory` /
 `renameCategory` / `deleteCategory`.
 
-`assets/luma-tasks.js` exposes `LumaTasks`: `list`, `add`, `update`, `remove`
+`app/modules/tasks/tasks.data.js` exposes `LumaTasks`: `list`, `add`, `update`, `remove`
 and a `dueLabel` formatter.
 
 ## Multi-project workspaces

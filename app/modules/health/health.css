@@ -1,0 +1,210 @@
+/* LUMA — module: health */
+    /* health diary */
+    .diary-entry {
+      display: flex;
+      gap: 16px;
+      padding: 16px 18px;
+      margin-bottom: 10px;
+    }
+
+    .de-date {
+      flex: none;
+      width: 56px;
+      text-align: center;
+      padding: 8px 0;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .de-day {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1;
+    }
+
+    .de-mon {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.55);
+      margin-top: 4px;
+    }
+
+    .de-wd {
+      font-size: 0.6rem;
+      color: rgba(255, 255, 255, 0.35);
+      margin-top: 2px;
+    }
+
+    .de-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .de-top {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .de-mood {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.74rem;
+      font-weight: 600;
+    }
+
+    .de-chip {
+      font-size: 0.64rem;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.65);
+    }
+
+    .de-note {
+      font-size: 0.84rem;
+      line-height: 1.65;
+      color: rgba(255, 255, 255, 0.88);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .diary-entry:hover .h-act {
+      opacity: 1;
+    }
+
+    .diary-entry .h-act {
+      opacity: 0;
+      transition: 0.15s;
+      align-self: flex-start;
+    }
+
+    .pem-field input.invalid {
+      border-color: rgba(239, 68, 68, 0.75) !important;
+      background: rgba(239, 68, 68, 0.08) !important;
+    }
+
+    .field-err {
+      font-size: 0.66rem;
+      color: #fca5a5;
+      margin-top: 5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .mood-pick {
+      display: flex;
+      gap: 8px;
+    }
+
+    .mood-pick button {
+      flex: 1;
+      height: 54px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      cursor: pointer;
+      font-size: 1.35rem;
+      transition: 0.15s;
+      display: grid;
+      place-items: center;
+    }
+
+    .mood-pick button:hover {
+      background: rgba(255, 255, 255, 0.09);
+      transform: translateY(-1px);
+    }
+
+    .mood-pick button.on {
+      background: rgba(59, 130, 246, 0.14);
+      border-color: rgba(59, 130, 246, 0.5);
+    }
+
+    .rem-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .rem-title {
+      font-size: 0.86rem;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+
+    .rem-head .ls {
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.45);
+      line-height: 1.4;
+    }
+
+    .rem-body {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .rem-sec:not(.on) .rem-body {
+      display: none;
+    }
+
+    .quick-row {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .h-card {
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .h-card:hover {
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .h-row .h-act {
+      display: flex;
+      gap: 6px;
+      opacity: 0;
+      transition: 0.15s;
+    }
+
+    .h-row:hover .h-act {
+      opacity: 1;
+    }
+
+    .h-act i {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    .h-act i:hover {
+      background: rgba(59, 130, 246, 0.3);
+      color: #fff;
+    }
+
+    .h-act i.h-del:hover {
+      background: rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }

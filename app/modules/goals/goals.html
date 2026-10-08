@@ -1,0 +1,44 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="goalOverlay">
+    <div class="profile-edit-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="goalModalTitle">New goal</div>
+        <button class="x" id="goalClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="goalError"></div>
+      <div class="pem-field" id="goalTplWrap"><label>Start from an idea</label>
+        <div class="h-tpls" id="goalTpls"></div>
+      </div>
+      <div class="pem-field"><label>Goal <span style="color:#fca5a5">*</span></label><input id="goalTitle" type="text"
+          maxlength="120" placeholder="e.g. Save for an emergency fund" autocomplete="off"></div>
+      <div class="pem-field"><label>Category</label>
+        <div class="g-cats" id="goalCats"></div>
+      </div>
+      <div class="pem-row">
+        <div class="pem-field"><label>Target <span style="color:#fca5a5">*</span></label><input id="goalTarget"
+            type="text" inputmode="decimal" placeholder="e.g. 12000" autocomplete="off"></div>
+        <div class="pem-field"><label>Unit <span
+              style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="goalUnit"
+            type="text" maxlength="20" placeholder="RM, km, books, %…" autocomplete="off"></div>
+      </div>
+      <div class="pem-field">
+        <div class="h-tpls" id="goalUnits"></div>
+      </div>
+      <div class="pem-field"><label>Progress so far</label><input id="goalCurrent" type="text" inputmode="decimal"
+          placeholder="0" autocomplete="off">
+        <div class="pem-hint" id="goalCurrentHint" style="margin:6px 0 0"></div>
+      </div>
+      <div class="pem-field"><label>Deadline <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="goalDeadline"
+          type="text"><button type="button" class="g-nodeadline" id="goalNoDeadline" style="display:none">Remove
+          deadline</button></div>
+      <div class="pem-field"><label>Note <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="goalNote"
+          type="text" maxlength="200" placeholder="e.g. MVP in progress" autocomplete="off"></div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="goalDelete" title="Delete goal" aria-label="Delete goal"
+          style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="goalSave" style="flex:1">Save goal</button>
+      </div>
+    </div>
+  </div>

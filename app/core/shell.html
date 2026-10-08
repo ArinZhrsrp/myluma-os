@@ -1,0 +1,162 @@
+<!--@shell-->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- ===== SIDEBAR ===== -->
+  <div class="sidebar" id="sidebar">
+
+    <div class="logo">
+      <div class="logo-icon"><i class="fa-solid fa-bolt"></i></div>
+      <div>
+        <h2>LUMA</h2>
+        <p>Your Personal OS</p>
+      </div>
+    </div>
+
+    <nav>
+      <a class="menu active" data-page="dashboard">
+        <i class="fa-solid fa-table-columns"></i>
+        Dashboard
+      </a>
+      <a class="menu" data-page="calendar">
+        <i class="fa-regular fa-calendar"></i>
+        Calendar
+      </a>
+      <a class="menu" data-page="reminders">
+        <i class="fa-solid fa-bell-concierge"></i>
+        Reminders
+      </a>
+      <a class="menu" data-page="tasks">
+        <i class="fa-solid fa-list-check"></i>
+        Tasks & Work
+      </a>
+      <a class="menu" data-page="money">
+        <i class="fa-solid fa-wallet"></i>
+        Money
+      </a>
+      <a class="menu" data-page="subscriptions">
+        <i class="fa-solid fa-repeat"></i>
+        Subscriptions
+      </a>
+      <a class="menu" data-page="bills">
+        <i class="fa-solid fa-file-invoice-dollar"></i>
+        Bills
+      </a>
+      <a class="menu" data-page="goals">
+        <i class="fa-solid fa-bullseye"></i>
+        Goals
+      </a>
+      <a class="menu" data-page="habits">
+        <i class="fa-solid fa-fire"></i>
+        Habits
+      </a>
+      <a class="menu" data-page="health">
+        <i class="fa-solid fa-heart"></i>
+        Health
+      </a>
+      <a class="menu" data-page="notes">
+        <i class="fa-solid fa-note-sticky"></i>
+        Notes & Docs
+      </a>
+      <a class="menu" data-page="documents">
+        <i class="fa-solid fa-folder-open"></i>
+        Documents
+      </a>
+      <a class="menu" data-page="contacts">
+        <i class="fa-solid fa-address-book"></i>
+        Contacts
+      </a>
+      <a class="menu" data-page="assistant">
+        <i class="fa-solid fa-robot"></i>
+        Lumi
+      </a>
+      <a class="menu" data-page="analytics">
+        <i class="fa-solid fa-chart-line"></i>
+        Analytics
+      </a>
+      <a class="menu" id="menuAdmin" data-page="admin" style="display:none">
+        <i class="fa-solid fa-user-shield"></i>
+        Admin
+      </a>
+      <a class="menu" data-page="settings">
+        <i class="fa-solid fa-gear"></i>
+        Settings
+      </a>
+      <a class="menu" data-page="support">
+        <i class="fa-solid fa-headset"></i>
+        Support
+      </a>
+    </nav>
+
+    <div class="focus">
+      <div>
+        <h3>Focus Mode</h3>
+        <p id="focusWidgetSub">Deep work · 25 mins</p>
+      </div>
+      <button><i class="fa-solid fa-play"></i></button>
+    </div>
+
+  </div>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <div class="main-content fit">
+    <div class="content-wrapper">
+
+      <!-- Top Bar -->
+      <div class="topbar">
+        <div class="topbar-left">
+          <button class="hamburger" id="hamburgerBtn"><i class="fa-solid fa-bars"></i></button>
+          <h2 id="pageTitle">Dashboard</h2>
+        </div>
+        <div class="topbar-actions">
+          <span class="date-display"><i class="fa-regular fa-calendar"></i> <span id="topbarDate">11 Jul
+              2026</span></span>
+          <span class="icon-btn" id="topSearchBtn" title="Search (Ctrl/⌘ K)" role="button" tabindex="0"><i class="fa-solid fa-search"></i></span>
+          <span class="icon-btn bell-btn" id="bellBtn" title="Notifications"><i class="fa-regular fa-bell"></i><span
+              class="bell-badge" id="bellBadge" style="display:none"></span></span>
+          <span class="icon-btn logout-btn" id="topbarLogoutBtn" title="Log out"><i
+              class="fa-solid fa-arrow-right-from-bracket"></i></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="logoutOverlay">
+    <div class="confirm-modal">
+      <div class="confirm-icon"><i class="fa-solid fa-arrow-right-from-bracket"></i></div>
+      <div class="confirm-title">Log out of LUMA?</div>
+      <div class="confirm-sub">You'll need to sign back in to reach your dashboard.</div>
+      <div class="confirm-actions">
+        <button class="confirm-btn cancel" id="logoutCancelBtn">Cancel</button>
+        <button class="confirm-btn danger" id="logoutConfirmBtn">Log out</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="pushPromptOverlay">
+    <div class="confirm-modal">
+      <div class="confirm-icon" style="color:#fcd34d"><i class="fa-solid fa-bell"></i></div>
+      <div class="confirm-title">Turn on notifications?</div>
+      <div class="confirm-sub">Get reminders, messages and nudges on this device, even when LUMA is closed. If you say
+        no, we won't ask again — you can turn it on anytime in Settings.</div>
+      <div class="pem-msg error" id="pushPromptError"></div>
+      <div class="confirm-actions">
+        <button class="confirm-btn cancel" id="pushPromptLater">No thanks</button>
+        <button class="confirm-btn save" id="pushPromptYes">Enable</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="dialogOverlay" style="z-index:300">
+    <div class="confirm-modal">
+      <div class="confirm-icon" id="dlgIcon"><i class="fa-solid fa-trash-can"></i></div>
+      <div class="confirm-title" id="dlgTitle"></div>
+      <div class="confirm-sub" id="dlgMsg"></div>
+      <input id="dlgInput" class="dlg-input" type="text" autocomplete="off" style="display:none">
+      <div class="confirm-actions">
+        <button class="confirm-btn cancel" id="dlgCancel">Cancel</button>
+        <button class="confirm-btn danger" id="dlgOk">OK</button>
+      </div>
+    </div>
+  </div>

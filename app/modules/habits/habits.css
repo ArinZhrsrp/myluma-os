@@ -1,0 +1,340 @@
+/* LUMA — module: habits */
+    /* habits */
+    .habit-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 0.9rem;
+    }
+
+    @media (max-width:1024px) {
+      .habit-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .hrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .hrow:last-child {
+      border-bottom: none;
+    }
+
+    /* fit layout (like Documents / Notes): the page header stays put. The habit card is exactly as tall as the right column
+       (contain:size makes the row height come from the side cards only) and its list scrolls inside it. */
+    .main-content.fit #habitsRoot {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 2px 6px 24px 0;
+    }
+
+    .main-content.fit #habitsRoot .habit-grid {
+      align-items: stretch;
+    }
+
+    .main-content.fit #habitsRoot .h-main {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      contain: size;
+    }
+
+    .main-content.fit #habitsRoot .h-main>* {
+      flex: none;
+    }
+
+    .main-content.fit #habitsRoot .h-main>.h-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      margin-right: -8px;
+      padding-right: 8px;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    /* soft fade = more habits below */
+    @media (max-width:1024px) {
+
+      /* one column on small screens: the list gets a fixed height and scrolls inside it */
+      .main-content.fit #habitsRoot .h-main {
+        contain: none;
+        overflow: visible;
+      }
+
+      .main-content.fit #habitsRoot .h-main>.h-list {
+        flex: none;
+        max-height: 460px;
+      }
+    }
+
+    .h-daynav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 2px 0 8px;
+    }
+
+    .h-daynav .lbl {
+      flex: 1;
+      text-align: center;
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .h-daynav button {
+      height: 30px;
+      min-width: 30px;
+      padding: 0 10px;
+      border-radius: 9px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.8);
+      cursor: pointer;
+      font-size: 0.72rem;
+      font-family: inherit;
+    }
+
+    .h-daynav button:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .h-daynav button:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .h-daynav .h-dtoday {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(59, 130, 246, 0.45);
+      color: #bfdbfe;
+    }
+
+    .heat.cal {
+      grid-template-columns: repeat(7, 26px);
+      gap: 5px;
+      justify-content: space-between;
+    }
+
+    .heat.cal b {
+      font-size: 0.58rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.3);
+      text-align: center;
+    }
+
+    .heat.cal span {
+      aspect-ratio: auto;
+      width: 26px;
+      height: 26px;
+      border-radius: 7px;
+      display: grid;
+      place-items: center;
+      font-size: 0.58rem;
+      color: rgba(255, 255, 255, 0.45);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .heat.cal span.blank {
+      background: transparent !important;
+    }
+
+    .heat.cal span.now {
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.45);
+      color: #fff;
+    }
+
+    .hrow .licon {
+      flex: none;
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+    }
+
+    .hrow.selecting {
+      cursor: pointer;
+      border-radius: 12px;
+    }
+
+    .hrow.selecting:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .hrow.selecting .hdots {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .hsel {
+      width: 26px;
+      height: 26px;
+      flex: none;
+      margin-right: 6px;
+      border-radius: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      background: transparent;
+      color: transparent;
+      display: grid;
+      place-items: center;
+      font-size: 0.72rem;
+      transition: 0.15s;
+    }
+
+    .hrow.selected .hsel {
+      background: #3b82f6;
+      border-color: #3b82f6;
+      color: #fff;
+    }
+
+    .h-selbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 0 0 6px;
+      padding: 10px 12px;
+      border-radius: 13px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+    }
+
+    .h-selbar .cnt {
+      flex: 1;
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.75);
+      min-width: 90px;
+    }
+
+    .h-selbar button {
+      height: 32px;
+      padding: 0 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      font-size: 0.76rem;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .h-selbar button:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .h-selbar button.del {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fecaca;
+    }
+
+    .h-selbar button.del:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .hdots {
+      display: flex;
+      gap: 5px;
+      margin-top: 7px;
+    }
+
+    .hdot {
+      width: 16px;
+      height: 16px;
+      border-radius: 5px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 0;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .hdot:hover {
+      transform: scale(1.18);
+    }
+
+    .hdot.rest {
+      border-style: dashed;
+      background: transparent;
+      opacity: 0.55;
+    }
+
+    .hdot.today {
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.28);
+    }
+
+    .h-group {
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.35);
+      padding: 14px 6px 4px;
+    }
+
+    .h-group:first-of-type {
+      padding-top: 2px;
+    }
+
+    .h-icons {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 6px;
+    }
+
+    .h-icons button {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.65);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0;
+    }
+
+    .h-icons button.on {
+      color: #fff;
+      border-color: var(--hc, #3b82f6);
+      background: color-mix(in srgb, var(--hc, #3b82f6) 30%, transparent);
+    }
+
+    .h-colors {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .h-colors button {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .h-colors button.on {
+      border-color: #fff;
+    }
+
+    /* habit heat */
+    .heat {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+    }
+
+    .heat span {
+      aspect-ratio: 1;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+    }

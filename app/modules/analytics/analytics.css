@@ -1,0 +1,58 @@
+/* LUMA — module: analytics */
+    .mini-grid .wd {
+      font-size: 0.58rem;
+      color: rgba(255, 255, 255, 0.2);
+      font-weight: 600;
+      padding-bottom: 4px;
+    }
+
+    /* Analytics: header fixed, only the content scrolls */
+    .an-range {
+      display: inline-flex;
+      padding: 3px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      gap: 2px;
+    }
+
+    .an-range button {
+      border: none;
+      background: none;
+      color: rgba(255, 255, 255, 0.55);
+      font: inherit;
+      font-size: 0.74rem;
+      padding: 6px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .an-range button.on {
+      background: rgba(59, 130, 246, 0.35);
+      color: #fff;
+    }
+
+    .main-content.fit #anRoot {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 2px 6px 24px 0;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    .an-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      height: 130px;
+    }
+
+    .an-bars .bcol {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .an-bars .bbar.zero {
+      opacity: 0.25;
+    }

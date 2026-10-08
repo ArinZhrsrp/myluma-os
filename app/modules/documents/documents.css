@@ -1,0 +1,331 @@
+/* LUMA — module: documents */
+    .color-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .color-dot:hover {
+      transform: scale(1.1);
+    }
+
+    .color-dot.active {
+      border-color: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+    }
+
+    .color-dot.purple {
+      background: #8b5cf6;
+    }
+
+    .color-dot.green {
+      background: #22c55e;
+    }
+
+    .color-dot.orange {
+      background: #f59e0b;
+    }
+
+    /* documents: as many columns as fit, wrapping onto new rows (vertical scroll only) */
+    #docGrid {
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+
+    #docGrid .card {
+      min-width: 0;
+    }
+
+    #docGrid .lt {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .main-content.fit #docGrid {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      align-content: start;
+      grid-auto-rows: max-content;
+      padding: 2px 6px 24px 0;
+    }
+
+    .viewer-body {
+      flex: 1;
+      min-height: 0;
+      border-radius: 12px;
+      overflow: auto;
+      background: rgba(0, 0, 0, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .viewer-body.scroll {
+      display: block;
+      background: #fff;
+    }
+
+    .viewer-body.scroll.docx {
+      background: #2b3140;
+      padding: 16px 0;
+    }
+
+    .viewer-body .docx-wrapper {
+      background: transparent !important;
+      padding: 0 !important;
+    }
+
+    .viewer-body .docx-wrapper>section.docx {
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      margin: 0 auto 16px !important;
+      max-width: 100%;
+    }
+
+    .sheet-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px;
+      background: #eef0f4;
+      border-bottom: 1px solid #d5d9e0;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      flex-wrap: wrap;
+    }
+
+    .sheet-tabs span {
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      color: #334;
+      cursor: pointer;
+      background: #fff;
+      border: 1px solid #d5d9e0;
+    }
+
+    .sheet-tabs span.on {
+      background: #3b82f6;
+      color: #fff;
+      border-color: #3b82f6;
+    }
+
+    .sheet-wrap table {
+      border-collapse: collapse;
+      font-size: 0.74rem;
+      color: #1a1f2b;
+    }
+
+    .sheet-wrap td,
+    .sheet-wrap th {
+      border: 1px solid #d5d9e0;
+      padding: 5px 9px;
+      white-space: nowrap;
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sheet-wrap tr:first-child td {
+      background: #f3f5f9;
+      font-weight: 600;
+    }
+
+    .viewer-note {
+      padding: 8px 12px;
+      font-size: 0.7rem;
+      color: #667;
+      background: #f7f8fa;
+    }
+
+    .viewer-body iframe,
+    .viewer-body video {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+
+    .viewer-body video {
+      background: #000;
+    }
+
+    .viewer-body img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .viewer-body pre {
+      align-self: flex-start;
+      width: 100%;
+      margin: 0;
+      padding: 16px;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 0.78rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      box-sizing: border-box;
+    }
+
+    .dropzone {
+      border: 1.5px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 22px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: 0.2s;
+      outline: none;
+    }
+
+    .dropzone:hover,
+    .dropzone:focus-visible {
+      border-color: rgba(59, 130, 246, 0.6);
+      background: rgba(59, 130, 246, 0.06);
+    }
+
+    .dropzone.over {
+      border-color: #3b82f6;
+      background: rgba(59, 130, 246, 0.14);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+    }
+
+    .dropzone>i {
+      font-size: 1.6rem;
+      color: #93c5fd;
+      margin-bottom: 8px;
+    }
+
+    .dropzone .dz-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .dropzone .dz-sub {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.45);
+      margin-top: 4px;
+    }
+
+    .dropzone .dz-sub span {
+      color: #93c5fd;
+      text-decoration: underline;
+    }
+
+    #docQueue {
+      margin-top: 10px;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    .q-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      margin-bottom: 6px;
+      font-size: 0.76rem;
+      color: #fff;
+    }
+
+    .q-row .q-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .q-row .q-st {
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.5);
+      white-space: nowrap;
+    }
+
+    .q-row.err {
+      border-color: rgba(239, 68, 68, 0.35);
+    }
+
+    .q-row.err .q-st {
+      color: #fca5a5;
+    }
+
+    .q-row.done .q-st {
+      color: #6ee7b7;
+    }
+
+    .q-row i.q-x {
+      color: rgba(255, 255, 255, 0.5);
+      cursor: pointer;
+      padding: 4px;
+    }
+
+    .q-row i.q-x:hover {
+      color: #fca5a5;
+    }
+
+    #docGrid {
+      grid-auto-rows: 176px !important;
+    }
+
+    #docGrid .doc-card {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .color-dot {
+      width: 22px;
+      height: 22px;
+      flex: none;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.25);
+      cursor: pointer;
+      padding: 0;
+      transition: 0.15s;
+    }
+
+    .color-dot:hover {
+      transform: scale(1.15);
+      border-color: #fff;
+    }
+
+    .chip-sub {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-left: 8px;
+      padding-left: 8px;
+      border-left: 1px solid rgba(255, 255, 255, 0.18);
+      font-size: 0.62rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .chip-sub i {
+      font-size: 0.5rem;
+    }
+
+    .doc-filter.sel-open .chip-sub {
+      color: #93c5fd;
+    }
+
+    .doc-card {
+      position: relative;
+      cursor: pointer;
+    }
+
+    .doc-card:hover .doc-actions {
+      display: flex;
+    }
+
+    .doc-filter {
+      cursor: pointer;
+    }

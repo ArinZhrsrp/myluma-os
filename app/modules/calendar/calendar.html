@@ -1,0 +1,118 @@
+<!--@page-->
+        <div class="cal-layout">
+
+          <div class="card calendar-card">
+            <div class="cal-head">
+              <div class="cal-title">
+                <h2 id="calTitle"></h2>
+                <div class="chevron" id="calPrev" title="Previous"><i class="fa-solid fa-chevron-left"></i></div>
+                <div class="chevron" id="calNext" title="Next"><i class="fa-solid fa-chevron-right"></i></div>
+                <button type="button" class="cal-today" id="calToday">Today</button>
+              </div>
+              <div class="view-tabs" id="calViews">
+                <span data-v="day">Day</span><span data-v="week">Week</span><span data-v="month"
+                  class="active">Month</span><span data-v="year">Year</span>
+              </div>
+              <button class="create-btn" id="calCreate"><i class="fa-solid fa-plus"></i> <span class="l1">Create
+                </span>Event</button>
+            </div>
+
+            <div class="weekday-row" id="calWd">
+              <div>SUN</div>
+              <div>MON</div>
+              <div>TUE</div>
+              <div>WED</div>
+              <div>THU</div>
+              <div>FRI</div>
+              <div>SAT</div>
+            </div>
+
+            <div id="calBody"></div>
+          </div>
+
+          <div class="right-col">
+            <div class="card">
+              <div class="box-head">
+                <h3>Upcoming Events</h3><a href="#" id="calViewAll">View all</a>
+              </div>
+              <div class="ls" id="calUpRemark" style="margin:-4px 0 8px;font-size:0.68rem;color:rgba(255,255,255,0.5)">
+              </div>
+              <div id="calUpcoming"></div>
+            </div>
+
+            <div class="card">
+              <div class="box-head">
+                <h3>Event Categories</h3>
+              </div>
+              <div id="calCats"></div>
+            </div>
+          </div>
+
+        </div>
+
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="calListOverlay">
+    <div class="profile-edit-modal" style="width:520px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Upcoming events</div>
+      </div>
+      <div class="ls" style="margin-bottom:10px">Only the next 2 weeks are listed — events, tasks that are due and
+        bills.</div>
+      <div id="calListBody"></div>
+      <div class="pem-actions"><button class="confirm-btn cancel" id="calListDone" style="flex:1">Close</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="calDetailOverlay">
+    <div class="profile-edit-modal" style="width:460px;max-width:100%">
+      <div class="pem-head">
+        <div style="min-width:0">
+          <div class="pem-title" id="calDetTitle" style="overflow-wrap:anywhere"></div>
+          <div id="calDetSub" style="margin-top:6px"></div>
+        </div>
+        <button class="x" id="calDetClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="calDetBody"></div>
+      <div class="pem-actions" id="calDetActions" style="gap:10px"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="calEventOverlay">
+    <div class="profile-edit-modal" style="width:500px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="calModalTitle">New event</div>
+        <button class="x" id="calClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="calError"></div>
+      <div class="pem-field"><label>Event <span style="color:#fca5a5">*</span></label><input id="calEvTitle" type="text"
+          maxlength="120" placeholder="e.g. Team standup" autocomplete="off"></div>
+      <div class="pem-field"><label>Category</label>
+        <div class="g-cats" id="calEvCats"></div>
+      </div>
+      <div class="pem-field"><label>Date <span style="color:#fca5a5">*</span></label><input id="calEvDate" type="text">
+      </div>
+      <div class="pem-field">
+        <div class="h-days" id="calEvAllDay"></div>
+      </div>
+      <div class="pem-row" id="calEvTimes">
+        <div class="pem-field"><label>Starts <span style="color:#fca5a5">*</span></label><input id="calEvStart"
+            type="text"></div>
+        <div class="pem-field"><label>Ends <span
+              style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="calEvEnd"
+            type="text"></div>
+      </div>
+      <div class="pem-field"><label>Repeats</label>
+        <div class="h-days" id="calEvRepeat" style="flex-wrap:wrap"></div>
+        <div class="pem-hint" id="calEvRepeatHint" style="margin:6px 0 0;display:none">Editing a repeating event changes
+          every occurrence.</div>
+      </div>
+      <div class="pem-field"><label>Note <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><textarea id="calEvNote"
+          maxlength="1000" placeholder="Location, link, who's coming…" style="min-height:90px"></textarea></div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="calEvDelete" title="Delete event" aria-label="Delete event"
+          style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="calEvSave" style="flex:1">Save event</button>
+      </div>
+    </div>
+  </div>

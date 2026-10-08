@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script src="../shared/luma-loader.js"></script>
+  <script>LumaLoader.hold('app');</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LUMA</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="core/core.css">
+  <link rel="stylesheet" href="modules/notifications/notifications.css">
+  <link rel="stylesheet" href="modules/contacts/contacts.css">
+  <link rel="stylesheet" href="modules/health/health.css">
+  <link rel="stylesheet" href="modules/settings/settings.css">
+  <link rel="stylesheet" href="modules/focus/focus.css">
+  <link rel="stylesheet" href="modules/tasks/tasks.css">
+  <link rel="stylesheet" href="modules/calendar/calendar.css">
+  <link rel="stylesheet" href="modules/money/money.css">
+  <link rel="stylesheet" href="modules/bills/bills.css">
+  <link rel="stylesheet" href="modules/subscriptions/subscriptions.css">
+  <link rel="stylesheet" href="modules/goals/goals.css">
+  <link rel="stylesheet" href="modules/habits/habits.css">
+  <link rel="stylesheet" href="modules/analytics/analytics.css">
+  <link rel="stylesheet" href="modules/dashboard/dashboard.css">
+  <link rel="stylesheet" href="modules/reminders/reminders.css">
+  <link rel="stylesheet" href="modules/admin/admin.css">
+  <link rel="stylesheet" href="modules/adminreport/adminreport.css">
+  <link rel="stylesheet" href="modules/documents/documents.css">
+  <link rel="stylesheet" href="modules/notes/notes.css">
+  <link rel="stylesheet" href="modules/assistant/assistant.css">
+  <link rel="stylesheet" href="modules/support/support.css">
+</head>
+
+<body>
+  <!-- The page's markup comes from each module's .html file; core/boot.js assembles it and then loads the scripts in order. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="../shared/supabase-config.js"></script>
+  <script defer src="../shared/luma-auth.js"></script>
+  <script defer src="../shared/plan-config.js"></script>
+  <script defer src="../shared/luma-plan.js"></script>
+  <script defer src="modules/contacts/contacts.data.js"></script>
+  <script defer src="modules/tasks/tasks.data.js"></script>
+  <script defer src="modules/documents/documents.data.js"></script>
+  <script defer src="modules/notes/notes.data.js"></script>
+  <script defer src="../shared/push-config.js"></script>
+  <script defer src="modules/notifications/notifications.data.js"></script>
+  <script defer src="modules/health/health.data.js"></script>
+  <script defer src="modules/habits/habits.data.js"></script>
+  <script defer src="modules/goals/goals.data.js"></script>
+  <script defer src="modules/bills/bills.data.js"></script>
+  <script defer src="modules/money/money.data.js"></script>
+  <script defer src="modules/calendar/calendar.data.js"></script>
+  <script defer src="modules/reminders/reminders.data.js"></script>
+  <script defer src="core/boot.js"></script>
+</body>
+
+</html>

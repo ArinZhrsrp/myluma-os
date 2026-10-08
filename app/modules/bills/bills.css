@@ -1,0 +1,124 @@
+/* LUMA — module: bills */
+    .lright {
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .lrow .lright {
+      text-align: right;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    /* bills */
+    /* only the bill list scrolls: the summary card stays put, the list card fills the page height */
+    .main-content.fit #billsRoot {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 2px 6px 24px 0;
+    }
+
+    .bills-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 0.9rem;
+      align-items: start;
+      flex: 1 1 auto;
+      min-height: 0;
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .bills-grid>.b-main {
+      align-self: stretch;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .b-main>.b-list {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      margin-right: -8px;
+      padding-right: 8px;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    @media (max-width:1024px) {
+
+      /* one column on small screens: the whole area scrolls instead */
+      .main-content.fit #billsRoot {
+        overflow-y: auto;
+        display: block;
+      }
+
+      .bills-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+      }
+
+      .bills-grid>.b-main {
+        overflow: visible;
+      }
+
+      .b-main>.b-list {
+        overflow: visible;
+        margin-right: 0;
+        padding-right: 0;
+      }
+    }
+
+    .b-row .licon {
+      flex: none;
+    }
+
+    .b-row .lright {
+      width: 92px;
+      text-align: right;
+      color: #fff;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .b-row .pill {
+      white-space: nowrap;
+    }
+
+    .b-row.is-paid .lt {
+      opacity: .6;
+    }
+
+    .b-alert {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 0.74rem;
+      color: #fecaca;
+    }
+
+    .b-alert i {
+      color: #fca5a5;
+    }
+
+    .b-stat {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 14px;
+      font-size: 0.76rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .b-stat b {
+      color: #fff;
+      font-weight: 600;
+    }

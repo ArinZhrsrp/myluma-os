@@ -1,0 +1,462 @@
+/* LUMA — module: focus */
+    /* small dialogs scroll too, never overflow */
+    .focus-modal {
+      width: 420px;
+      max-width: 100%;
+      margin: auto;
+      border-radius: 26px;
+      padding: 30px;
+      background: rgba(20, 26, 44, 0.86);
+      backdrop-filter: blur(40px) saturate(1.5);
+      -webkit-backdrop-filter: blur(40px) saturate(1.5);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
+      animation: popIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .fm-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .fm-head .ic {
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 1.05rem;
+    }
+
+    .fm-head .t {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .fm-head .s {
+      font-size: 0.72rem;
+      color: rgba(255, 255, 255, 0.45);
+      margin-top: 2px;
+    }
+
+    .fm-modes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+
+    .fm-mode {
+      padding: 11px 6px;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      text-align: center;
+      transition: 0.2s;
+    }
+
+    .fm-mode.active {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(124, 58, 237, 0.25));
+      border-color: rgba(99, 102, 241, 0.5);
+    }
+
+    .fm-mode .mn {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+    }
+
+    .fm-mode .md {
+      font-size: 0.62rem;
+      color: rgba(255, 255, 255, 0.45);
+      margin-top: 3px;
+    }
+
+    .fm-timer {
+      text-align: center;
+      margin: 4px 0 18px;
+    }
+
+    .fm-time {
+      font-size: 3.2rem;
+      font-weight: 600;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .fm-ring {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      margin-top: 18px;
+      overflow: hidden;
+    }
+
+    .fm-ring>span {
+      display: block;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #2563eb, #7c3aed);
+      width: 0%;
+      transition: width 1s linear;
+    }
+
+    .fm-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .fm-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.75);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      font-size: 1rem;
+      transition: 0.2s;
+    }
+
+    .fm-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .fm-btn.play {
+      width: 64px;
+      height: 64px;
+      border: none;
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: #fff;
+      font-size: 1.3rem;
+      box-shadow: 0 10px 26px rgba(37, 99, 235, 0.45);
+    }
+
+    .fm-section-lbl {
+      font-size: 0.62rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.4);
+      font-weight: 600;
+      margin-bottom: 11px;
+    }
+
+    .fm-adjust {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .fm-adj-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fm-adj-row .lbl {
+      flex: 1;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .fm-stepper {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 11px;
+      padding: 3px;
+    }
+
+    .fm-stepper button {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.6);
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: grid;
+      place-items: center;
+      transition: 0.15s;
+    }
+
+    .fm-stepper button:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .fm-stepper .val {
+      width: 42px;
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fm-sounds {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .fm-sound {
+      padding: 12px 6px;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      text-align: center;
+      transition: 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .fm-sound.active {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(124, 58, 237, 0.2));
+      border-color: rgba(99, 102, 241, 0.5);
+    }
+
+    .fm-sound i {
+      font-size: 1rem;
+      color: #93c5fd;
+    }
+
+    .fm-sound span {
+      font-size: 0.66rem;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    /* Focus: volume row (label · slider · percent on one line, with a filled track) */
+    .fm-vol-row { display:flex; align-items:center; gap:14px; margin-top:12px; padding:12px 14px; border-radius:13px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); }
+    .fm-vol-row .lbl { display:flex; align-items:center; gap:8px; font-size:0.78rem; color:rgba(255,255,255,0.85); white-space:nowrap; }
+    .fm-vol-row .lbl i { color:#93c5fd; }
+    .fm-vol-row .pct { width:38px; text-align:right; font-size:0.74rem; color:rgba(255,255,255,0.7); font-variant-numeric:tabular-nums; }
+    #fmVol { -webkit-appearance:none; appearance:none; flex:1; min-width:0; height:6px; border-radius:99px; outline:none; cursor:pointer; background:linear-gradient(to right, #3b82f6 var(--v, 50%), rgba(255,255,255,0.14) var(--v, 50%)); }
+    #fmVol::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%; background:#fff; border:3px solid #3b82f6; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
+    #fmVol::-moz-range-thumb { width:12px; height:12px; border-radius:50%; background:#fff; border:3px solid #3b82f6; }
+    #fmVol::-moz-range-track { background:transparent; }
+
+    /* the popup always fits the screen: header, mode tabs, timer and controls stay put; durations + sounds scroll if the screen is short */
+    #focusOverlay {
+      overflow: hidden;
+      align-items: center;
+    }
+
+    .focus-modal {
+      display: flex;
+      flex-direction: column;
+      max-height: calc(100vh - 48px);
+      max-height: calc(100dvh - 48px);
+      padding: 34px 30px 32px;
+    }
+
+    .focus-modal>* {
+      flex: none;
+    }
+
+    .focus-modal .fm-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      margin: 0 -10px;
+      padding: 2px 10px 4px;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+    }
+
+    .fm-head {
+      margin-bottom: 24px;
+    }
+
+    .fm-modes {
+      margin-bottom: 26px;
+    }
+
+    .fm-timer {
+      margin: 0 0 22px;
+    }
+
+    .fm-time {
+      font-size: 3rem;
+    }
+
+    .fm-ring {
+      margin-top: 20px;
+    }
+
+    .fm-controls {
+      margin-bottom: 30px;
+      gap: 14px;
+    }
+
+    .fm-btn {
+      width: 44px;
+      height: 44px;
+    }
+
+    .fm-btn.play {
+      width: 58px;
+      height: 58px;
+      font-size: 1.2rem;
+    }
+
+    .fm-section-lbl {
+      margin-bottom: 12px;
+    }
+
+    .fm-adjust {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 26px;
+    }
+
+    .fm-adj-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 9px;
+      padding: 13px 8px;
+      border-radius: 13px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .fm-adj-row .lbl {
+      flex: none;
+      text-align: center;
+      font-size: 0.72rem;
+      white-space: nowrap;
+    }
+
+    .fm-adj-row .lbl i {
+      margin-right: 5px !important;
+    }
+
+    .fm-stepper {
+      justify-content: space-between;
+    }
+
+    .fm-stepper button {
+      width: 26px;
+    }
+
+    .fm-stepper .val {
+      width: auto;
+      flex: 1;
+    }
+
+    .fm-sounds {
+      gap: 10px;
+    }
+
+    .fm-sound {
+      padding: 13px 6px;
+      gap: 6px;
+    }
+
+    @media (max-height:860px) {
+      .focus-modal {
+        padding: 26px 26px 24px;
+      }
+
+      .fm-head {
+        margin-bottom: 18px;
+      }
+
+      .fm-modes {
+        margin-bottom: 18px;
+      }
+
+      .fm-timer {
+        margin-bottom: 16px;
+      }
+
+      .fm-controls {
+        margin-bottom: 22px;
+      }
+
+      .fm-adjust {
+        margin-bottom: 18px;
+      }
+
+      .fm-sound {
+        padding: 10px 6px;
+      }
+
+      .fm-adj-row {
+        padding: 10px 8px;
+      }
+    }
+
+    @media (max-height:700px) {
+      .focus-modal {
+        padding: 18px 20px 16px;
+        border-radius: 22px;
+      }
+
+      .fm-head {
+        margin-bottom: 12px;
+      }
+
+      .fm-head .ic {
+        width: 36px;
+        height: 36px;
+        font-size: 0.95rem;
+      }
+
+      .fm-modes {
+        margin-bottom: 12px;
+      }
+
+      .fm-mode {
+        padding: 8px 6px;
+      }
+
+      .fm-time {
+        font-size: 2.4rem;
+      }
+
+      .fm-ring {
+        margin-top: 10px;
+      }
+
+      .fm-timer {
+        margin-bottom: 10px;
+      }
+
+      .fm-controls {
+        margin-bottom: 12px;
+      }
+
+      .fm-btn {
+        width: 40px;
+        height: 40px;
+      }
+
+      .fm-btn.play {
+        width: 52px;
+        height: 52px;
+      }
+    }

@@ -1,0 +1,70 @@
+<!--@modals-->
+  <div class="modal-overlay" id="focusOverlay">
+    <div class="focus-modal">
+      <div class="fm-head">
+        <div class="ic"><i class="fa-solid fa-crosshairs"></i></div>
+        <div>
+          <div class="t">Focus Mode</div>
+          <div class="s" id="fmPhase">Deep work session</div>
+        </div>
+        <button class="x" id="fmClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="fm-modes">
+        <div class="fm-mode active" data-mode="focus">
+          <div class="mn">Focus</div>
+          <div class="md"><span id="lblFocus">25</span> min</div>
+        </div>
+        <div class="fm-mode" data-mode="short">
+          <div class="mn">Short Break</div>
+          <div class="md"><span id="lblShort">5</span> min</div>
+        </div>
+        <div class="fm-mode" data-mode="long">
+          <div class="mn">Long Break</div>
+          <div class="md"><span id="lblLong">15</span> min</div>
+        </div>
+      </div>
+      <div class="fm-timer">
+        <div class="fm-time" id="fmTime">25:00</div>
+        <div class="fm-ring"><span id="fmRing"></span></div>
+      </div>
+      <div id="fmStats" style="text-align:center;font-size:0.72rem;color:rgba(255,255,255,0.65);margin:-4px 0 8px"></div>
+      <div class="fm-controls">
+        <button class="fm-btn" id="fmReset" title="Reset"><i class="fa-solid fa-rotate-left"></i></button>
+        <button class="fm-btn play" id="fmPlay" title="Start"><i class="fa-solid fa-play"></i></button>
+        <button class="fm-btn" id="fmSkip" title="Skip"><i class="fa-solid fa-forward-step"></i></button>
+      </div>
+      <div class="fm-scroll">
+        <div class="fm-section-lbl">Adjust durations (minutes)</div>
+        <div class="fm-adjust">
+          <div class="fm-adj-row"><span class="lbl"><i class="fa-solid fa-brain"
+                style="color:#93c5fd;margin-right:8px;"></i>Focus</span>
+            <div class="fm-stepper" data-dur="focus"><button data-step="-1">−</button><span class="val"
+                id="durFocus">25</span><button data-step="1">+</button></div>
+          </div>
+          <div class="fm-adj-row"><span class="lbl"><i class="fa-solid fa-mug-hot"
+                style="color:#6ee7b7;margin-right:8px;"></i>Short break</span>
+            <div class="fm-stepper" data-dur="short"><button data-step="-1">−</button><span class="val"
+                id="durShort">5</span><button data-step="1">+</button></div>
+          </div>
+          <div class="fm-adj-row"><span class="lbl"><i class="fa-solid fa-couch"
+                style="color:#c4b5fd;margin-right:8px;"></i>Long break</span>
+            <div class="fm-stepper" data-dur="long"><button data-step="-1">−</button><span class="val"
+                id="durLong">15</span><button data-step="1">+</button></div>
+          </div>
+        </div>
+        <div class="fm-section-lbl">Ambience sound</div>
+        <div class="fm-sounds" id="fmSounds">
+          <div class="fm-sound active" data-sound="none"><i class="fa-solid fa-volume-xmark"></i><span>None</span></div>
+          <div class="fm-sound" data-sound="rain"><i class="fa-solid fa-cloud-rain"></i><span>Rain</span></div>
+          <div class="fm-sound" data-sound="forest"><i class="fa-solid fa-tree"></i><span>Forest</span></div>
+          <div class="fm-sound" data-sound="cafe"><i class="fa-solid fa-mug-saucer"></i><span>Café</span></div>
+          <div class="fm-sound" data-sound="waves"><i class="fa-solid fa-water"></i><span>Waves</span></div>
+          <div class="fm-sound" data-sound="whitenoise"><i class="fa-solid fa-wind"></i><span>White noise</span></div>
+          <div class="fm-sound" data-sound="brown"><i class="fa-solid fa-circle-half-stroke"></i><span>Deep hum</span></div>
+          <div class="fm-sound" data-sound="fire"><i class="fa-solid fa-fire"></i><span>Fireplace</span></div>
+        </div>
+        <div class="fm-vol-row"><span class="lbl"><i class="fa-solid fa-volume-high"></i>Volume</span><input type="range" id="fmVol" min="0" max="100" value="50"><span class="pct" id="fmVolPct">50%</span></div>
+        <div class="fm-section-lbl" style="margin-top:12px;text-transform:none;letter-spacing:0">Your timer lengths and sound are saved to your account. The sound plays while the timer runs.</div>
+      </div>
+    </div>
+  </div>

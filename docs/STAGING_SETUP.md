@@ -37,7 +37,7 @@ You need: a Supabase account, a Vercel account (already connected to your GitHub
 
 ## Part 3 — The code: point staging at this project
 
-1. Open `assets/supabase-config.js`.
+1. Open `shared/supabase-config.js`.
 2. In the `STAGING` block put your new Project URL and publishable key:
    ```js
    var STAGING = {
@@ -116,7 +116,7 @@ Use the staging address from Part 4 wherever it says `STAGING-URL`.
      --project-ref <REFERENCE>
    ```
    - Gemini key: https://aistudio.google.com/apikey · Groq key: https://console.groq.com/keys
-   - VAPID keys: the pair you used before. The public one must match `assets/push-config.js`. If you lost the private one, run `npx web-push generate-vapid-keys`, set both here, and send me the new public key to put in `push-config.js`.
+   - VAPID keys: the pair you used before. The public one must match `shared/push-config.js`. If you lost the private one, run `npx web-push generate-vapid-keys`, set both here, and send me the new public key to put in `push-config.js`.
 4. Connect notifications to push: open `supabase/setup/push_webhook.sql`, set `YOUR-PROJECT-REF` and `YOUR-WEBHOOK-SECRET` (the same text as `WEBHOOK_SECRET`), then paste the file into the staging **SQL Editor** and **Run**.
 
 ## Part 7 — First test and your admin account

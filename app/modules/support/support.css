@@ -1,0 +1,7 @@
+/* LUMA — module: support */
+    /* Support: the FAQ card is as tall as the message card; its questions scroll inside */
+    .supp-faq { position:relative; padding:0 !important; }
+    .supp-faq-in { position:absolute; inset:0; padding:1.2rem 1.3rem; display:flex; flex-direction:column; min-width:0; }
+    .supp-faq .faq-wrap { flex:1 1 auto; min-height:0; overflow-y:auto; margin-right:-6px; padding-right:6px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    @media (max-width:768px) { .supp-faq { height:460px; }
+    }

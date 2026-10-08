@@ -1,0 +1,174 @@
+/* LUMA — module: tasks */
+    /* tasks: the page header stays put and each status column scrolls on its own */
+    .main-content.fit #taskBoard {
+      flex: 1 1 auto;
+      min-height: 0;
+      grid-template-rows: minmax(0, 1fr);
+      align-items: stretch;
+      padding-bottom: 24px;
+    }
+
+    .main-content.fit #taskBoard>div {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .main-content.fit #taskBoard .kcol-head {
+      flex: none;
+    }
+
+    .main-content.fit #taskBoard .kcol-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      margin-right: -8px;
+      padding-right: 8px;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    @media (max-width:1024px) {
+      .main-content.fit #taskBoard {
+        overflow-y: auto;
+        display: block;
+      }
+
+      .main-content.fit #taskBoard>div {
+        display: block;
+        margin-bottom: 1rem;
+      }
+
+      .main-content.fit #taskBoard .kcol-body {
+        overflow: visible;
+        margin-right: 0;
+        padding-right: 0;
+      }
+    }
+
+    #taskBoard .add-card {
+      margin: 0 0 0.6rem;
+      padding: 13px;
+      border-radius: 16px;
+      border: 1.5px dashed rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: 0.2s;
+    }
+
+    #taskBoard .add-card:hover {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.7);
+      color: #fff;
+    }
+
+    .kcard .knote {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: pre-wrap;
+      margin-top: 0.5rem;
+      font-size: 0.7rem;
+      line-height: 1.45;
+      color: rgba(255, 255, 255, 0.6);
+    }
+
+    .kcard .knote i {
+      margin-right: 5px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    .kcard .kfoot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 0.55rem;
+      padding-top: 0.55rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 0.64rem;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .kcard .kfoot .kact {
+      display: inline-flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .t-status {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 0.6rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .t-status:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+    }
+
+    .t-status .d {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .t-due-over {
+      color: #fca5a5 !important;
+    }
+
+    .t-menu {
+      position: fixed;
+      z-index: 260;
+      min-width: 170px;
+      padding: 6px;
+      border-radius: 14px;
+      background: rgba(20, 26, 44, 0.97);
+      backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+    }
+
+    .t-menu button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 9px 11px;
+      border: none;
+      border-radius: 9px;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 0.78rem;
+      font-family: inherit;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .t-menu button:hover {
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .t-menu button.cur {
+      color: #fff;
+      background: rgba(59, 130, 246, 0.2);
+    }
+
+    .t-menu .d {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      flex: none;
+    }

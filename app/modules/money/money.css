@@ -1,0 +1,245 @@
+/* LUMA — module: money */
+    .metric .m-sub {
+      font-size: 0.62rem;
+      color: rgba(255, 255, 255, 0.35);
+      margin-top: 0.3rem;
+    }
+
+    /* money */
+    .main-content.fit #moneyRoot {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 2px 6px 24px 0;
+    }
+
+    .main-content.fit #moneyRoot>.grid-4,
+    .main-content.fit #moneyRoot>.m-nav {
+      flex: none;
+    }
+
+    .m-nav {
+      display: flex;
+      margin: 0 0 12px;
+    }
+
+    .m-nav .h-mnav {
+      margin: 0;
+      min-width: 240px;
+      gap: 14px;
+    }
+
+    .m-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.9rem;
+      flex: 1 1 auto;
+      min-height: 0;
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .m-panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .m-panel>* {
+      flex: none;
+    }
+
+    .m-panel>.m-scroll {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      margin-right: -8px;
+      padding-right: 8px;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    @media (max-width:1024px) {
+      .main-content.fit #moneyRoot {
+        overflow-y: auto;
+        display: block;
+      }
+
+      .m-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+      }
+
+      .m-panel {
+        overflow: visible;
+      }
+
+      .m-panel>.m-scroll {
+        overflow: visible;
+        margin-right: 0;
+        padding-right: 0;
+      }
+    }
+
+    .m-card-btn {
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .m-card-btn:hover {
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+
+    .m-sub {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.5);
+      margin-top: 6px;
+    }
+
+    .m-cat {
+      margin-bottom: 14px;
+    }
+
+    .m-cat .top {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.85);
+      margin-bottom: 7px;
+    }
+
+    .m-cat .top .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 3px;
+      flex: none;
+    }
+
+    .m-cat .top .amt {
+      margin-left: auto;
+      color: #fff;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .m-cat .bar {
+      height: 7px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.07);
+      overflow: hidden;
+    }
+
+    .m-cat .bar span {
+      display: block;
+      height: 100%;
+      border-radius: 99px;
+    }
+
+    .m-tx .licon {
+      flex: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 0.95rem;
+    }
+
+    .m-tx .lt {
+      color: #fff;
+    }
+
+    .m-tx .ls {
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .m-amt {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .m-amt.in {
+      color: #6ee7b7;
+    }
+
+    .m-amt.out {
+      color: #fff;
+    }
+
+    .m-tag {
+      font-size: 0.58rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.65);
+      margin-left: 6px;
+    }
+
+    .m-break {
+      margin: 6px 0 4px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.8rem;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .m-break .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 5px 0;
+    }
+
+    .m-break .row b {
+      color: #fff;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .m-break .row.minus b {
+      color: #fca5a5;
+    }
+
+    .m-break .row.total {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      margin-top: 6px;
+      padding-top: 10px;
+      font-size: 0.9rem;
+      color: #fff;
+    }
+
+    .m-break .row.total b {
+      color: #6ee7b7;
+      font-size: 1rem;
+    }
+
+    .m-break .note {
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.45);
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+
+    /* Money → All transactions popup */
+    .mall-bar { display:flex; gap:10px; align-items:center; margin-bottom:12px; }
+    .mall-nav { flex:1; min-width:0; height:46px; display:flex; align-items:center; justify-content:space-between; padding:0 6px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); }
+    .mall-nav span { font-size:0.92rem; font-weight:600; color:#fff; white-space:nowrap; }
+    .mall-nav button { width:34px; height:34px; border:none; border-radius:10px; background:transparent; color:rgba(255,255,255,0.85); cursor:pointer; display:grid; place-items:center; transition:0.15s; }
+    .mall-nav button:hover:not(:disabled) { background:rgba(255,255,255,0.12); color:#fff; }
+    .mall-nav button:disabled { opacity:0.25; cursor:default; }
+    .mall-day { flex:none; width:150px; }
+    .mall-day .lu-select, .mall-day .lu-sel-btn { width:100%; }
+    .mall-day .lu-sel-btn { height:46px; border-radius:14px; }
+    .mall-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px; }
+    .mall-stat { padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); min-width:0; }
+    .mall-stat .l { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.55); }
+    .mall-stat .v { margin-top:3px; font-size:0.9rem; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+    @media (max-width:480px) { .mall-bar { flex-direction:column; align-items:stretch; } .mall-day { width:100%; }
+    }

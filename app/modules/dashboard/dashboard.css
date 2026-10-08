@@ -1,0 +1,212 @@
+/* LUMA — module: dashboard */
+    /* ===== AI ASSISTANT ===== */
+    .assistant-input {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: rgba(255, 255, 255, 0.15);
+      font-size: 0.8rem;
+      padding: 0.1rem 0;
+    }
+
+    .assistant-input i {
+      color: rgba(255, 255, 255, 0.1);
+    }
+
+    .assistant-input .send {
+      margin-left: auto;
+      color: rgba(255, 255, 255, 0.08);
+      cursor: pointer;
+      transition: 0.2s;
+      padding: 0.2rem 0.4rem;
+      border-radius: 8px;
+    }
+
+    .assistant-input .send:hover {
+      color: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    /* ===== QUICK ACTIONS ===== */
+    .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+    }
+
+    /* ===== REMINDERS ===== */
+    .reminder-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.25rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.45);
+    }
+
+    .reminder-item:last-child {
+      border: none;
+    }
+
+    .reminder-item .title i {
+      margin-right: 0.25rem;
+      color: rgba(255, 255, 255, 0.08);
+      font-size: 0.55rem;
+    }
+
+    .reminder-item .meta {
+      color: rgba(255, 255, 255, 0.15);
+      font-size: 0.5rem;
+    }
+
+    .reminder-item .price {
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.65rem;
+    }
+
+    /* ===== OVERVIEW STATS ===== */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.3rem 1.6rem;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.15rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .stat-item .stat-label {
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .stat-item .stat-value {
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .stat-item.workload {
+      grid-column: span 2;
+      border-bottom: none;
+      margin-top: 0.3rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      justify-content: space-between; /* label on the left, level on the right, like every other row */
+    }
+
+    .stat-item.workload .stat-value {
+      color: #fca5a5;
+      font-size: 0.7rem;
+    }
+
+    .stat-item.workload .stat-label {
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .stat-item.budget .stat-value {
+      color: #6ee7b7;
+    }
+
+    /* ===== TIP ===== */
+    .tip-card {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 1rem;
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    }
+
+    .tip-card i {
+      color: rgba(251, 191, 36, 0.15);
+      font-size: 1rem;
+    }
+
+    .tip-card .tip-text {
+      font-size: 0.65rem;
+      color: rgba(255, 255, 255, 0.3);
+      line-height: 1.3;
+    }
+
+    .tip-card .tip-text strong {
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 500;
+    }
+
+    .check-box {
+      width: 18px;
+      height: 18px;
+      border-radius: 6px;
+      border: 1.8px solid rgba(255, 255, 255, 0.25);
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      transition: 0.15s;
+    }
+
+    .check-row.done .check-box {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      border-color: transparent;
+    }
+
+    .check-box i {
+      font-size: 0.6rem;
+      color: #fff;
+      opacity: 0;
+    }
+
+    .check-row.done .check-box i {
+      opacity: 1;
+    }
+
+    .prio-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .wgt-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .wgt-label i {
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 0.8rem;
+    }
+
+    .wgt-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.9rem;
+    }
+
+    .wgt-num {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+      line-height: 1;
+    }
+
+    .wgt-time {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.45);
+      font-variant-numeric: tabular-nums;
+    }

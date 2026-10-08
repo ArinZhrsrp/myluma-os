@@ -8,7 +8,7 @@
     return;
   }
   if (!window.LUMA_SUPABASE_URL || window.LUMA_SUPABASE_URL === "YOUR_SUPABASE_PROJECT_URL") {
-    console.warn("LUMA: Supabase credentials are still placeholders — edit assets/supabase-config.js.");
+    console.warn("LUMA: Supabase credentials are still placeholders — edit shared/supabase-config.js.");
   }
 
   // "Remember me": when ticked the session lives in localStorage (survives
@@ -133,7 +133,7 @@
 
     async sendPasswordReset(email) {
       return client.auth.resetPasswordForEmail(email, {
-        redirectTo: new URL("LUMA Reset Password.html", window.location.href).href,
+        redirectTo: new URL("/reset-password/", window.location.origin).href,
       });
     },
 
@@ -168,7 +168,7 @@
     },
 
     // Call on protected pages — sends signed-out visitors to Login.
-    async requireSession(redirectTo = "LUMA Login.html") {
+    async requireSession(redirectTo = "/login/") {
       const session = await this.getSession();
       if (!session) {
         window.location.href = redirectTo;
@@ -178,7 +178,7 @@
     },
 
     // Call on Login/Register — sends already-signed-in users to the dashboard.
-    async redirectIfSignedIn(redirectTo = "LUMA Glass Dashboard.html") {
+    async redirectIfSignedIn(redirectTo = "/app/") {
       const session = await this.getSession();
       if (session) window.location.href = redirectTo;
       return session;

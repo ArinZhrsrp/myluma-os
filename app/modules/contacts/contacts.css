@@ -1,0 +1,95 @@
+/* LUMA — module: contacts */
+    .pill-btn {
+      font-size: 0.8rem;
+      padding: 8px 20px;
+    }
+
+    #contactChatOverlay #contactChatScroll {
+      flex: 1 1 auto;
+      min-height: 120px !important;
+      max-height: min(400px, 100%) !important;
+      overflow-y: auto;
+    }
+
+    .nudge-btn {
+      height: 28px;
+      padding: 0 11px;
+      border-radius: 999px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: #fcd34d;
+      font-size: 0.68rem;
+      font-family: inherit;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: 0.2s;
+    }
+
+    .nudge-btn:hover:not(:disabled) {
+      background: rgba(245, 158, 11, 0.22);
+      transform: translateY(-1px);
+    }
+
+    .nudge-btn:disabled {
+      opacity: 0.55;
+      cursor: default;
+    }
+
+    .nudge-btn.ring i {
+      animation: nudgeRing .6s ease;
+    }
+
+    /* contact rows: one consistent size for every item on the right (nudge, status pill, time, chat) */
+    #contactsList .lrow>div:last-child {
+      gap: 10px !important;
+    }
+
+    #contactsList .nudge-btn,
+    #contactsList .pill {
+      height: 30px;
+      padding: 0 13px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    #contactsList .msg-btn {
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    #contactsList .msg-btn:hover {
+      box-shadow: 0 6px 18px rgba(59, 130, 246, 0.4);
+    }
+
+    #contactsList .c-time {
+      min-width: 70px;
+      text-align: right;
+      font-size: 0.72rem;
+      white-space: nowrap;
+    }
+
+    #contactsList .c-chat {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.85rem;
+      transition: 0.2s;
+    }
+
+    #contactsList .lrow:hover .c-chat {
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+    }

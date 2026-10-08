@@ -1,0 +1,34 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="profileEditOverlay">
+    <div class="profile-edit-modal">
+      <div class="pem-head">
+        <div class="pem-title">Edit profile</div>
+        <button class="x" id="pemClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="pemError"></div>
+      <div class="pem-msg ok" id="pemOk"></div>
+      <div class="pem-row">
+        <div class="pem-field"><label>First name</label><input id="pemFirst" type="text"></div>
+        <div class="pem-field"><label>Last name</label><input id="pemLast" type="text"></div>
+      </div>
+      <div class="pem-field"><label>Country</label><select id="pemCountry"></select>
+        <div class="pem-hint" style="margin:6px 0 0">Malaysian salary deductions (EPF, SOCSO, EIS, tax) are only worked
+          out for Malaysia.</div>
+      </div>
+      <div class="pem-field"><label>Time zone (GMT)</label><select id="pemTimezone"></select>
+        <div class="pem-hint" style="margin:6px 0 0">Dates, times and push reminders use this time zone. Changing it
+          reloads the page.</div>
+      </div>
+      <div class="pem-field"><label>Email <span style="color:#fca5a5">*</span></label><input id="pemEmail" type="email">
+      </div>
+      <div class="pem-field"><label>New password</label><input id="pemPw" type="password"
+          placeholder="Leave blank to keep current password" autocomplete="new-password"></div>
+      <div class="pem-field" style="margin-bottom:0"><label>Confirm new password</label><input id="pemPw2"
+          type="password" placeholder="Re-enter new password" autocomplete="new-password"></div>
+      <div class="pem-hint">Changing your email or password may require confirming via a link sent to your inbox before
+        it takes effect.</div>
+      <div class="pem-actions">
+        <button class="confirm-btn save" id="pemSave">Save changes</button>
+      </div>
+    </div>
+  </div>
