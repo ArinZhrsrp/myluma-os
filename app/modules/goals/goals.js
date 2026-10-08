@@ -158,7 +158,6 @@
     }
 
     async function loadGoals(pg) {
-      gTab = 'active';
       pg.querySelector('#addGoalBtn').addEventListener('click', () => openGoalModal(null));
       pg.querySelector('#goalsRoot').addEventListener('click', e => {
         const pre = e.target.closest('[data-gpreset]'); if (pre) return openGoalModal(null, G_PRESETS[+pre.dataset.gpreset]);

@@ -91,8 +91,9 @@
 
     async function loadDocuments(pg) {
       const sub = pg.querySelector('#docsSub');
-      let dateF = newDateFilter();
-      let cats = [], docs = [], sharedDocs = [], shares = [], people = [], filter = 'all'; // 'all' | category id | 'none' | 'shared'
+      const mem = (PAGE_MEM.documents = PAGE_MEM.documents || {}); // the folder and date filter you were on come back when you return to this page
+      let dateF = mem.dateF || newDateFilter();
+      let cats = [], docs = [], sharedDocs = [], shares = [], people = [], filter = mem.filter || 'all'; // 'all' | category id | 'none' | 'shared'
       const byId = id => cats.find(c => c.id === id);
       const catCol = c => c ? (c.color || catColor(c.id)) : '#94a3b8'; // chosen colour, else the old stable fallback; grey when uncategorised
       const kids = id => cats.filter(c => (c.parent_id || null) === id);
@@ -103,6 +104,7 @@
       const flat = (parent = null, depth = 0) => kids(parent).flatMap(c => [{ cat: c, depth }, ...flat(c.id, depth + 1)]);
 
       const render = () => {
+        mem.filter = filter; mem.dateF = dateF;
         sub.textContent = `${docs.length} file${docs.length === 1 ? '' : 's'}${sharedDocs.length ? ` (+${sharedDocs.length} shared with you)` : ''} · ${cats.length} categor${cats.length === 1 ? 'y' : 'ies'}`;
         // one chip row per level: top level, then the children of each category
         // along the selected path, so nesting reads like a breadcrumb
@@ -413,6 +415,8 @@
       // sharing is optional until 004 has been run; its absence just hides the feature
       shares = sh.error ? [] : sh.data;
       sharedDocs = sw.error ? [] : sw.data;
+      if (filter !== 'all' && filter !== 'none' && filter !== 'shared' && !cats.some(c => c.id === filter)) filter = 'all'; // the folder was deleted meanwhile
+      paintDateFilterBtn(docDateBtn, dateF);
       people = ct.error ? [] : ct.data.filter(r => r.status === 'accepted').map(r => ({ id: r.other_id, name: contactDisplayName(r), email: r.other_email, contactId: r.contact_id }));
       render();
     }
