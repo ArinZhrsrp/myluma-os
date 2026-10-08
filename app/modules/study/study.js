@@ -52,8 +52,11 @@
     const sdClassEnded = c => !!c.end_date && c.end_date < sdKey();
     const sdSem = id => SD.semesters.find(x => x.id === id);
     // the grade scale: yours (Semesters → Grade scale) or the common Malaysian 4.0 scale
-    const sdScale = () => { const g = LUMA_PROFILE && LUMA_PROFILE.preferences && LUMA_PROFILE.preferences.grade_scale; return Array.isArray(g) && g.length >= 2 && g.every(r => Array.isArray(r) && r.length === 3) ? g : SD_SCALE_DEFAULT; };
-    const sdLetter = p => { const sc = sdScale(); return sc.find(x => p >= x[0]) || sc[sc.length - 1]; };
+    const sdValidScale = g => Array.isArray(g) && g.length >= 2 && g.every(r => Array.isArray(r) && r.length === 3);
+    const sdAccountScale = () => { const g = LUMA_PROFILE && LUMA_PROFILE.preferences && LUMA_PROFILE.preferences.grade_scale; return sdValidScale(g) ? g : null; };
+    // a subject uses its own scale, else its semester's, else yours (Semesters → Grade scale), else the standard one
+    const sdScale = c => (c && sdValidScale(c.grade_scale) && c.grade_scale) || (c && c.semester_id && sdSem(c.semester_id) && sdValidScale(sdSem(c.semester_id).grade_scale) && sdSem(c.semester_id).grade_scale) || sdAccountScale() || SD_SCALE_DEFAULT;
+    const sdLetter = (p, c) => { const sc = sdScale(c); return sc.find(x => p >= x[0]) || sc[sc.length - 1]; };
     // a subject's mark: the final mark you entered, otherwise worked out from the scores you have so far
     const sdMark = c => c.final_percent != null ? Number(c.final_percent) : sdGrade(c.id);
     // only one semester is active at a time; new Study items go into it (the database does that), and without one nothing new can be added
@@ -71,7 +74,7 @@
     function sdGpa(list) {
       const g = list.map(c => ({ c, m: sdMark(c) })).filter(x => x.m != null);
       if (!g.length) return null;
-      const cr = g.filter(x => Number(x.c.credit_hours) > 0), pts = x => sdLetter(x.m)[2];
+      const cr = g.filter(x => Number(x.c.credit_hours) > 0), pts = x => sdLetter(x.m, x.c)[2];
       const credits = cr.reduce((a, x) => a + Number(x.c.credit_hours), 0);
       return { gpa: credits ? cr.reduce((a, x) => a + pts(x) * Number(x.c.credit_hours), 0) / credits : g.reduce((a, x) => a + pts(x), 0) / g.length, n: g.length, credits };
     }
@@ -273,7 +276,7 @@
 
     function sdCourseCard(c) {
       const m = sdMark(c), open = SD.tasks.filter(t => t.course_id === c.id && t.status !== 'done').length, n = SD.classes.filter(x => x.course_id === c.id && !sdClassEnded(x)).length;
-      const mins = SD.focus.filter(r => r.course_id === c.id).reduce((a, r) => a + r.minutes, 0), L = m != null ? sdLetter(m) : null, need = c.final_percent != null || c.archived ? null : sdNeeded(c);
+      const mins = SD.focus.filter(r => r.course_id === c.id).reduce((a, r) => a + r.minutes, 0), L = m != null ? sdLetter(m, c) : null, need = c.final_percent != null || c.archived ? null : sdNeeded(c);
       return `<div class="card sd-course ${c.archived ? 'arch' : ''} ${SD.sel && SD.sel.has(c.id) ? 'picked' : ''}" data-course="${c.id}" style="--c:${c.color}"><div class="sc-top">${SD.sel ? `<span class="sc-pick"><i class="fa-solid fa-check"></i></span>` : ''}<span class="sc-dot"></span><div class="sc-main"><div class="sc-t">${escapeHtml(c.name)}${c.archived ? '<em class="sc-arch">Archived</em>' : ''}</div><div class="sc-s">${[c.code, c.lecturer, c.credit_hours != null ? c.credit_hours + ' credit hour' + (c.credit_hours === 1 ? '' : 's') : ''].filter(Boolean).map(escapeHtml).join(' · ') || 'Tap to add details'}</div></div><button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
         <div class="sc-stats"><div><b>${m == null ? '—' : sdPct(m) + '%'}${L ? `<em>${L[1]}</em>` : ''}</b><span>${c.final_percent != null ? 'Final mark' : 'Grade so far'}</span></div><div><b>${open}</b><span>To do</span></div><div><b>${n}</b><span>Classes / week</span></div><div><b>${mins ? sdMinText(mins) : '—'}</b><span>This week</span></div></div>
         ${need ? `<div class="sc-need ${need.cls}"><i class="fa-solid fa-bullseye"></i>${need.text}</div>` : ''}</div>`;
@@ -314,7 +317,7 @@
         const state = t > sem.end_date ? 'Ended' : t < sem.start_date ? `Starts in ${sdDiff(t, sem.start_date)} days` : `Week ${Math.min(total, Math.floor(sdDiff(sem.start_date, t) / 7) + 1)} of ${total}`;
         return `<div class="card sd-sem ${sem.is_active ? 'cur' : ''}" data-sem="${sem.id}"><div class="sm-top"><div class="sm-main"><div class="sm-t">${escapeHtml(sem.name)}${sem.is_active ? '<em>Active</em>' : '<em class="off">Inactive</em>'}</div><div class="sm-s">${sdShort(sem.start_date)} to ${sdShort(sem.end_date)} · ${total} weeks · ${state}</div></div><div class="sm-gpa"><b>${g ? g.gpa.toFixed(2) : '—'}</b><span>GPA</span></div><button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
           <div class="sm-done">${sem.is_active ? `<button type="button" class="np-btn" data-copy-sem="${sem.id}"><i class="fa-regular fa-copy"></i> Start from a previous semester</button><button type="button" class="np-btn" data-finish-sem="${sem.id}"><i class="fa-solid fa-box-archive"></i> Done with this semester</button>` : cur ? `<button type="button" class="np-btn" disabled title="Archive ${escapeHtml(cur.name)} first: only one semester can be active"><i class="fa-solid fa-lock"></i> Activate (archive ${escapeHtml(cur.name)} first)</button>` : `<button type="button" class="np-btn act" data-activate-sem="${sem.id}"><i class="fa-solid fa-bolt"></i> Make this the active semester</button>`}</div>
-          <div class="sm-subj">${list.length ? list.map(c => { const m = sdMark(c); return `<span class="sd-cc" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}${m != null ? ` <b>${sdLetter(m)[1]}</b>` : ''}</span>`; }).join('') : '<span class="ls">No subjects in this semester yet. Pick it when you add or edit a subject.</span>'}</div></div>`;
+          <div class="sm-subj">${list.length ? list.map(c => { const m = sdMark(c); return `<span class="sd-cc" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}${m != null ? ` <b>${sdLetter(m, c)[1]}</b>` : ''}</span>`; }).join('') : '<span class="ls">No subjects in this semester yet. Pick it when you add or edit a subject.</span>'}</div></div>`;
       }).join('');
       const tail = archivedSems.length ? `<div class="sd-endednote"><button type="button" data-open-archive>Archived semesters (${archivedSems.length}) · open the archive</button></div>` : '';
       return explain + head + (cards || card('<div class="ls" style="padding:6px 2px">All your semesters are archived. Add a new one to plan the next.</div>')) + tail;
@@ -602,23 +605,51 @@
 
     // --- grade scale ---
     let SC_ROWS = [];
-    function paintScaleRows() { docEl('sdScaleRows').innerHTML = SC_ROWS.map((r, i) => `<div class="sd-scale-r" data-i="${i}"><input type="text" inputmode="decimal" data-k="0" value="${escapeHtml(String(r[0]))}" aria-label="From %"><input type="text" maxlength="3" data-k="1" value="${escapeHtml(String(r[1]))}" aria-label="Letter"><input type="text" inputmode="decimal" data-k="2" value="${escapeHtml(String(r[2]))}" aria-label="GPA points"><button type="button" data-del="${i}" title="Remove this row" aria-label="Remove this row"><i class="fa-regular fa-trash-can"></i></button></div>`).join(''); }
-    function openScale() { SC_ROWS = sdScale().map(r => r.slice()); sdErr('sdScaleError', ''); paintScaleRows(); sdOpen('sdScaleOverlay'); }
+    function paintScaleRows() { docEl('sdScaleRows').innerHTML = SC_ROWS.map((r, i) => `<div class="sd-scale-r" data-i="${i}"><input type="text" inputmode="decimal" data-k="0" value="${escapeHtml(String(r[0]))}" aria-label="From %"><input type="text" maxlength="12" data-k="1" value="${escapeHtml(String(r[1]))}" aria-label="Letter"><input type="text" inputmode="decimal" data-k="2" value="${escapeHtml(String(r[2]))}" aria-label="GPA points"><button type="button" data-del="${i}" title="Remove this row" aria-label="Remove this row"><i class="fa-regular fa-trash-can"></i></button></div>`).join(''); }
+    let SC_TARGET = 'account';
+    function sdScaleTargets() { // account-wide, each semester, each (current) subject
+      return [['account', 'Everything (my default)'], ...SD.semesters.filter(x => !x.archived_at || true).sort((a, b) => b.start_date.localeCompare(a.start_date)).map(x => ['sem:' + x.id, 'Semester: ' + x.name]), ...SD.courses.filter(c => !c.archived).map(c => ['course:' + c.id, 'Subject: ' + c.name])];
+    }
+    const sdScaleOf = t => t === 'account' ? sdAccountScale() : t.startsWith('sem:') ? (sdSem(t.slice(4)) || {}).grade_scale : (sdCourse(t.slice(7)) || {}).grade_scale;
+    function sdScaleLoad() {
+      const own = sdScaleOf(SC_TARGET), inherited = SC_TARGET === 'account' ? SD_SCALE_DEFAULT : SC_TARGET.startsWith('sem:') ? (sdAccountScale() || SD_SCALE_DEFAULT) : sdScale({ semester_id: (sdCourse(SC_TARGET.slice(7)) || {}).semester_id });
+      SC_ROWS = (sdValidScale(own) ? own : inherited).map(r => r.slice());
+      docEl('sdScaleHint').textContent = (SC_TARGET === 'account' ? 'Your default scale, used wherever a semester or subject has none of its own.' : sdValidScale(own) ? 'This one has its own scale.' : 'This one follows the scale above it for now. Change the rows and save to give it its own scale.') + ' A mark gets the first row whose minimum it reaches. The last row should start at 0.';
+      paintScaleRows();
+    }
+    function openScale() {
+      SC_TARGET = 'account'; sdErr('sdScaleError', '');
+      const sel = docEl('sdScaleFor'); sel.innerHTML = sdScaleTargets().map(([v, n]) => `<option value="${v}">${escapeHtml(n)}</option>`).join(''); sel.value = SC_TARGET; skinSelect(sel);
+      sdScaleLoad(); sdOpen('sdScaleOverlay');
+    }
+    docEl('sdScaleFor').addEventListener('change', () => { SC_TARGET = docEl('sdScaleFor').value; sdErr('sdScaleError', ''); sdScaleLoad(); });
     docEl('sdScaleClose').onclick = () => sdClose('sdScaleOverlay');
     docEl('sdScaleOverlay').onclick = e => { if (e.target === docEl('sdScaleOverlay')) sdClose('sdScaleOverlay'); const d = e.target.closest('[data-del]'); if (d) { if (SC_ROWS.length <= 2) return sdErr('sdScaleError', 'Keep at least two rows.'); SC_ROWS.splice(+d.dataset.del, 1); paintScaleRows(); } };
     docEl('sdScaleRows').addEventListener('input', e => { const inp = e.target.closest('input[data-k]'); if (!inp) return; SC_ROWS[+inp.closest('[data-i]').dataset.i][+inp.dataset.k] = inp.value; });
     docEl('sdScaleAdd').onclick = () => { if (SC_ROWS.length >= 20) return; SC_ROWS.push(['', '', '']); paintScaleRows(); };
-    docEl('sdScaleReset').onclick = () => { SC_ROWS = SD_SCALE_DEFAULT.map(r => r.slice()); sdErr('sdScaleError', ''); paintScaleRows(); };
+    docEl('sdScaleReset').onclick = async () => { // account: back to the standard scale; semester / subject: stop having its own scale
+      sdErr('sdScaleError', ''); if (SC_TARGET === 'account') { SC_ROWS = SD_SCALE_DEFAULT.map(r => r.slice()); return paintScaleRows(); }
+      const sem = SC_TARGET.startsWith('sem:'), id = SC_TARGET.slice(sem ? 4 : 7), r = await (sem ? LumaStudy.semesters : LumaStudy.courses).update(id, { grade_scale: null });
+      if (r.error) return sdErr('sdScaleError', r.error.message); const list = sem ? SD.semesters : SD.courses, k = list.findIndex(x => x.id === id); if (k >= 0) list[k] = r.data;
+      sdScaleLoad(); sdAfterSave(); flashToast('Back to the scale above it', '', 'fa-rotate-left', '#34d399');
+    };
     docEl('sdScaleSave').onclick = async () => {
       const rows = SC_ROWS.map(r => [Number(String(r[0]).replace(',', '.')), String(r[1]).trim(), Number(String(r[2]).replace(',', '.'))]);
       if (rows.some(r => !isFinite(r[0]) || r[0] < 0 || r[0] > 100 || String(SC_ROWS[rows.indexOf(r)][0]).trim() === '')) return sdErr('sdScaleError', 'Every row needs a "From %" between 0 and 100.');
-      if (rows.some(r => !r[1] || r[1].length > 3)) return sdErr('sdScaleError', 'Every row needs a letter (up to 3 characters).');
+      if (rows.some(r => !r[1] || r[1].length > 12)) return sdErr('sdScaleError', 'Every row needs a grade name (up to 12 characters, like A- or Distinction).');
       if (rows.some((r, i) => !isFinite(r[2]) || r[2] < 0 || r[2] > 10 || String(SC_ROWS[i][2]).trim() === '')) return sdErr('sdScaleError', 'GPA points are numbers from 0 to 10.');
       if (new Set(rows.map(r => r[0])).size !== rows.length) return sdErr('sdScaleError', 'Two rows start at the same percentage.');
       if (!rows.some(r => r[0] === 0)) return sdErr('sdScaleError', 'One row must start at 0 so every mark gets a grade.');
       rows.sort((a, b) => b[0] - a[0]);
-      const same = JSON.stringify(rows) === JSON.stringify(SD_SCALE_DEFAULT);
-      sdBtn('sdScaleSave', true); await setLumaPref('grade_scale', same ? null : rows); sdBtn('sdScaleSave', false, 'Save scale');
+      const same = JSON.stringify(rows) === JSON.stringify(SD_SCALE_DEFAULT), value = same && SC_TARGET === 'account' ? null : rows;
+      sdBtn('sdScaleSave', true);
+      if (SC_TARGET === 'account') await setLumaPref('grade_scale', value);
+      else { // a semester's or a subject's own scale (migration 061)
+        const sem = SC_TARGET.startsWith('sem:'), id = SC_TARGET.slice(sem ? 4 : 7), r = await (sem ? LumaStudy.semesters : LumaStudy.courses).update(id, { grade_scale: rows });
+        if (r.error || r.data.grade_scale === undefined) { sdBtn('sdScaleSave', false, 'Save scale'); return sdErr('sdScaleError', r.error ? r.error.message : 'Run supabase/migrations/061_grade_scales.sql in the SQL Editor first.'); }
+        const list = sem ? SD.semesters : SD.courses, k = list.findIndex(x => x.id === id); if (k >= 0) list[k] = r.data;
+      }
+      sdBtn('sdScaleSave', false, 'Save scale');
       sdClose('sdScaleOverlay'); sdAfterSave(); flashToast('Grade scale saved', same ? 'Using the standard scale' : 'Your GPA and letters use it now', 'fa-check', '#22c55e');
     };
 

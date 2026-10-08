@@ -125,7 +125,8 @@
       </div>
       <div class="pem-msg error" id="sdScaleError"></div>
       <div class="pem-body">
-        <div class="pem-hint" style="margin:0 0 10px">Set the letters and GPA points your university uses. A mark gets the first row whose minimum it reaches. The last row should start at 0.</div>
+        <div class="pem-field"><label>Applies to</label><select id="sdScaleFor"></select></div>
+        <div class="pem-hint" style="margin:0 0 10px" id="sdScaleHint">Set the letters and GPA points your university uses. A mark gets the first row whose minimum it reaches. The last row should start at 0.</div>
         <div class="sd-scale-h"><span>From %</span><span>Letter</span><span>GPA points</span><span></span></div>
         <div id="sdScaleRows"></div>
         <button type="button" class="np-btn" id="sdScaleAdd" style="margin-top:10px"><i class="fa-solid fa-plus"></i> Add a row</button>
