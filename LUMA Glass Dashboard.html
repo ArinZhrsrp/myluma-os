@@ -11618,10 +11618,14 @@
           ${card(`<div class="section-title"><i class="fa-solid fa-chart-pie"></i> Completed tasks by tag</div>${tags.length ? tags.map((t, i) => bar(t[0], `${t[1]} · ${Math.round(t[1] / tagTot * 100)}%`, t[1] / tagTot * 100, tcol[i % tcol.length])).join('') : '<div class="ls">No tasks completed in this period.</div>'}`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-wallet"></i> Spending by category <span class="ls" style="margin-left:auto">${anRM(cur.spend)}${cur.income ? ' · income ' + anRM(cur.income) : ''}</span></div>${cats.length ? cats.slice(0, 6).map(c => bar(c[0], anRM(c[1]), c[1] / catMax * 100, mcol[c[0]] || '#94a3b8')).join('') : '<div class="ls">No spending recorded in this period.</div>'}`)}
         </div>
-        ${card(`<div class="section-title"><i class="fa-solid fa-robot"></i> Lumi's insights <button type="button" class="create-btn" id="anAiBtn" style="margin-left:auto;padding:6px 12px;font-size:0.7rem;background:rgba(255,255,255,0.08);box-shadow:none"><i class="fa-solid fa-wand-magic-sparkles"></i> ${anAiGet() ? 'Refresh with AI' : 'Get AI insights'}</button></div><div id="anAiNote" class="ls" style="margin:-4px 0 10px;display:${anAiGet() ? 'block' : 'none'}">Written by Lumi (AI) from your numbers.</div>${(() => { const n = (anAiGet() || ins).slice(0, 6).length; return `<div class="${n === 4 || n === 2 ? 'grid-2' : 'grid-3'}">`; })()}${(anAiGet() ? anAiGet().map(t => ['fa-wand-magic-sparkles', t]) : ins).slice(0, 6).map(c => `<div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05)"><i class="fa-solid ${c[0]}" style="color:#93c5fd;font-size:1.1rem"></i><p style="margin-top:10px;font-size:0.75rem;color:rgba(255,255,255,0.8);line-height:1.55">${escapeHtml(c[1])}</p></div>`).join('')}</div>`)}`;
-      document.getElementById('anAiBtn').onclick = anAskAi;
+        ${card(`<div class="section-title"><i class="fa-solid fa-robot"></i> Lumi's insights <button type="button" class="create-btn" id="anAiBtn" style="margin-left:auto;padding:6px 12px;font-size:0.7rem;background:rgba(255,255,255,0.08);box-shadow:none"><i class="fa-solid fa-wand-magic-sparkles"></i> ${anAiGet() ? 'Refresh with AI' : 'Get AI insights'}</button></div><div class="ls" style="margin:-4px 0 10px"><span id="anAiNote" style="display:${anAiGet() ? 'inline' : 'none'}">Written by Lumi (AI) from your numbers. · </span><span id="anAiLeft">${anAiLeftTxt()}</span></div>${(() => { const n = (anAiGet() || ins).slice(0, 6).length; return `<div class="${n === 4 || n === 2 ? 'grid-2' : 'grid-3'}">`; })()}${(anAiGet() ? anAiGet().map(t => ['fa-wand-magic-sparkles', t]) : ins).slice(0, 6).map(c => `<div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05)"><i class="fa-solid ${c[0]}" style="color:#93c5fd;font-size:1.1rem"></i><p style="margin-top:10px;font-size:0.75rem;color:rgba(255,255,255,0.8);line-height:1.55">${escapeHtml(c[1])}</p></div>`).join('')}</div>`)}`;
+      document.getElementById('anAiBtn').onclick = anAskAi; anAiPaintLeft();
     }
 
+    let anAiLeft = null, anAiLimit = 10;
+    const anAiLeftTxt = () => anAiLeft == null ? `${anAiLimit} AI insights per day` : `${anAiLeft} of ${anAiLimit} AI insights left today`;
+    function anAiPaintLeft() { const el = document.getElementById('anAiLeft'); if (!el) return; el.textContent = anAiLeftTxt(); el.style.color = anAiLeft === 0 ? '#fca5a5' : anAiLeft != null && anAiLeft <= 2 ? '#fcd34d' : 'rgba(255,255,255,0.6)'; const b = document.getElementById('anAiBtn'); if (b && anAiLeft === 0) { b.disabled = true; b.title = 'You have used all your AI insights for today'; } }
+    async function anAiCheckLeft() { const r = await lumiCall({ mode: 'chat', check: true, kind: 'insights' }); if (r && r.left != null) { anAiLeft = r.left; anAiLimit = r.limit || anAiLimit; anAiPaintLeft(); } }
     const anAiKey = () => `luma_ai_ins_${LUMA_USER ? LUMA_USER.id : ''}_${hToday()}_${anRange}`;
     function anAiGet() { try { const v = JSON.parse(localStorage.getItem(anAiKey()) || 'null'); return Array.isArray(v) && v.length ? v : null; } catch (e) { return null; } }
     async function anAskAi() {
@@ -11631,6 +11635,7 @@
       const metrics = { period_days: anRange, productivity_score_pct: [P(cur.score), P(prev.score)], task_completion_pct: [P(cur.taskRate), P(prev.taskRate)], habit_consistency_pct: [P(cur.habit), P(prev.habit)], health_goal_progress_pct: [P(cur.health), P(prev.health)], tasks_completed: [cur.done, prev.done], spending_rm: [Math.round(cur.spend), Math.round(prev.spend)], income_rm: Math.round(cur.income), top_spending_categories: cats, overdue_open_tasks: an.tasks.filter(t => t.status !== 'done' && t.due_date && t.due_date < hToday()).length, note: 'each pair is [this period, previous period]' };
       btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Thinking…';
       const r = await lumiCall({ mode: 'insights', metrics });
+      if (r.left != null) { anAiLeft = r.left; anAiLimit = r.limit || anAiLimit; }
       if (r.insights && r.insights.length) { try { localStorage.setItem(anAiKey(), JSON.stringify(r.insights)); } catch (e) { } paintAnalytics(); }
       else { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> Get AI insights'; luAlert((r.error || 'Lumi could not write insights just now.') + (r.detail ? '\n\n' + r.detail.slice(0, 600) : '')); }
     }
@@ -11642,7 +11647,7 @@
       const since = hKeyAdd(hToday(), -70);
       const [t, , , h, g] = await Promise.all([LumaTasks.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(since), LumaHealth.getGoals()]);
       an = { tasks: t.error ? [] : t.data, health: h.error ? [] : (h.data || []), goals: g.data };
-      paintAnalytics();
+      paintAnalytics(); anAiCheckLeft();
     }
 
     // =====================================================

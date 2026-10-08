@@ -177,9 +177,10 @@ Deno.serve(async (req) => {
   const tz = String(body.tz || "Asia/Kuala_Lumpur"), today = isDate(body.today) ? body.today : new Date().toISOString().slice(0, 10), now = String(body.now || today);
   const name = String(u.user.user_metadata?.full_name || u.user.user_metadata?.name || "").slice(0, 60);
 
-  if (mode === "chat" && body.check) { // just report the allowance
-    const { data } = await client.rpc("assistant_left", { p_kind: "chat", p_limit: limit });
-    return json({ left: data ?? limit, limit });
+  if (body.check) { // just report the allowance (for the chat, or for AI insights when kind is "insights"), without using one
+    const kind = body.kind === "insights" ? "insights" : "chat", lim = kind === "chat" ? CHAT_LIMIT : INSIGHT_LIMIT;
+    const { data } = await client.rpc("assistant_left", { p_kind: kind, p_limit: lim });
+    return json({ left: data ?? lim, limit: lim });
   }
 
   const { data: left, error: qerr } = await client.rpc("use_assistant", { p_kind: mode, p_limit: limit });
