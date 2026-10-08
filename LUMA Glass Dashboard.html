@@ -4229,6 +4229,7 @@
     .rp-f { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
     .rp-f > span { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.55); font-weight:600; }
     .rp-f .lu-select, .rp-f .lu-sel-btn { width:100%; }
+    .rp-card.rp-slim { grid-column:1 / -1; padding:12px 14px; } /* a card with no options sits as one slim row instead of stretching */
     .rp-card.rem-off .rp-ctl { opacity:0.4; pointer-events:none; }
 
     /* page switcher */
@@ -10290,7 +10291,7 @@
         const hourOpts = REM_HOURS.map(h => `<option value="${h}">${fmt12(String(h).padStart(2, '0') + ':00')}</option>`).join('');
         const dayOpts = [1, 2, 3, 5, 7].map(d => `<option value="${d}">${d} day${d > 1 ? 's' : ''} before</option>`).join('');
         const fld = (label, key, opts) => `<label class="rp-f"><span>${label}</span><select data-rem="${key}">${opts}</select></label>`;
-        const remCard = (key, icon, color, title, desc, fields) => `<div class="rp-card"><div class="rp-top"><div class="rp-ico" style="--c:${color}"><i class="fa-solid ${icon}"></i></div><div class="rp-t"><div class="a">${title}</div><div class="b">${desc}</div></div><button type="button" class="switch" data-rem="${key}"><span class="knob"></span></button></div>${fields ? `<div class="rp-ctl">${fields}</div>` : ''}</div>`;
+        const remCard = (key, icon, color, title, desc, fields) => `<div class="rp-card ${fields ? '' : 'rp-slim'}"><div class="rp-top"><div class="rp-ico" style="--c:${color}"><i class="fa-solid ${icon}"></i></div><div class="rp-t"><div class="a">${title}</div><div class="b">${desc}</div></div><button type="button" class="switch" data-rem="${key}"><span class="knob"></span></button></div>${fields ? `<div class="rp-ctl">${fields}</div>` : ''}</div>`;
         return head('Settings', 'Preferences, theme and integrations') +
           `<div class="card full-width" style="margin-bottom:0.9rem">
           <div class="section-title"><i class="fa-regular fa-image"></i> Background</div>
