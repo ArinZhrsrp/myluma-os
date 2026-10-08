@@ -2,7 +2,7 @@
       // ---------------- SETTINGS ----------------
     MODULES.settings = function () {
         const savedPrefs = (LUMA_PROFILE && LUMA_PROFILE.preferences) || {};
-        const prefs = [['focus', 'Focus mode', 'Only urgent reminders get through. Chat messages and nudges stay quiet.', false], ['notif', 'Notifications', 'Checking this device…', true], ['ai', 'Proactive AI suggestions', 'Show Lumi\'s suggestion and daily tips on your dashboard', true], ['weekly', 'Weekly review', 'A summary of your week every Sunday at 6 pm', true], ['sounds', 'Interface sounds', 'Soft sounds when you tap, tick and get notified', false]];
+        const prefs = [['focus', 'Focus mode', 'Only urgent reminders get through. Chat messages and nudges stay quiet.', false], ['notif', 'Notifications', 'Checking this device…', true], ['ai', 'Proactive AI suggestions', 'Show Lumi\'s suggestion and daily tips on your dashboard', true], ['weekly', 'Weekly review', 'A summary of your week every Sunday at 6 pm', true], ['sounds', 'Interface sounds', 'Soft sounds when you tap, tick and get notified', false], ...(LumaPlan.hasAddon('study') ? [['show_study_personal', 'Show Study in Personal', 'Your classes and assignment due dates also appear on the Calendar while you are in Personal mode', true]] : [])];
         const hourOpts = REM_HOURS.map(h => `<option value="${h}">${fmt12(String(h).padStart(2, '0') + ':00')}</option>`).join('');
         const dayOpts = [1, 2, 3, 5, 7].map(d => `<option value="${d}">${d} day${d > 1 ? 's' : ''} before</option>`).join('');
         const fld = (label, key, opts) => `<label class="rp-f"><span>${label}</span><select data-rem="${key}">${opts}</select></label>`;
@@ -38,6 +38,7 @@
             ${remCard('bill_on', 'fa-file-invoice-dollar', '#f59e0b', 'Bills', 'Before the due date, on it, and the day after if unpaid', fld('Remind me', 'bill_days', dayOpts) + fld('Send at', 'bill_hour', hourOpts))}
             ${remCard('sub_on', 'fa-repeat', '#f472b6', 'Subscriptions', 'Before a subscription renews', fld('Remind me', 'sub_days', dayOpts) + fld('Send at', 'sub_hour', hourOpts))}
             ${remCard('goal_on', 'fa-bullseye', '#34d399', 'Goals', 'Before a goal deadline, and on the day', fld('Remind me', 'goal_days', dayOpts) + fld('Send at', 'goal_hour', hourOpts))}
+            ${LumaPlan.hasAddon('study') ? remCard('study_on', 'fa-graduation-cap', '#34d399', 'Study', 'Before an assignment, test or exam is due, the day before, and on the day', fld('First reminder', 'study_days', dayOpts) + fld('Send at', 'study_hour', hourOpts)) : ''}
             ${remCard('habit_on', 'fa-fire', '#fb923c', 'Habits', 'At the reminder time you set on each habit, if it is not done yet', '<button type="button" class="rp-link" data-golink="habits">Set times on each habit <i class="fa-solid fa-arrow-right"></i></button>')}
             ${remCard('health_on', 'fa-heart-pulse', '#f87171', 'Health', 'Water, steps, active minutes and sleep reminders', '<button type="button" class="rp-link" data-golink="health">Set times on the Health page <i class="fa-solid fa-arrow-right"></i></button>')}
             ${remCard('budget_on', 'fa-wallet', '#4ade80', 'Budget alerts', 'When your spending passes a share of your monthly budget, and when you go over', fld('Warn me at', 'budget_pct', [50, 60, 70, 75, 80, 85, 90, 95].map(p => `<option value="${p}">${p}% of budget</option>`).join('')))}
@@ -165,14 +166,14 @@
 
 
     const REM_HOURS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
-    const REM_DEFAULTS = { habit_on: true, health_on: true, budget_pct: 80, event_on: true, event_lead_min: 15, allday_hour: 8, task_on: true, task_hour: 9, bill_on: true, bill_hour: 9, bill_days: 3, sub_on: true, sub_hour: 9, sub_days: 3, goal_on: true, goal_hour: 9, goal_days: 3, budget_on: true };
+    const REM_DEFAULTS = { habit_on: true, health_on: true, budget_pct: 80, event_on: true, event_lead_min: 15, allday_hour: 8, task_on: true, task_hour: 9, bill_on: true, bill_hour: 9, bill_days: 3, sub_on: true, sub_hour: 9, sub_days: 3, goal_on: true, goal_hour: 9, goal_days: 3, budget_on: true, study_on: true, study_hour: 9, study_days: 3 };
     async function wireReminderPrefs(pg) {
       const box = pg.querySelector('#remPrefs'); if (!box) return;
       const err = m => { const e = box.querySelector('#remError'); e.textContent = m; e.style.display = m ? 'flex' : 'none'; };
       const { data, error } = await LumaAuth.client.schema('luma').from('reminder_prefs').select('*').maybeSingle();
       if (error) err(/reminder_prefs|schema cache|does not exist/i.test(error.message) ? 'Reminder settings aren\'t set up yet — run supabase/migrations/031_reminder_prefs.sql in the Supabase SQL Editor.' : error.message);
       const v = { ...REM_DEFAULTS, ...(data || {}) };
-      if (!LumaPlan.has('timing')) ['event_lead_min', 'allday_hour', 'task_hour', 'bill_hour', 'bill_days', 'sub_hour', 'sub_days', 'goal_hour', 'goal_days', 'budget_pct'].forEach(k => { v[k] = REM_DEFAULTS[k]; }); // Dawn: the standard times are what is used, so that is what is shown
+      if (!LumaPlan.has('timing')) ['event_lead_min', 'allday_hour', 'task_hour', 'bill_hour', 'bill_days', 'sub_hour', 'sub_days', 'goal_hour', 'goal_days', 'budget_pct', 'study_hour', 'study_days'].forEach(k => { v[k] = REM_DEFAULTS[k]; }); // Dawn: the standard times are what is used, so that is what is shown
       const dim = () => box.querySelectorAll('.setting-row, .rp-card').forEach(r => { const sw = r.querySelector('.switch'); r.classList.toggle('rem-off', !!sw && !sw.classList.contains('on')); });
       box.querySelectorAll('select[data-rem]').forEach(sel => { sel.value = String(v[sel.dataset.rem]); skinSelect(sel); });
       if (!LumaPlan.has('timing')) { // choosing the times is a Glow / Zenith feature; the on/off switches still work

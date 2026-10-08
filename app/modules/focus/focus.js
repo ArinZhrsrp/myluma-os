@@ -75,8 +75,18 @@
       window.lumaFocusLoad = loadSetup; // called again once the profile is known
 
       // ---- history ----
+      // Study add-on: tag the session with a subject (for "study time" on the Study page)
+      const subjectId = () => { const row = document.getElementById('fmSubjectRow'); return row && row.style.display !== 'none' ? document.getElementById('fmSubject').value : ''; };
+      async function paintSubjects() {
+        const row = document.getElementById('fmSubjectRow'), sel = document.getElementById('fmSubject'); if (!row) return;
+        if (!LumaPlan.hasAddon('study') || typeof sdEnsureLoaded !== 'function') { row.style.display = 'none'; return; }
+        await sdEnsureLoaded();
+        if (!SD.courses.length) { row.style.display = 'none'; return; }
+        const keep = sel.value; sel.innerHTML = '<option value="">No subject</option>' + SD.courses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+        sel.value = SD.courses.some(c => c.id === keep) ? keep : ''; skinSelect(sel); row.style.display = '';
+      }
       async function recordSession(minutes) {
-        try { await LumaAuth.client.schema('luma').from('focus_sessions').insert({ minutes, sound: curSound, started_at: startedAt || new Date().toISOString() }); } catch (e) { }
+        try { await LumaAuth.client.schema('luma').from('focus_sessions').insert({ minutes, sound: curSound, started_at: startedAt || new Date().toISOString(), ...(subjectId() ? { course_id: subjectId() } : {}) }); } catch (e) { }
         paintStats();
       }
       async function paintStats() {
@@ -153,7 +163,7 @@
       })();
 
       // open/close
-      function open() { overlay.classList.add('open'); paintStats(); }
+      function open() { overlay.classList.add('open'); paintStats(); paintSubjects(); }
       function close() { overlay.classList.remove('open'); }
       document.querySelectorAll('.focus, .focus button').forEach(el => el.addEventListener('click', open));
       document.getElementById('fmClose').addEventListener('click', close);

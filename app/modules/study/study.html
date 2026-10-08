@@ -1,0 +1,77 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="sdCourseOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:440px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdCourseTitle">New subject</div>
+        <button class="x" id="sdCourseClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdCourseError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>Subject <span style="color:#fca5a5">*</span></label><input id="sdCourseName" type="text" maxlength="80" placeholder="e.g. Database Systems" autocomplete="off"></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>Code <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseCode" type="text" maxlength="20" placeholder="e.g. CS2101" autocomplete="off"></div>
+          <div class="pem-field"><label>Credit hours <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseCredits" type="text" inputmode="numeric" maxlength="2" placeholder="e.g. 3" autocomplete="off"></div>
+        </div>
+        <div class="pem-field"><label>Lecturer <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseLecturer" type="text" maxlength="80" placeholder="e.g. Dr. Aisyah" autocomplete="off"></div>
+        <div class="pem-field"><label>Colour</label><div class="sd-colors" id="sdCourseColors"></div></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="sdCourseDelete" title="Delete subject" aria-label="Delete subject" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="sdCourseSave" style="flex:1">Save subject</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdClassOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:440px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdClassTitle">New class</div>
+        <button class="x" id="sdClassClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdClassError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>Subject <span style="color:#fca5a5">*</span></label><select id="sdClassCourse"></select></div>
+        <div class="pem-field"><label id="sdClassDaysLbl">Days</label><div class="sd-days" id="sdClassDays"></div></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>Starts <span style="color:#fca5a5">*</span></label><input id="sdClassStart" type="text"></div>
+          <div class="pem-field"><label>Ends <span style="color:#fca5a5">*</span></label><input id="sdClassEnd" type="text"></div>
+        </div>
+        <div class="pem-field"><label>Type</label><div class="h-tpls" id="sdClassKinds"></div></div>
+        <div class="pem-field"><label>Room <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdClassRoom" type="text" maxlength="60" placeholder="e.g. Block B, Lab 3" autocomplete="off"></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="sdClassDelete" title="Delete class" aria-label="Delete class" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="sdClassSave" style="flex:1">Save class</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdTaskOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdTaskTitleHd">New assignment</div>
+        <button class="x" id="sdTaskClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdTaskError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>Title <span style="color:#fca5a5">*</span></label><input id="sdTaskTitle" type="text" maxlength="140" placeholder="e.g. ER diagram report" autocomplete="off"></div>
+        <div class="pem-field"><label>Type</label><div class="h-tpls" id="sdTaskKinds"></div></div>
+        <div class="pem-field"><label>Subject <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><select id="sdTaskCourse"></select></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>Due date <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdTaskDue" type="text"></div>
+          <div class="pem-field"><label>Due time <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdTaskTime" type="text"></div>
+        </div>
+        <div class="pem-field"><label>Status</label><div class="h-tpls" id="sdTaskStatus"></div></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>Weight % <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdTaskWeight" type="text" inputmode="decimal" placeholder="e.g. 20" autocomplete="off"></div>
+          <div class="pem-field"><label>Score <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdTaskScore" type="text" inputmode="decimal" placeholder="e.g. 42" autocomplete="off"></div>
+          <div class="pem-field"><label>Out of</label><input id="sdTaskMax" type="text" inputmode="decimal" placeholder="e.g. 50" autocomplete="off"></div>
+        </div>
+        <div class="pem-field"><label>Notes <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdTaskNotes" type="text" maxlength="1000" placeholder="e.g. Submit on the portal" autocomplete="off"></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="sdTaskDelete" title="Delete" aria-label="Delete" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="sdTaskSave" style="flex:1">Save</button>
+      </div>
+    </div>
+  </div>

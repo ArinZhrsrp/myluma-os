@@ -82,6 +82,7 @@
     skinDate(document.getElementById('mEntryDate'));
     skinDate(document.getElementById('tkDue'));
     skinDate(document.getElementById('calEvDate'));
+    skinDate(document.getElementById('sdTaskDue'));
 
     // Themed time picker (hour / minute / AM-PM). The hidden input holds a 24-hour 'HH:MM' value and fires
     // "input" + "change" when it changes; opts.clear adds a Clear link for optional fields.
@@ -129,7 +130,7 @@
         document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', onKey, true); document.addEventListener('scroll', onScroll, true);
       };
     }
-    [['hBed', true], ['hWake', true], ['rWFrom'], ['rWTo'], ['rSFrom'], ['rSTo'], ['rAFrom'], ['rATo'], ['rBed'], ['rWake'], ['habitRemind', true], ['calEvStart'], ['calEvEnd', true]].forEach(([id, clear]) => skinTime(document.getElementById(id), { clear: !!clear }));
+    [['hBed', true], ['hWake', true], ['rWFrom'], ['rWTo'], ['rSFrom'], ['rSTo'], ['rAFrom'], ['rATo'], ['rBed'], ['rWake'], ['habitRemind', true], ['calEvStart'], ['calEvEnd', true], ['sdClassStart'], ['sdClassEnd'], ['sdTaskTime', true]].forEach(([id, clear]) => skinTime(document.getElementById(id), { clear: !!clear }));
 
     // Fixed-size modals: wrap every popup that has a header + action buttons so only its fields scroll; the header and
     // buttons never scroll away (messages stay pinned under the header too). New popups get this automatically.

@@ -2,7 +2,7 @@
     // ---------- Calendar ----------
     // Your own events (with category, time and repeats) plus — read-only — tasks that are due and bills that are due.
     const C_CATS = [['Work', '#3b82f6'], ['Meeting', '#8b5cf6'], ['Personal', '#22c55e'], ['Health', '#f59e0b'], ['Social', '#ec4899'], ['Other', '#14b8a6']];
-    const C_EXTRA = [['Tasks', '#38bdf8'], ['Bills', '#fb923c']];
+    const C_EXTRA = [['Tasks', '#38bdf8'], ['Bills', '#fb923c'], ['Classes', '#34d399'], ['Study', '#a78bfa']]; // Classes / Study only show with the Study add-on
     const C_HOUR_H = 52; // pixels per hour in the week view
     const C_UP_DAYS = 14; // the upcoming list only looks 2 weeks ahead
     const C_REPEAT = [['none', 'Never'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
@@ -28,9 +28,10 @@
       CEV.forEach(e => { if (!cHidden.has(e.category) && cOccurs(e, k)) out.push({ type: 'event', e, id: e.id, title: e.title, time: e.all_day ? null : e.start_time, end: e.all_day ? null : e.end_time, color: cColor(e.category), cat: e.category }); });
       if (!cHidden.has('Tasks')) CTASKS.forEach(t => { if (t.due_date === k && t.status !== 'done') out.push({ type: 'task', id: t.id, title: t.title, color: cColor('Tasks'), cat: 'Tasks', label: 'Task due' }); });
       if (!cHidden.has('Bills')) BILLS.filter(b => b.active !== false).forEach(b => { if (bCycles(b, bFirst(k)).includes(k)) out.push({ type: 'bill', id: b.id, title: `${b.name} · ${bRM(b.amount)}`, color: cColor('Bills'), cat: 'Bills', label: bPaidAmt(b, k) != null ? 'Bill · paid' : 'Bill due', done: bPaidAmt(b, k) != null }); });
+      if (typeof studyCalItems === 'function') out.push(...studyCalItems(k)); // the Study add-on's classes and due dates
       return out.sort((a, c) => (a.time ? 1 : 0) - (c.time ? 1 : 0) || (a.time || '').localeCompare(c.time || '') || a.title.localeCompare(c.title));
     }
-    const cTimeLabel = it => it.type === 'event' ? (it.time ? fmt12(it.time) + (it.end ? ' – ' + fmt12(it.end) : '') : 'All day') : it.label;
+    const cTimeLabel = it => it.type === 'sdclass' ? fmt12(it.time) + ' – ' + fmt12(it.end) : it.type === 'event' ? (it.time ? fmt12(it.time) + (it.end ? ' – ' + fmt12(it.end) : '') : 'All day') : it.label;
     const t12 = t => { const [h, m] = t.split(':').map(Number); return `${String(((h + 11) % 12) + 1).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; }; // 03:00 pm
     const cChip = (it, k) => `<div class="cchip ${it.done ? 'done' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}"><span class="dot" style="background:${it.color}"></span>${it.time ? `<span class="tm">${t12(it.time)}</span>` : ''}${it.done ? '<i class="fa-solid fa-check ck"></i>' : ''}<span class="tt">${escapeHtml(it.title)}</span></div>`;
     const cRow = (it, k) => `<div class="cal-it ${it.done ? 'done' : ''}" style="--ic:${it.color}" data-type="${it.type}" data-id="${it.id}" data-d="${k}"><div><div class="t">${escapeHtml(it.title)}</div><div class="m">${cTimeLabel(it)}${it.type === 'event' ? ' · ' + it.cat : ''}</div></div></div>`;
@@ -66,7 +67,7 @@
     const C_ICON = { Work: 'fa-briefcase', Meeting: 'fa-users', Personal: 'fa-user', Health: 'fa-heart-pulse', Social: 'fa-champagne-glasses', Other: 'fa-calendar-day', Tasks: 'fa-square-check', Bills: 'fa-file-invoice-dollar' };
     function cDayAgenda(k) {
       const items = cItemsOn(k), card = it => {
-        const when = it.type === 'event' ? (it.time ? it.time + (it.end ? ' – ' + it.end : '') : 'All day') : it.type === 'task' ? 'Task due' : 'Bill';
+        const when = it.type === 'event' || it.type === 'sdclass' ? (it.time ? it.time + (it.end ? ' – ' + it.end : '') : 'All day') : it.type === 'task' ? 'Task due' : it.type === 'sdtask' ? it.label : 'Bill';
         const detail = it.type === 'event' ? ((it.e.note || '').split('\n')[0] || it.cat) : it.label;
         return `<div class="cd-card ${it.done ? 'done' : ''}" style="--ic:${it.color}" data-type="${it.type}" data-id="${it.id}" data-d="${k}"><div class="cd-ico"><i class="fa-solid ${C_ICON[it.cat] || 'fa-calendar-day'}"></i></div><div class="cd-main"><div class="cd-t">${escapeHtml(it.title)}</div><div class="cd-s">${escapeHtml(when === 'All day' || it.type !== 'event' ? detail : when + ' · ' + detail)}</div></div></div>`;
       };
@@ -143,7 +144,7 @@
       const hiddenNow = new Set(cHidden); cHidden.clear();
       for (let i = 0; i < n; i++) cItemsOn(bAddDays(first, i)).forEach(it => { cnt[it.cat] = (cnt[it.cat] || 0) + 1; });
       hiddenNow.forEach(h => cHidden.add(h));
-      docEl('calCats').innerHTML = [...C_CATS, ...C_EXTRA].map(([n2, c]) => `<div class="cat-item ${cHidden.has(n2) ? 'off' : ''}" data-cat="${n2}" title="${cHidden.has(n2) ? 'Show' : 'Hide'} ${n2}"><div class="cat-left"><div class="dot" style="background:${c}"></div>${n2}</div><div class="count">${cnt[n2] || 0}</div></div>`).join('');
+      docEl('calCats').innerHTML = [...C_CATS, ...C_EXTRA].filter(([n2]) => (n2 !== 'Classes' && n2 !== 'Study') || (typeof studyVisibleOnCalendar === 'function' && studyVisibleOnCalendar())).map(([n2, c]) => `<div class="cat-item ${cHidden.has(n2) ? 'off' : ''}" data-cat="${n2}" title="${cHidden.has(n2) ? 'Show' : 'Hide'} ${n2}"><div class="cat-left"><div class="dot" style="background:${c}"></div>${n2}</div><div class="count">${cnt[n2] || 0}</div></div>`).join('');
     }
 
     // ----- create / edit popup -----
@@ -263,7 +264,7 @@
       if (b.dataset.a === 'gobill') { closeCalDetail(); closeCalList(); return goTo('bills'); }
       if (b.dataset.a === 'pay') { const bill = BILLS.find(x => x.id === id); if (bill) { await toggleBillPaid(bill, d); calShowDetail('bill', id, d); paintCalendar(); } }
     };
-    function calOpenItem(type, id, dateKey) { calShowDetail(type, id, dateKey); }
+    function calOpenItem(type, id, dateKey) { if (type === 'sdclass' || type === 'sdtask') return sdOpenFromCal(type, id); calShowDetail(type, id, dateKey); }
 
     // "View all": a popup with the whole list of what's coming up
     function openCalList() {
@@ -312,7 +313,7 @@
     async function calOnShow() {
       calBind(); if (!cDate) cDate = mytDayKey(Date.now());
       paintCalendar();
-      const [ev, tk] = await Promise.all([LumaEvents.list(), LumaTasks.list(), loadBillsData()]);
+      const [ev, tk] = await Promise.all([LumaEvents.list(), LumaTasks.list(), loadBillsData(), LumaPlan.hasAddon('study') ? sdEnsureLoaded() : null]);
       CERR = ev.error || null; if (!ev.error) CEV = ev.data || []; if (!tk.error) CTASKS = tk.data || [];
       paintCalendar();
     }

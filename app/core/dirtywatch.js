@@ -14,6 +14,9 @@
         ['profileEditOverlay', 'pemSave', () => true],
         ['noteOverlay', 'noteSave', () => /edit/i.test((document.getElementById('noteHeading') || {}).textContent || '')],
         ['moneyIncomeOverlay', 'mIncSave', () => true],
+        ['sdCourseOverlay', 'sdCourseSave', () => shown('sdCourseDelete')],
+        ['sdClassOverlay', 'sdClassSave', () => shown('sdClassDelete')],
+        ['sdTaskOverlay', 'sdTaskSave', () => shown('sdTaskDelete')],
       ].forEach(([ovId, saveId, isEdit]) => {
         const ov = document.getElementById(ovId), save = document.getElementById(saveId); if (!ov || !save) return;
         let base = null, was = false;

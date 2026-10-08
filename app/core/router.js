@@ -15,7 +15,7 @@
     const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin', 'adminreport', 'dashboard', 'settings', 'health', 'contacts', 'assistant', 'support', 'work', 'study']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
-    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin', 'adminreport']);
+    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin', 'adminreport', 'study']);
 
     // pages whose markup is "heading + content": the content goes into one scrolling box so the heading stays put
     const FIT_WRAP = new Set(['health', 'contacts', 'assistant', 'support', 'work', 'study']);
