@@ -4236,6 +4236,35 @@
     .rp-card.rp-slim { grid-column:1 / -1; padding:12px 14px; } /* a card with no options sits as one slim row instead of stretching */
     .rp-card.rem-off .rp-ctl { opacity:0.4; pointer-events:none; }
 
+    /* Admin → Plan report */
+    .main-content.fit #arRoot { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    .ar-bar { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+    .ar-chips { display:inline-flex; gap:4px; padding:3px; border-radius:999px; background:rgba(255,255,255,0.06); flex-wrap:wrap; }
+    .ar-chips button { border:none; background:none; color:rgba(255,255,255,0.6); font:inherit; font-size:0.74rem; padding:7px 14px; border-radius:999px; cursor:pointer; }
+    .ar-chips button.on { background:rgba(59,130,246,0.35); color:#fff; }
+    .ar-range { display:flex; gap:10px; }
+    .ar-range label { display:flex; flex-direction:column; gap:4px; }
+    .ar-range label span { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.55); font-weight:600; }
+    .ar-range .lu-select, .ar-range .lu-sel-btn { min-width:130px; }
+    .ar-sel { color:#fff; font-weight:600; font-size:0.9rem; margin:0 2px 8px; }
+    .ar-tiles { grid-template-columns:repeat(7,minmax(0,1fr)); margin-bottom:18px; }
+    @media (max-width:1100px){ .ar-tiles { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+    @media (max-width:640px){ .ar-tiles { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    .ar-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+    .ar-legend { margin-left:auto; display:inline-flex; gap:14px; font-size:0.72rem; font-weight:500; color:rgba(255,255,255,0.8); text-transform:none; letter-spacing:0; }
+    #arChartCard, #arTableCard { margin-bottom:18px; }
+    .ar-svg { width:100%; height:auto; display:block; margin-top:6px; }
+    .ar-grid { stroke:rgba(255,255,255,0.08); stroke-width:1; }
+    .ar-x, .ar-y { fill:rgba(255,255,255,0.6); font-size:11px; }
+    .ar-col { cursor:pointer; }
+    .ar-col:hover rect:not([fill="transparent"]) { filter:brightness(1.15); }
+    .ar-col.sel .ar-x { fill:#fff; font-weight:700; }
+    .ar-col.sel rect[fill="transparent"] { fill:rgba(255,255,255,0.06); }
+    .adm-tbl tbody tr[data-k] { cursor:pointer; }
+    .adm-tbl tbody tr.sel td { background:rgba(59,130,246,0.14); }
+    .adm-tbl tbody tr:first-child td { font-weight:inherit; background:none; }
+    .adm-tbl tbody tr.sel:first-child td { background:rgba(59,130,246,0.14); }
+
     /* Admin */
     .main-content.fit #admRoot { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
     .adm-stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
@@ -8138,6 +8167,7 @@
       <div class="page" id="page-tasks"></div>
       <div class="page" id="page-reminders"></div>
       <div class="page" id="page-admin"></div>
+      <div class="page" id="page-adminreport"></div>
       <div class="page" id="page-money"></div>
       <div class="page" id="page-subscriptions"></div>
       <div class="page" id="page-bills"></div>
@@ -10317,16 +10347,16 @@
     // ---------- Nav item click: set active + switch page ----------
     const pageTitle = document.getElementById('pageTitle');
     const titles = {
-      dashboard: 'Dashboard', calendar: 'Calendar', reminders: 'Reminders', admin: 'Admin', tasks: 'Tasks & Work', money: 'Money',
+      dashboard: 'Dashboard', calendar: 'Calendar', reminders: 'Reminders', admin: 'Admin', adminreport: 'Plan report', tasks: 'Tasks & Work', money: 'Money',
       subscriptions: 'Subscriptions', bills: 'Bills', goals: 'Goals', habits: 'Habits', health: 'Health',
       notes: 'Notes & Docs', documents: 'Documents', contacts: 'Contacts', assistant: 'Lumi',
       analytics: 'Analytics', settings: 'Settings', support: 'Support', notifications: 'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin', 'dashboard', 'settings', 'health', 'contacts', 'assistant', 'support']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin', 'adminreport', 'dashboard', 'settings', 'health', 'contacts', 'assistant', 'support']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
-    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin']);
+    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin', 'adminreport']);
 
     // pages whose markup is "heading + content": the content goes into one scrolling box so the heading stays put
     const FIT_WRAP = new Set(['health', 'contacts', 'assistant', 'support']);
@@ -10343,7 +10373,7 @@
       const pg = document.getElementById('page-' + key);
       if (pg) pg.classList.add('active');
       pageTitle.textContent = titles[key];
-      document.querySelectorAll('.menu').forEach(i => i.classList.toggle('active', i.dataset.page === key));
+      document.querySelectorAll('.menu').forEach(i => i.classList.toggle('active', i.dataset.page === (key === 'adminreport' ? 'admin' : key)));
       if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); fitWrap(pg, key); rendered[key] = true; LumaLoader.page(pg, key, wireModule(key)); } else if (key !== 'dashboard') LumaLoader.page(pg, key);
       const mc = document.querySelector('.main-content');
       mc.classList.toggle('fit', FIT_PAGES.has(key));
@@ -10464,6 +10494,9 @@
       // ---------------- ADMIN ----------------
       admin() {
         return head('Admin', '<span id="admSub">Loading…</span>') + '<div id="admRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+      },
+      adminreport() {
+        return head('Plan report', '<span id="arSub">Loading…</span>', '<button class="create-btn" id="arBack" style="background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-arrow-left"></i> Admin</button><button class="create-btn" id="arCsv"><i class="fa-solid fa-download"></i> Download CSV</button>') + '<div id="arRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
       },
       // ---------------- REMINDERS ----------------
       reminders() {
@@ -12532,24 +12565,71 @@
         if (!await luConfirm({ title: 'Change plan?', message: `${who}: ${LumaPlan.NAMES[old]} → ${LumaPlan.NAMES[next]}`, ok: 'Change plan', icon: 'fa-user-shield', tone: 'info' })) return revert();
         const { error } = await db().rpc('admin_set_plan', { p_user: id, p_plan: next });
         if (error) { revert(); return luAlert('Could not change the plan: ' + error.message); }
-        sel.dataset.cur = next; flashToast('Plan changed', `${who} is now on ${LumaPlan.NAMES[next]}`, 'fa-check', '#22c55e'); stats(); report();
+        sel.dataset.cur = next; flashToast('Plan changed', `${who} is now on ${LumaPlan.NAMES[next]}`, 'fa-check', '#22c55e'); stats();
         if (LUMA_USER && id === LUMA_USER.id) { await LumaPlan.load(); Object.keys(rendered).forEach(k => { if (k !== 'admin') delete rendered[k]; }); flashToast('Your own plan changed', 'Other pages now use the new limits', 'fa-user-shield', '#3b82f6'); } // you changed your own plan: the app follows
       });
       let t = null; document.getElementById('admSearch').addEventListener('input', () => { clearTimeout(t); t = setTimeout(list, 300); });
-      // monthly report: how many people were on each plan at the end of every month
+      // the monthly report lives on its own page (opened from here)
       const report = async () => {
-        const box = document.getElementById('admReport'), { data, error } = await db().rpc('admin_monthly_stats', { p_months: 12 });
-        if (error) { box.innerHTML = card(`<div class="section-title"><i class="fa-solid fa-chart-column"></i> Monthly report</div><div class="ls">Could not load: ${escapeHtml(error.message)}. Has <b>supabase/migrations/040_admin_report.sql</b> been run?</div>`); return; }
-        const rows = data || [], lbl = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
-        box.innerHTML = card(`<div class="section-title"><i class="fa-solid fa-chart-column"></i> Monthly report <button type="button" class="create-btn" id="admCsv" style="margin-left:auto;padding:6px 12px;font-size:0.7rem;background:rgba(255,255,255,0.08);box-shadow:none"><i class="fa-solid fa-download"></i> Download CSV</button></div>
-          <div class="ls" style="margin:-4px 0 10px">People on each plan at the end of each month (this month: right now). Months run midnight to midnight UTC.</div>
-          <div class="adm-tbl-wrap"><table class="adm-tbl"><thead><tr><th>Month</th><th>Accounts</th><th>New sign-ups</th><th>Dawn</th><th>Glow</th><th>Zenith</th><th>Upgrades</th><th>Downgrades</th></tr></thead><tbody>${rows.map(r => `<tr><td>${lbl(r.period)}</td><td>${r.total_accounts}</td><td>${r.new_signups}</td><td>${r.on_dawn}</td><td>${r.on_glow}</td><td>${r.on_zenith}</td><td>${r.upgrades}</td><td>${r.downgrades}</td></tr>`).join('')}</tbody></table></div>`);
-        document.getElementById('admCsv').onclick = () => {
-          const csv = ['Month,Accounts,New sign-ups,Dawn,Glow,Zenith,Upgrades,Downgrades', ...rows.map(r => [r.period.slice(0, 7), r.total_accounts, r.new_signups, r.on_dawn, r.on_glow, r.on_zenith, r.upgrades, r.downgrades].join(','))].join('\n');
-          const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), a = document.createElement('a'); a.href = url; a.download = `luma-plan-report-${hToday()}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
-        };
+        document.getElementById('admReport').innerHTML = card(`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div class="rp-ico" style="--c:#60a5fa"><i class="fa-solid fa-chart-column"></i></div><div style="flex:1;min-width:200px"><div style="color:#fff;font-weight:600;font-size:0.9rem">Plan report</div><div class="ls" style="margin-top:2px">People on each plan month by month, with a chart, a month and date range, and a CSV download.</div></div><button type="button" class="create-btn" id="admOpenReport">View report <i class="fa-solid fa-arrow-right"></i></button></div>`);
+        document.getElementById('admOpenReport').onclick = () => goTo('adminreport');
       };
       await Promise.all([stats(), report(), list()]);
+    }
+
+    // =====================================================
+    //  ADMIN → PLAN REPORT: a page of its own (opened from the Admin page)
+    // =====================================================
+    async function loadAdminReport(pg) {
+      const root = pg.querySelector('#arRoot'), sub = pg.querySelector('#arSub');
+      pg.querySelector('#arBack').onclick = () => goTo('admin');
+      if (!LumaPlan.admin) { sub.textContent = 'Not allowed'; root.innerHTML = card('<div class="ls">This page is only for administrators.</div>'); return; }
+      const { data, error } = await LumaAuth.client.schema('luma').rpc('admin_monthly_stats', { p_months: 36 });
+      if (error) { sub.textContent = 'Could not load'; root.innerHTML = card(`<div class="ls">Could not load the report: ${escapeHtml(error.message)}. Has <b>supabase/migrations/040_admin_report.sql</b> been run?</div>`); return; }
+      const all = (data || []).slice().sort((a, b) => a.period.localeCompare(b.period)); // oldest → newest
+      if (!all.length) { root.innerHTML = card('<div class="ls">No data yet.</div>'); return; }
+      const lbl = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      const PLAN_COL = { dawn: '#34d399', glow: '#fbbf24', zenith: '#a78bfa' };
+      // the range starts at the first month that has any account (or the last 12 months), ends at this month
+      const firstWith = all.findIndex(r => r.total_accounts > 0);
+      let to = all.length - 1, from = Math.max(firstWith < 0 ? all.length - 12 : firstWith, all.length - 12, 0), sel = to;
+      const rangeRows = () => all.slice(from, to + 1);
+      const opts = i => all.map((r, k) => `<option value="${k}" ${k === i ? 'selected' : ''}>${lbl(r.period)}</option>`).join('');
+      root.innerHTML = `<div class="ar-bar"><div class="ar-chips" id="arChips">${[[3, 'Last 3 months'], [6, 'Last 6 months'], [12, 'Last 12 months'], [36, 'All']].map(([n, l]) => `<button type="button" data-n="${n}">${l}</button>`).join('')}</div>
+          <div class="ar-range"><label><span>From</span><select id="arFrom"></select></label><label><span>To</span><select id="arTo"></select></label></div></div>
+        <div id="arTiles"></div><div id="arChartCard"></div><div id="arTableCard"></div>`;
+      const selFrom = root.querySelector('#arFrom'), selTo = root.querySelector('#arTo');
+      const fill = () => { selFrom.innerHTML = opts(from); selTo.innerHTML = opts(to); skinSelect(selFrom); skinSelect(selTo); };
+      const paint = () => {
+        const rows = rangeRows(); if (sel < from || sel > to) sel = to;
+        const cur = all[sel];
+        sub.textContent = `${lbl(all[from].period)} – ${lbl(all[to].period)}`;
+        root.querySelectorAll('#arChips button').forEach(b => b.classList.toggle('on', Math.min(+b.dataset.n, all.length) === rows.length && to === all.length - 1));
+        const tile = (l, v, c) => `<div class="adm-stat"><div class="l">${c ? `<span class="ar-dot" style="background:${c}"></span>` : ''}${l}</div><div class="v">${v}</div></div>`;
+        root.querySelector('#arTiles').innerHTML = `<div class="ar-sel">${lbl(cur.period)}${sel === all.length - 1 ? ' (so far)' : ''}</div><div class="adm-stats ar-tiles">${tile('Accounts', cur.total_accounts)}${tile('New sign-ups', cur.new_signups)}${tile('Dawn', cur.on_dawn, PLAN_COL.dawn)}${tile('Glow', cur.on_glow, PLAN_COL.glow)}${tile('Zenith', cur.on_zenith, PLAN_COL.zenith)}${tile('Upgrades', cur.upgrades)}${tile('Downgrades', cur.downgrades)}</div>`;
+        // stacked columns: one per month, Dawn at the bottom, then Glow, then Zenith
+        const W = 900, H = 260, L = 38, B = 28, T = 10, n = rows.length, max = Math.max(1, ...rows.map(r => r.on_dawn + r.on_glow + r.on_zenith)), step = (W - L - 8) / n, bw = Math.min(46, step * 0.62), y = v => T + (H - T - B) * (1 - v / max);
+        const nice = max <= 4 ? max : Math.ceil(max / 4), ticks = max <= 4 ? Array.from({ length: max + 1 }, (_, i) => i) : [0, 1, 2, 3, 4].map(i => i * nice);
+        const bars = rows.map((r, i) => {
+          const x = L + i * step + (step - bw) / 2; let acc = 0;
+          const seg = (key, v) => { if (!v) return ''; const y1 = y(acc + v), y0 = y(acc); acc += v; return `<rect x="${x}" y="${y1}" width="${bw}" height="${Math.max(0, y0 - y1)}" fill="${PLAN_COL[key]}" rx="2"/>`; };
+          const k = from + i;
+          return `<g class="ar-col ${k === sel ? 'sel' : ''}" data-k="${k}"><title>${lbl(r.period)}: ${r.on_dawn} Dawn · ${r.on_glow} Glow · ${r.on_zenith} Zenith</title><rect x="${L + i * step}" y="${T}" width="${step}" height="${H - T - B}" fill="transparent"/>${seg('dawn', r.on_dawn)}${seg('glow', r.on_glow)}${seg('zenith', r.on_zenith)}<text x="${x + bw / 2}" y="${H - 9}" text-anchor="middle" class="ar-x">${new Date(r.period + 'T00:00:00Z').toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })}${n <= 12 ? '' : ''}</text></g>`;
+        }).join('');
+        root.querySelector('#arChartCard').innerHTML = card(`<div class="section-title"><i class="fa-solid fa-chart-column"></i> People on each plan <span class="ar-legend">${['dawn', 'glow', 'zenith'].map(k => `<span><i class="ar-dot" style="background:${PLAN_COL[k]}"></i>${LumaPlan.NAMES[k]}</span>`).join('')}</span></div>
+          <svg viewBox="0 0 ${W} ${H}" class="ar-svg" role="img" aria-label="People on each plan at the end of each month">${ticks.map(t => `<line x1="${L}" x2="${W}" y1="${y(t)}" y2="${y(t)}" class="ar-grid"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end" class="ar-y">${t}</text>`).join('')}${bars}</svg>
+          <div class="ls" style="margin-top:6px">Click a month to see its numbers above. This month shows people right now.</div>`);
+        root.querySelector('#arTableCard').innerHTML = card(`<div class="section-title"><i class="fa-solid fa-table"></i> Month by month</div><div class="adm-tbl-wrap"><table class="adm-tbl"><thead><tr><th>Month</th><th>Accounts</th><th>New sign-ups</th><th>Dawn</th><th>Glow</th><th>Zenith</th><th>Upgrades</th><th>Downgrades</th></tr></thead><tbody>${rows.slice().reverse().map(r => `<tr data-k="${all.indexOf(r)}" class="${all.indexOf(r) === sel ? 'sel' : ''}"><td>${lbl(r.period)}</td><td>${r.total_accounts}</td><td>${r.new_signups}</td><td>${r.on_dawn}</td><td>${r.on_glow}</td><td>${r.on_zenith}</td><td>${r.upgrades}</td><td>${r.downgrades}</td></tr>`).join('')}</tbody></table></div>`);
+      };
+      root.querySelector('#arChips').onclick = e => { const b = e.target.closest('button'); if (!b) return; to = all.length - 1; from = Math.max(0, all.length - Math.min(+b.dataset.n, all.length)); sel = to; fill(); paint(); };
+      selFrom.onchange = () => { from = +selFrom.value; if (from > to) to = from; sel = Math.min(Math.max(sel, from), to); fill(); paint(); };
+      selTo.onchange = () => { to = +selTo.value; if (to < from) from = to; sel = Math.min(Math.max(sel, from), to); fill(); paint(); };
+      root.onclick = e => { const el = e.target.closest('[data-k]'); if (el && !e.target.closest('select')) { sel = +el.dataset.k; paint(); } };
+      pg.querySelector('#arCsv').onclick = () => {
+        const rows = rangeRows().slice().reverse(), csv = ['Month,Accounts,New sign-ups,Dawn,Glow,Zenith,Upgrades,Downgrades', ...rows.map(r => [r.period.slice(0, 7), r.total_accounts, r.new_signups, r.on_dawn, r.on_glow, r.on_zenith, r.upgrades, r.downgrades].join(','))].join('\n');
+        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), a = document.createElement('a'); a.href = url; a.download = `luma-plan-report-${all[from].period.slice(0, 7)}-to-${all[to].period.slice(0, 7)}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+      };
+      fill(); paint();
     }
 
     function paintHabits() { paintHabitsPage(); paintDashHabits(); if (document.getElementById('dashChips') && dashTasks) paintDashboard(); }
@@ -13932,6 +14012,7 @@
       if (key === 'analytics') wp = loadAnalytics(pg);
       if (key === 'reminders') wp = loadReminders(pg);
       if (key === 'admin') wp = loadAdmin(pg);
+      if (key === 'adminreport') wp = loadAdminReport(pg);
       if (key === 'documents') wp = loadDocuments(pg);
       if (key === 'notes') wp = loadNotes(pg);
       if (key === 'health') wp = loadHealth(pg);
