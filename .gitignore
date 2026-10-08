@@ -9,3 +9,4 @@ supabase/.branches/
 # secrets files are never committed
 supabase/*.env
 !supabase/*.env.example
+supabase/setup/*.local.sql
