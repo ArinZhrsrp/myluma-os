@@ -9703,7 +9703,13 @@
       { name: 'Starry peak', url: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&q=80', thumb: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=300&q=60' },
       { name: 'Dusk ridge', url: 'https://images.unsplash.com/photo-1444080748397-f442aa95c3e5?w=1920&q=80', thumb: 'https://images.unsplash.com/photo-1444080748397-f442aa95c3e5?w=300&q=60' },
       { name: 'Aurora', url: 'https://images.unsplash.com/photo-1502790671504-542ad42d5189?w=1920&q=80', thumb: 'https://images.unsplash.com/photo-1502790671504-542ad42d5189?w=300&q=60' },
-    ];
+          { name:'Alpine lake', url:'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1920&q=80', thumb:'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=300&q=60' },
+      { name:'Forest light', url:'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1920&q=80', thumb:'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=300&q=60' },
+      { name:'Sunset sea', url:'https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=1920&q=80', thumb:'https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=300&q=60' },
+      { name:'Rocky peak', url:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1920&q=80', thumb:'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=300&q=60' },
+      { name:'Waterfall', url:'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=1920&q=80', thumb:'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=300&q=60' },
+      { name:'Mirror lake', url:'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1920&q=80', thumb:'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=300&q=60' },
+];
     // a wallpaper value is a picture address, or "storage:<path>" for the image you uploaded (kept in your private storage)
     async function bgAddress(val) {
       if (!val || !String(val).startsWith('storage:')) return val;
@@ -10609,12 +10615,11 @@
         const remCard = (key, icon, color, title, desc, fields) => `<div class="rp-card ${fields ? '' : 'rp-slim'}"><div class="rp-top"><div class="rp-ico" style="--c:${color}"><i class="fa-solid ${icon}"></i></div><div class="rp-t"><div class="a">${title}</div><div class="b">${desc}</div></div><button type="button" class="switch" data-rem="${key}"><span class="knob"></span></button></div>${fields ? `<div class="rp-ctl">${fields}</div>` : ''}</div>`;
         return head('Settings', 'Preferences, theme and integrations') +
           `<div id="setRoot"><div class="card full-width" style="margin-bottom:0.9rem">
-          <div class="section-title"><i class="fa-regular fa-image"></i> Background</div>
-          <p class="ls" style="margin-bottom:0.9rem">Choose a wallpaper or upload your own.</p>
+          <div class="section-title"><i class="fa-regular fa-image"></i> Background <button type="button" class="create-btn ${LumaPlan.has('own_wallpaper') ? '' : 'plan-lock'}" id="bgUpload" style="margin-left:auto;padding:7px 13px;font-size:0.72rem;background:rgba(255,255,255,0.08);box-shadow:none"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload your own</button></div>
+          <p class="ls" style="margin-bottom:0.9rem">Choose a wallpaper, or upload your own picture (it stays with your account).</p>
           <div class="bg-grid" id="bgGrid">
-            ${BGS.map((b, i) => `<div class="bg-thumb ${i >= (LumaPlan.get('wallpapers') ?? 99) ? 'plan-lock' : ''}" data-bg="${b.url}" style="background-image:url('${b.thumb}')" title="${b.name}${i >= (LumaPlan.get('wallpapers') ?? 99) ? ' · Glow and Zenith' : ''}"></div>`).join('')}
             ${savedPrefs.custom_bg_path ? `<div class="bg-thumb" id="bgCustom" data-bg="storage:${savedPrefs.custom_bg_path}" title="Your uploaded picture" style="background-color:rgba(255,255,255,0.08)"></div>` : ''}
-            <div class="bg-upload ${LumaPlan.has('own_wallpaper') ? '' : 'plan-lock'}" id="bgUpload"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload<br>your own</div>
+            ${BGS.map((b, i) => `<div class="bg-thumb ${i >= (LumaPlan.get('wallpapers') ?? 99) ? 'plan-lock' : ''}" data-bg="${b.url}" style="background-image:url('${b.thumb}')" title="${b.name}${i >= (LumaPlan.get('wallpapers') ?? 99) ? ' · Glow and Zenith' : ''}"></div>`).join('')}
           </div>
           <input type="file" id="bgFile" accept="image/*" style="display:none">
         </div>

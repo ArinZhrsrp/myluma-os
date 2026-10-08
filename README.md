@@ -356,6 +356,7 @@ supabase/migrations/
   032_reminders.sql            Reminders page: your own reminders (e.g. last weekday of the month), inbox + push
   033_plans.sql                plans Dawn / Glow / Zenith: limits table + enforcement (existing accounts become Zenith)
   035_more_reminder_prefs.sql  Settings → Reminders: habits + health on/off, budget warning percentage
+  043_more_wallpapers.sql      11 built-in wallpapers (Glow / Zenith can use all)
   042_backgrounds.sql          your uploaded wallpaper is saved with your account (private storage bucket)
   041_focus_sessions.sql       Focus mode: every completed focus session is saved
   040_admin_report.sql         Admin page: monthly report of people per plan + log of every plan change

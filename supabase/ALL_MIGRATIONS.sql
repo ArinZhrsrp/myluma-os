@@ -3334,7 +3334,7 @@ insert into luma.plan_limits (plan, key, value) values
   ('dawn',   'timing', 0),           ('glow',   'timing', 1),           ('zenith', 'timing', 1),
   ('dawn',   'payroll', 0),          ('glow',   'payroll', 1),          ('zenith', 'payroll', 1),
   ('dawn',   'own_wallpaper', 0),    ('glow',   'own_wallpaper', 0),    ('zenith', 'own_wallpaper', 1),
-  ('dawn',   'wallpapers', 2),       ('glow',   'wallpapers', 5),       ('zenith', 'wallpapers', 5),
+  ('dawn',   'wallpapers', 2),       ('glow',   'wallpapers', 11),      ('zenith', 'wallpapers', 11),
   ('dawn',   'themes', 1),           ('glow',   'themes', 3),           ('zenith', 'themes', 3)
 on conflict (plan, key) do update set value = excluded.value;
 
@@ -4041,3 +4041,15 @@ drop policy if exists "Users delete their own wallpaper" on storage.objects;
 create policy "Users delete their own wallpaper"
   on storage.objects for delete to authenticated
   using (bucket_id = 'luma-backgrounds' and (storage.foldername(name))[1] = auth.uid()::text);
+
+
+-- ################################################################
+-- 043_more_wallpapers.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 043: six more built-in wallpapers (11 in total). Glow and Zenith can use all of them; Dawn keeps 2.
+-- Depends on 033. Safe to re-run. Run in Supabase Dashboard → SQL Editor.
+-- ============================================================
+
+update luma.plan_limits set value = 11 where key = 'wallpapers' and plan in ('glow', 'zenith');
