@@ -4877,6 +4877,16 @@
       color: rgba(255, 255, 255, 0.75);
     }
 
+    /* Focus: volume row (label · slider · percent on one line, with a filled track) */
+    .fm-vol-row { display:flex; align-items:center; gap:14px; margin-top:12px; padding:12px 14px; border-radius:13px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); }
+    .fm-vol-row .lbl { display:flex; align-items:center; gap:8px; font-size:0.78rem; color:rgba(255,255,255,0.85); white-space:nowrap; }
+    .fm-vol-row .lbl i { color:#93c5fd; }
+    .fm-vol-row .pct { width:38px; text-align:right; font-size:0.74rem; color:rgba(255,255,255,0.7); font-variant-numeric:tabular-nums; }
+    #fmVol { -webkit-appearance:none; appearance:none; flex:1; min-width:0; height:6px; border-radius:99px; outline:none; cursor:pointer; background:linear-gradient(to right, #3b82f6 var(--v, 50%), rgba(255,255,255,0.14) var(--v, 50%)); }
+    #fmVol::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%; background:#fff; border:3px solid #3b82f6; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
+    #fmVol::-moz-range-thumb { width:12px; height:12px; border-radius:50%; background:#fff; border:3px solid #3b82f6; }
+    #fmVol::-moz-range-track { background:transparent; }
+
     /* the popup always fits the screen: header, mode tabs, timer and controls stay put; durations + sounds scroll if the screen is short */
     #focusOverlay {
       overflow: hidden;
@@ -9052,7 +9062,7 @@
           <div class="fm-sound" data-sound="brown"><i class="fa-solid fa-circle-half-stroke"></i><span>Deep hum</span></div>
           <div class="fm-sound" data-sound="fire"><i class="fa-solid fa-fire"></i><span>Fireplace</span></div>
         </div>
-        <div class="fm-adj-row" style="margin-top:12px"><span class="lbl"><i class="fa-solid fa-volume-high" style="color:#93c5fd;margin-right:8px;"></i>Volume</span><input type="range" id="fmVol" min="0" max="100" value="50" style="width:55%;accent-color:#3b82f6"></div>
+        <div class="fm-vol-row"><span class="lbl"><i class="fa-solid fa-volume-high"></i>Volume</span><input type="range" id="fmVol" min="0" max="100" value="50"><span class="pct" id="fmVolPct">50%</span></div>
         <div class="fm-section-lbl" style="margin-top:12px;text-transform:none;letter-spacing:0">Your timer lengths and sound are saved to your account. The sound plays while the timer runs.</div>
       </div>
     </div>
@@ -10171,6 +10181,7 @@
         try { localStorage.setItem('luma_focus_setup', JSON.stringify(setup())); } catch (e) { }
         clearTimeout(saveT); saveT = setTimeout(() => { if (typeof LUMA_PROFILE !== 'undefined' && LUMA_PROFILE) setLumaPref('focus_setup', setup()); }, 700);
       }
+      function paintVol() { const el = document.getElementById('fmVol'), p = el.value + '%'; el.style.setProperty('--v', p); document.getElementById('fmVolPct').textContent = p; }
       function applySetup(c) {
         if (!c) return;
         ['focus', 'short', 'long'].forEach(k => { const v = Number(c[k]); if (v >= 1 && v <= 90) durs[k] = Math.round(v); });
@@ -10178,7 +10189,7 @@
         if (c.volume >= 0 && c.volume <= 100) volume = c.volume / 100;
         paintDurs();
         document.querySelectorAll('.fm-sound').forEach(o => o.classList.toggle('active', o.dataset.sound === curSound));
-        document.getElementById('fmVol').value = Math.round(volume * 100);
+        document.getElementById('fmVol').value = Math.round(volume * 100); paintVol();
         if (!running) setMode(mode);
       }
       function loadSetup() {
@@ -10298,7 +10309,7 @@
         Ambience.play(curSound, volume);
         if (!running && curSound !== 'none') previewTimer = setTimeout(() => { if (!running) Ambience.stop(); }, 5000);
       }));
-      document.getElementById('fmVol').addEventListener('input', e => { volume = e.target.value / 100; Ambience.setVolume(volume); saveSetup(); });
+      document.getElementById('fmVol').addEventListener('input', e => { volume = e.target.value / 100; paintVol(); Ambience.setVolume(volume); saveSetup(); });
 
       loadSetup(); setMode('focus');
     })();
