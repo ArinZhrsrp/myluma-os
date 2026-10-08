@@ -38,7 +38,7 @@
       mc.classList.toggle('fit', FIT_PAGES.has(key));
       if (key === 'calendar') calOnShow();
       if (key === 'dashboard') { const dg = pg.querySelector('.dashboard-grid'); if (dg) dg.scrollTop = 0; }
-      if (key === 'dashboard' && typeof LumaLoader !== 'undefined') LumaLoader.page(pg, key, loadDashboard().catch(() => { }));
+      if (key === 'dashboard' && typeof LumaLoader !== 'undefined') LumaLoader.page(pg, key, loadDashboard().catch(e => console.error('LUMA: dashboard failed to load', e)));
       mc.scrollTop = 0;
       // remember the page in the URL so a browser refresh lands back here
       try { history.replaceState(null, '', '#' + key); } catch (e) { }

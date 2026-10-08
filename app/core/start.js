@@ -17,7 +17,7 @@
       applyUserUI();
       initNotifications(session.user.id);
       initReminders();
-      loadDashboard().catch(() => { }).then(() => LumaLoader.release('app'));
+      loadDashboard().catch(e => console.error('LUMA: dashboard failed to load', e)).then(() => LumaLoader.release('app'));
       resyncPush();
       maybePromptPlan().then(() => maybePromptPush()); // the plan offer first, then the push offer
     })();
