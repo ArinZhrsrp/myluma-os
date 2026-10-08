@@ -51,6 +51,32 @@
       try { const p = new Intl.DateTimeFormat("en", { timeZone: tz, timeZoneName: "longOffset" }).formatToParts(new Date()).find((x) => x.type === "timeZoneName"); return p.value === "GMT" ? "GMT+00:00" : p.value; }
       catch (e) { return "GMT"; }
     },
+    // the country (from COUNTRIES) that goes with a time zone id such as "Asia/Singapore"; "" when we can't tell
+    countryForTimezone(tz) {
+      const exact = {
+        "Asia/Kuala_Lumpur": "Malaysia", "Asia/Kuching": "Malaysia", "Asia/Singapore": "Singapore", "Asia/Brunei": "Brunei",
+        "Asia/Jakarta": "Indonesia", "Asia/Pontianak": "Indonesia", "Asia/Makassar": "Indonesia", "Asia/Jayapura": "Indonesia",
+        "Asia/Bangkok": "Thailand", "Asia/Manila": "Philippines", "Asia/Ho_Chi_Minh": "Vietnam", "Asia/Saigon": "Vietnam",
+        "Asia/Phnom_Penh": "Cambodia", "Asia/Yangon": "Myanmar", "Asia/Rangoon": "Myanmar", "Asia/Vientiane": "Laos",
+        "Asia/Kolkata": "India", "Asia/Calcutta": "India", "Asia/Karachi": "Pakistan", "Asia/Dhaka": "Bangladesh", "Asia/Colombo": "Sri Lanka",
+        "Asia/Shanghai": "China", "Asia/Urumqi": "China", "Asia/Chongqing": "China", "Asia/Hong_Kong": "Hong Kong", "Asia/Taipei": "Taiwan",
+        "Asia/Tokyo": "Japan", "Asia/Seoul": "South Korea", "Pacific/Auckland": "New Zealand", "Pacific/Chatham": "New Zealand",
+        "Europe/London": "United Kingdom", "Europe/Dublin": "Ireland", "Europe/Berlin": "Germany", "Europe/Paris": "France",
+        "Europe/Amsterdam": "Netherlands", "Europe/Madrid": "Spain", "Europe/Rome": "Italy", "Asia/Dubai": "United Arab Emirates",
+        "Asia/Riyadh": "Saudi Arabia", "Asia/Qatar": "Qatar", "Europe/Istanbul": "Turkey", "Africa/Cairo": "Egypt", "Africa/Lagos": "Nigeria",
+        "Africa/Johannesburg": "South Africa", "Pacific/Honolulu": "United States",
+      };
+      if (exact[tz]) return exact[tz];
+      if (/^Australia\//.test(tz)) return "Australia";
+      if (/^America\/(Toronto|Vancouver|Edmonton|Winnipeg|Halifax|St_Johns|Regina|Montreal)$/.test(tz)) return "Canada";
+      if (/^America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Anchorage|Detroit|Boise|Indiana\/.*|Kentucky\/.*)$/.test(tz)) return "United States";
+      if (/^America\/(Sao_Paulo|Fortaleza|Recife|Bahia|Manaus|Belem|Cuiaba|Campo_Grande)$/.test(tz)) return "Brazil";
+      // a zone we have no entry for: try the language region of the browser, e.g. "en-MY" → Malaysia
+      try {
+        const region = new Intl.Locale(navigator.language).region, byRegion = { MY: "Malaysia", SG: "Singapore", ID: "Indonesia", BN: "Brunei", TH: "Thailand", PH: "Philippines", VN: "Vietnam", KH: "Cambodia", MM: "Myanmar", LA: "Laos", IN: "India", PK: "Pakistan", BD: "Bangladesh", LK: "Sri Lanka", CN: "China", HK: "Hong Kong", TW: "Taiwan", JP: "Japan", KR: "South Korea", AU: "Australia", NZ: "New Zealand", GB: "United Kingdom", IE: "Ireland", US: "United States", CA: "Canada", DE: "Germany", FR: "France", NL: "Netherlands", ES: "Spain", IT: "Italy", AE: "United Arab Emirates", SA: "Saudi Arabia", QA: "Qatar", TR: "Turkey", EG: "Egypt", NG: "Nigeria", ZA: "South Africa", BR: "Brazil" };
+        return byRegion[region] || "";
+      } catch (e) { return ""; }
+    },
     // the browser's own zone if it is one we offer (used as the default for new accounts)
     browserTimezone() {
       try { const z = Intl.DateTimeFormat().resolvedOptions().timeZone; if (this.TIMEZONES.some((t) => t[0] === z)) return z; } catch (e) { /* ignore */ }

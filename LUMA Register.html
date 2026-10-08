@@ -83,7 +83,7 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
       <div class="inp"><i class="fa-solid fa-lock"></i><input type="password" id="pw2" placeholder="Re-enter your password" required oninput="const m=document.getElementById('pwMatch');m.style.display=this.value?'flex':'none';const ok=this.value===document.getElementById('pw').value;m.style.color=ok?'#6ee7b7':'#fca5a5';m.innerHTML=ok?'<i class=&quot;fa-solid fa-check&quot;></i> Passwords match':'<i class=&quot;fa-solid fa-xmark&quot;></i> Passwords don\u2019t match';"><i class="fa-regular fa-eye eye" onclick="const p=document.getElementById('pw2');p.type=p.type==='password'?'text':'password';this.className=p.type==='password'?'fa-regular fa-eye eye':'fa-regular fa-eye-slash eye';"></i></div>
       <div id="pwMatch" style="display:none;align-items:center;gap:6px;font-size:0.7rem;margin-top:8px;"></div>
     </div>
-    <label class="agree"><input type="checkbox" required> I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
+    <label class="agree"><input type="checkbox" id="agree" required> I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
     <button class="btn" type="submit" id="submitBtn">Create account <i class="fa-solid fa-arrow-right"></i></button>
     <div class="divider">or sign up with</div>
     <div class="social">
@@ -98,8 +98,20 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
   <script src="assets/luma-auth.js"></script>
   <script>
     // fill the country list (shared with Edit profile)
-    (function () { const tz = document.getElementById('timezone'); tz.innerHTML = LumaAuth.timezoneOptions(LumaAuth.browserTimezone()); const sel = document.getElementById('country'); (window.LumaAuth && LumaAuth.COUNTRIES || []).forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); }); })();
+    (function () { const tz = document.getElementById('timezone'); tz.innerHTML = LumaAuth.timezoneOptions(LumaAuth.browserTimezone()); const sel = document.getElementById('country'); (window.LumaAuth && LumaAuth.COUNTRIES || []).forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+      // the country starts as the one that goes with the person's time zone (their own choice always wins)
+      let countryTouched = false;
+      sel.addEventListener('change', () => { countryTouched = true; });
+      const guess = (z) => { const c = LumaAuth.countryForTimezone(z); if (c && [...sel.options].some(o => o.value === c)) sel.value = c; };
+      let browserZone = ''; try { browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
+      guess(browserZone || tz.value);
+      tz.addEventListener('change', () => { if (!countryTouched) guess(tz.value); }); })();
     LumaAuth.redirectIfSignedIn();
+
+    // the Create account button stays off until the Terms and Privacy Policy box is ticked
+    const agreeEl = document.getElementById("agree"), createBtn = document.getElementById("submitBtn");
+    const syncAgree = () => { createBtn.disabled = !agreeEl.checked; createBtn.title = agreeEl.checked ? "" : "Tick the box to agree to the Terms of Service and Privacy Policy first"; };
+    agreeEl.addEventListener("change", syncAgree); syncAgree();
 
     LumaAuth._comingSoon = (btn) => {
       const label = btn.textContent.trim();
@@ -144,7 +156,7 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
       const country = document.getElementById("country").value;
       const { data, error } = await LumaAuth.signUp({ firstName, lastName, email, password, country, timezone: document.getElementById("timezone").value });
 
-      submitBtn.disabled = false;
+      submitBtn.disabled = !agreeEl.checked;
       submitBtn.innerHTML = 'Create account <i class="fa-solid fa-arrow-right"></i>';
 
       if (error) {
