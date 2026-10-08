@@ -12376,7 +12376,7 @@
         const { error } = await db().rpc('admin_set_plan', { p_user: id, p_plan: next });
         if (error) { revert(); return luAlert('Could not change the plan: ' + error.message); }
         sel.dataset.cur = next; flashToast('Plan changed', `${who} is now on ${LumaPlan.NAMES[next]}`, 'fa-check', '#22c55e'); stats();
-        if (LUMA_USER && id === LUMA_USER.id) await LumaPlan.load(); // you changed your own plan: the app follows
+        if (LUMA_USER && id === LUMA_USER.id) { await LumaPlan.load(); Object.keys(rendered).forEach(k => { if (k !== 'admin') delete rendered[k]; }); flashToast('Your own plan changed', 'Other pages now use the new limits', 'fa-user-shield', '#3b82f6'); } // you changed your own plan: the app follows
       });
       let t = null; document.getElementById('admSearch').addEventListener('input', () => { clearTimeout(t); t = setTimeout(list, 300); });
       await Promise.all([stats(), list()]);
