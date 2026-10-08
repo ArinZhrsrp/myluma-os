@@ -11569,6 +11569,69 @@
     const dashChip = (icon, color, text, page) => `<span data-go="${page}" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:0.75rem;color:rgba(255,255,255,0.85);"><i class="${icon}" style="color:${color};"></i> ${text}</span>`;
     const dashSet = (id, html) => { const e = document.getElementById(id); if (e) e.innerHTML = html; };
 
+    // ----- tips of the day: every tip that applies right now is a candidate; one is picked at random and rotates -----
+    let dashCtx = null, dashTipId = null;
+    const DASH_TIPS = [
+      // situational
+      ['overdue', c => c.overdue > 0, c => `You have ${c.overdue} overdue task${c.overdue > 1 ? 's' : ''}. Clear one first. It lifts your productivity score fastest.`],
+      ['heavy', c => c.load > 6, () => 'Your day is heavy. Block focus time and push the small stuff to tomorrow.'],
+      ['dueToday', c => c.dueToday > 0 && c.load <= 6, c => `${c.dueToday} task${c.dueToday > 1 ? 's are' : ' is'} due today. Tick them off from Today's Priorities.`],
+      ['clear', c => c.open === 0, () => 'No open tasks. A good moment to plan tomorrow or add a goal.'],
+      ['habitsLeft', c => c.habitsLeft > 0, c => `${c.habitsLeft} habit${c.habitsLeft > 1 ? 's' : ''} still to tick today. A quick win before your next task.`],
+      ['habitsDone', c => c.habits > 0 && c.habitsLeft === 0, () => 'All habits done for today. Streaks grow one day at a time.'],
+      ['noHabits', c => c.habits === 0, () => 'No habits yet. Start with one small daily habit, like 6 hours of sleep.'],
+      ['water', c => !c.hasWater, () => 'You have not logged water today. Use the quick-add buttons on the Health page.'],
+      ['sleep', c => !c.hasSleep, () => 'Log last night\'s sleep in Health to keep your wellness picture complete.'],
+      ['mood', c => !c.hasMood, () => 'How are you feeling? Log your mood in Health to spot patterns over time.'],
+      ['budgetNone', c => !c.budget, () => 'Set a monthly budget on the Money page to see how much you have left to spend.'],
+      ['budgetOver', c => c.budget && c.left < 0, () => 'You are over budget this month. Review your biggest categories on the Money page.'],
+      ['budgetNear', c => c.budget && c.left >= 0 && c.spent / c.budget >= 0.8, () => 'You have used over 80% of your budget. Pause non-essential spending for now.'],
+      ['budgetOk', c => c.budget && c.spent / c.budget < 0.5, () => 'You are well within budget this month. Consider moving the extra into savings.'],
+      ['billsOver', c => c.billsOver > 0, c => `${c.billsOver} bill${c.billsOver > 1 ? 's are' : ' is'} overdue. Pay and tick ${c.billsOver > 1 ? 'them' : 'it'} off in Bills.`],
+      ['noBills', c => c.bills === 0, () => 'Add your regular bills and subscriptions so LUMA can remind you before they are due.'],
+      ['noEvents', c => c.events === 0, () => 'Nothing on your calendar today. Block time for focused work or rest.'],
+      ['events', c => c.events > 2, c => `${c.events} events today. Leave a gap between them so you can breathe.`],
+      ['income', c => !c.income, () => 'Add your salary on the Money page and LUMA will work out your take-home and savings.'],
+      // always useful
+      ['quick', () => true, () => 'Use Quick Actions to add a task, expense, event or note in two taps.'],
+      ['lumi', () => true, () => 'Ask Lumi to add things for you, for example "Add dentist on Friday 3pm" or "Log 500ml water".'],
+      ['lumiQ', () => true, () => 'Ask Lumi questions about your own data, like "How is my spending this month?".'],
+      ['insights', () => true, () => 'Open Analytics and tap "Get AI insights" for a short summary of your week.'],
+      ['reminders', () => true, () => 'Choose which reminders you get, and when, in Settings → Reminders.'],
+      ['push', () => true, () => 'Turn on push notifications in Settings so reminders reach you even when LUMA is closed.'],
+      ['priority', () => true, () => 'Mark your top tasks High priority. They float to the top of Today\'s Priorities.'],
+      ['dueDate', () => true, () => 'Give every task a due date. Overdue tasks are highlighted so nothing slips.'],
+      ['kanban', () => true, () => 'Tap the status chip on a task card to move it between To do, In progress and Done.'],
+      ['calendarView', () => true, () => 'Switch the Calendar between Day, Week, Month and Year, and click any event for details.'],
+      ['repeat', () => true, () => 'Set an event to repeat daily, weekly, monthly or yearly so you only create it once.'],
+      ['notes', () => true, () => 'Tag your notes and attach documents to them, then filter by tag to find things fast.'],
+      ['docs', () => true, () => 'Store important documents in LUMA and share them with your contacts.'],
+      ['goals', () => true, () => 'Break a big goal into a measurable target and update your progress as you go.'],
+      ['habitBack', () => true, () => 'Forgot to tick a habit? You can fill in the last 14 days on the Habits page.'],
+      ['streak', () => true, () => 'A missed day does not end a weekly or monthly habit. Only the period counts.'],
+      ['subs', () => true, () => 'Review your subscriptions every few months and pause the ones you no longer use.'],
+      ['health', () => true, () => 'Small health logs add up. Quick-add water and steps through the day.'],
+      ['contacts', () => true, () => 'Add contacts to chat, share documents and send a friendly nudge.'],
+      ['timezone', () => true, () => 'Travelling? Change your time zone in Edit profile and every reminder follows.'],
+      ['background', () => true, () => 'Make LUMA yours: pick a wallpaper and theme in Settings.'],
+      ['focus', () => true, () => 'Do your hardest task first, while your energy is highest.'],
+      ['breaks', () => true, () => 'Take a short break every hour. Your focus will thank you.'],
+      ['plan', () => true, () => 'Spend two minutes tonight planning tomorrow\'s top three tasks.'],
+      ['review', () => true, () => 'Check Analytics once a week to see what is working and what is not.'],
+    ];
+    function showDashTip(rotate) {
+      const el = document.getElementById('dashTip'); if (!el || !dashCtx) return;
+      const ok = DASH_TIPS.filter(t => { try { return t[1](dashCtx); } catch (e) { return false; } });
+      const cur = ok.find(t => t[0] === dashTipId);
+      if (cur && !rotate) { el.innerHTML = `<strong>Tip for today:</strong> ${escapeHtml(cur[2](dashCtx))}`; return; }
+      const pool = ok.filter(t => t[0] !== dashTipId), pick = (pool.length ? pool : ok)[Math.floor(Math.random() * (pool.length ? pool : ok).length)];
+      if (!pick) return;
+      dashTipId = pick[0];
+      const apply = () => { el.innerHTML = `<strong>Tip for today:</strong> ${escapeHtml(pick[2](dashCtx))}`; el.style.opacity = ''; };
+      if (rotate) { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(apply, 300); } else apply();
+    }
+    setInterval(() => { if (document.getElementById('page-dashboard').classList.contains('active') && !document.hidden) showDashTip(true); }, 20000);
+
     function paintDashboard() {
       if (!document.getElementById('dashChips')) return;
       const today = hToday(), T = dashTasks, open = T.filter(t => t.status !== 'done');
@@ -11633,9 +11696,9 @@
       const load = overdue.length + dueToday.length, lvl = load <= 3 ? ['Low', '✅', '#6ee7b7'] : load <= 6 ? ['Medium', '🟡', '#fcd34d'] : ['High', '⚠️', '#fca5a5'];
       dashSet('dashOver', `<div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Events</span><span class="stat-value">${events.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Open tasks</span><span class="stat-value">${open.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Due Today</span><span class="stat-value">${dueToday.length}</span></div><div class="stat-item budget" style="font-size:0.78rem;"><span class="stat-label">${budget ? 'Left in Budget' : 'Spent'}</span><span class="stat-value">${budget ? (left < 0 ? '−' : '') + bRM(Math.abs(left)) : bRM(spent)}</span></div><div class="stat-item workload"><span class="stat-value" style="color:${lvl[2]};font-size:0.78rem">${lvl[1]} ${lvl[0]}</span><span class="stat-label">Workload Level</span></div>`);
 
-      // tip
-      const tip = overdue.length ? 'Clear one overdue task first. It lifts your score fastest.' : load > 6 ? 'Your day is heavy. Block focus time and push the small stuff to tomorrow.' : habitsLeft.length ? 'A quick win: tick off a habit before you start your next task.' : log.water_ml == null ? 'Log your water and sleep in Health to keep your wellness streak going.' : "You're on top of things. Use the spare time to plan tomorrow.";
-      dashSet('dashTip', `<strong>Tip for today:</strong> ${escapeHtml(tip)}`);
+      // tip: chosen at random from the ones that fit right now (see DASH_TIPS)
+      dashCtx = { overdue: overdue.length, dueToday: dueToday.length, open: open.length, load, habits: HABITS.length, habitsLeft: habitsLeft.length, budget, left, spent, billsOver: billsOver.length, bills: BILLS.length, events: events.length, hasWater: log.water_ml != null, hasSleep: log.sleep_hours != null, hasMood: log.mood != null, income };
+      showDashTip(false);
       paintDashHabits();
     }
 
@@ -11644,6 +11707,7 @@
       dashTasks = t.error ? [] : t.data; CTASKS = dashTasks; if (!ev.error) CEV = ev.data || [];
       an = { ...(an || {}), tasks: dashTasks };
       dashPrIds = null; // a fresh load picks the top 8 again
+      dashTipId = null; // ...and a new random tip
       paintDashboard();
     }
 
