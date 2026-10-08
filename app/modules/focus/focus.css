@@ -460,9 +460,3 @@
         height: 52px;
       }
     }
-    .fm-subject { margin:0 0 12px; }
-    .fm-subj-chips { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; }
-    .fm-subj-chips button { --c:#94a3b8; display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 11px; border-radius:999px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.6); font:600 0.68rem inherit; font-family:inherit; cursor:pointer; transition:.15s; }
-    .fm-subj-chips button i { width:7px; height:7px; border-radius:50%; background:var(--c); }
-    .fm-subj-chips button:hover { color:#fff; border-color:rgba(255,255,255,0.28); }
-    .fm-subj-chips button.on { color:#fff; border-color:color-mix(in srgb, var(--c) 75%, transparent); background:color-mix(in srgb, var(--c) 22%, transparent); }

@@ -27,7 +27,7 @@
     const sdHM = t => String(t || '').slice(0, 5);
     const sdT12 = t => fmt12(sdHM(t));
     const sdMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
-    const sdNowMin = () => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; };
+    const sdNowMin = (ts = Date.now()) => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ts)); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; };
     const sdWeekStart = () => { const k = sdKey(); return sdAdd(k, -((sdDow(k) + 6) % 7)); }; // this week's Monday
     const sdMinText = m => m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '') : m + ' min';
     const sdAddMonths = (k, n) => { const d = new Date(k + 'T00:00:00Z'), day = d.getUTCDate(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); d.setUTCDate(Math.min(day, new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate())); return d.toISOString().slice(0, 10); };
@@ -57,6 +57,12 @@
       if (d === 1) return { text: 'Tomorrow' + tm, cls: open ? 'soon' : '' };
       if (d > 1 && d < 7) return { text: sdFmtDate(t.due_date, { weekday: 'long' }) + tm, cls: '' };
       return { text: sdFmtDate(t.due_date, { day: 'numeric', month: 'short' }) + tm, cls: '' };
+    }
+
+    // the subject whose class is on at a moment (used to tag Focus sessions); '' when no class is on
+    function sdCurrentCourse(ts = Date.now()) {
+      const k = mytDayKey(ts), m = sdNowMin(ts), c = SD.classes.find(x => sdClassOn(x, k) && sdMin(x.start_time) <= m && m < sdMin(x.end_time));
+      return c ? c.course_id : '';
     }
 
     // ---------- loading ----------
