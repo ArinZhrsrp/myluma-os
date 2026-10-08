@@ -4,7 +4,7 @@
     //  habits, goals, bills, subscriptions, reminders, contacts and money entries
     // =====================================================
     let SRCH = { at: 0, items: [], loading: false }, srchSel = 0, srchFlat = [];
-    const SRCH_TYPES = { page: ['Pages', 'fa-compass', '#60a5fa'], task: ['Tasks', 'fa-square-check', '#3b82f6'], event: ['Events', 'fa-calendar', '#8b5cf6'], note: ['Notes', 'fa-note-sticky', '#fbbf24'], doc: ['Documents', 'fa-file', '#38bdf8'], habit: ['Habits', 'fa-fire', '#fb923c'], goal: ['Goals', 'fa-bullseye', '#34d399'], bill: ['Bills', 'fa-file-invoice-dollar', '#f59e0b'], sub: ['Subscriptions', 'fa-repeat', '#f472b6'], reminder: ['Reminders', 'fa-bell-concierge', '#f59e0b'], contact: ['Contacts', 'fa-user', '#22c55e'], money: ['Money', 'fa-wallet', '#4ade80'] };
+    const SRCH_TYPES = { page: ['Pages', 'fa-compass', '#60a5fa'], task: ['Tasks', 'fa-square-check', '#3b82f6'], event: ['Events', 'fa-calendar', '#8b5cf6'], note: ['Notes', 'fa-note-sticky', '#fbbf24'], doc: ['Documents', 'fa-file', '#38bdf8'], habit: ['Habits', 'fa-fire', '#fb923c'], goal: ['Goals', 'fa-bullseye', '#34d399'], bill: ['Bills', 'fa-file-invoice-dollar', '#f59e0b'], sub: ['Subscriptions', 'fa-repeat', '#f472b6'], reminder: ['Reminders', 'fa-bell-concierge', '#f59e0b'], contact: ['Contacts', 'fa-user', '#22c55e'], money: ['Money', 'fa-wallet', '#4ade80'], study: ['Study', 'fa-graduation-cap', '#34d399'] };
     const srchPageItems = () => Object.entries(titles).map(([k, name]) => ({ type: 'page', key: k, title: name, sub: 'Open page', hay: name }));
     async function srchLoad() {
       if (SRCH.loading || Date.now() - SRCH.at < 60000) return; // reuse what was fetched in the last minute
@@ -24,6 +24,7 @@
       add(rems, r => ({ type: 'reminder', raw: r, title: r.title, sub: 'Reminder · ' + remDesc(r), hay: [r.title, r.note].join(' ') }));
       add(contacts, c => { const nm = [c.other_first_name, c.other_last_name].filter(Boolean).join(' ') || c.other_email || ''; return nm ? { type: 'contact', raw: c, title: nm, sub: 'Contact' + (c.other_email ? ' · ' + c.other_email : ''), hay: [nm, c.other_email].join(' ') } : null; });
       add(money, m => ({ type: 'money', raw: m, title: m.name || m.category, sub: `${m.kind === 'income' ? 'Income' : 'Expense'} · ${bRM(m.amount)} · ${cFmt(m.entry_date, { day: 'numeric', month: 'short', year: 'numeric' })}`, hay: [m.name, m.category].join(' ') }));
+      if (typeof studySearchItems === 'function' && LumaPlan.hasAddon('study')) { try { items.push(...await studySearchItems()); } catch (e) { /* study search is optional */ } }
       SRCH = { at: Date.now(), items, loading: false };
       } catch (e) { console.warn('LUMA search: could not load everything', e); SRCH.loading = false; SRCH.at = 0; }
       finally { SRCH.loading = false; if (docEl('searchOverlay').classList.contains('open')) srchRender(); }
@@ -71,6 +72,7 @@
         case 'reminder': return openRemModal(r);
         case 'contact': return goTo('contacts');
         case 'money': return openEntryModal(r);
+        case 'study': return sdOpenFromSearch(r);
       }
     }
     docEl('topSearchBtn').onclick = openSearch;

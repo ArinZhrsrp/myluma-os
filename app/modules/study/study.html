@@ -153,3 +153,98 @@
     </div>
   </div>
 
+  <div class="modal-overlay confirm-overlay" id="sdPickOverlay" style="z-index:215">
+    <div class="profile-edit-modal fixed-modal" style="width:420px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdPickTitle">Pick contacts</div>
+        <button class="x" id="sdPickClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-body"><div id="sdPickList"></div></div>
+      <div class="pem-actions"><button class="confirm-btn save" id="sdPickDone" style="flex:1">Done</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdNoteOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:580px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdNoteHead">New note</div>
+        <button class="x" id="sdNoteClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdNoteError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>Title <span style="color:#fca5a5">*</span></label><input id="sdNoteTitle" type="text" maxlength="120" placeholder="e.g. Chapter 3 summary" autocomplete="off"></div>
+        <div class="pem-field"><label>Subject <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><select id="sdNoteCourse"></select></div>
+        <div class="pem-field"><label>Note</label><textarea id="sdNoteBody" maxlength="20000" style="min-height:220px" placeholder="Write or paste your notes…"></textarea></div>
+        <div class="pem-field"><label>Shared with <span style="color:rgba(255,255,255,0.35);font-weight:400">(they can read it, only you can edit)</span></label>
+          <div class="cal-guests" id="sdNoteShares"></div><input type="hidden" id="sdNoteShareSig">
+          <button type="button" class="np-btn" id="sdNoteShareBtn"><i class="fa-solid fa-user-plus"></i> Share with contacts</button>
+        </div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="sdNoteDelete" title="Delete note" aria-label="Delete note" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="sdNoteSave" style="flex:1">Save note</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdNoteViewOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:560px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdNoteViewHead">Shared note</div>
+        <button class="x" id="sdNoteViewClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-body"><div class="ls" id="sdNoteViewMeta" style="margin-bottom:10px"></div><div class="sd-note-text" id="sdNoteViewBody"></div></div>
+      <div class="pem-actions"><button type="button" class="h-del" id="sdNoteViewRemove" title="Remove from my list" aria-label="Remove from my list"><i class="fa-regular fa-trash-can"></i></button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdProjNewOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">New group project</div>
+        <button class="x" id="sdProjNewClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdProjNewError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>Project <span style="color:#fca5a5">*</span></label><input id="sdProjNewTitle" type="text" maxlength="120" placeholder="e.g. Database design presentation" autocomplete="off"></div>
+        <div class="pem-field"><label>Subject <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdProjNewCourse" type="text" maxlength="80" list="sdProjCourses" placeholder="e.g. Database Systems" autocomplete="off"><datalist id="sdProjCourses"></datalist></div>
+        <div class="pem-field"><label>Due date <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdProjNewDue" type="text"></div>
+        <div class="pem-field"><label>Invite classmates <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional · from your contacts)</span></label>
+          <div class="cal-guests" id="sdProjNewGuests"></div>
+          <button type="button" class="np-btn" id="sdProjNewPick"><i class="fa-solid fa-user-plus"></i> Add from contacts</button>
+        </div>
+      </div>
+      <div class="pem-actions"><button class="confirm-btn save" id="sdProjNewSave" style="flex:1">Create project</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdProjOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:680px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdProjHead">Group project</div>
+        <button class="x" id="sdProjClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdProjError"></div>
+      <div class="pem-body">
+        <div id="sdProjPending" style="display:none"></div>
+        <div id="sdProjMain">
+          <div class="pem-row">
+            <div class="pem-field"><label>Project</label><input id="sdProjTitle" type="text" maxlength="120" autocomplete="off"></div>
+            <div class="pem-field"><label>Subject</label><input id="sdProjCourse" type="text" maxlength="80" autocomplete="off"></div>
+          </div>
+          <div class="pem-field"><label>Due date</label><input id="sdProjDue" type="text"></div>
+          <div class="pem-field"><label>Team</label><div class="sd-team" id="sdProjTeam"></div><button type="button" class="np-btn" id="sdProjInvite" style="margin-top:8px"><i class="fa-solid fa-user-plus"></i> Invite from contacts</button></div>
+          <div class="pem-field"><label>Tasks</label><div id="sdProjTasks"></div>
+            <div class="sd-taskadd"><input id="sdProjTaskTitle" type="text" maxlength="140" placeholder="Add a task and press Enter" autocomplete="off"><select id="sdProjTaskWho"></select><button type="button" class="np-btn" id="sdProjTaskAdd"><i class="fa-solid fa-plus"></i></button></div>
+          </div>
+          <div class="pem-field"><label>Shared notes <span style="color:rgba(255,255,255,0.35);font-weight:400">(everyone on the team can edit)</span></label><textarea id="sdProjNotes" maxlength="5000" style="min-height:120px" placeholder="Links, decisions, who does what…"></textarea></div>
+        </div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="sdProjDelete" title="Delete project" aria-label="Delete project" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button type="button" class="confirm-btn danger" id="sdProjLeave" style="display:none;flex:none">Leave project</button>
+        <button class="confirm-btn save" id="sdProjSave" style="flex:1">Save</button>
+      </div>
+    </div>
+  </div>
+

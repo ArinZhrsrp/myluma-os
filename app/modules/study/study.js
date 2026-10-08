@@ -591,6 +591,54 @@
       SD.breaks.push(data); docEl('sdBreakName').value = ''; sdPaintBreaks(); sdAfterSave();
     };
 
+    // ---------- pick people from your contacts (used by shared notes and group projects) ----------
+    let SD_CONTACTS = null, sdPickResolve = null;
+    // resolves with a Map(userId → name) of the people ticked, or null if the popup was closed
+    async function sdPickContacts({ title = 'Pick contacts', selected = new Map(), exclude = new Set() } = {}) {
+      docEl('sdPickTitle').textContent = title; const box = docEl('sdPickList'); box.innerHTML = '<div class="ls" style="padding:8px 2px">Loading…</div>'; sdOpen('sdPickOverlay');
+      if (!SD_CONTACTS) {
+        const r = await LumaContacts.listContacts();
+        if (r.error) { box.innerHTML = `<div class="ls" style="padding:8px 2px">Could not load your contacts: ${escapeHtml(r.error.message)}</div>`; return new Promise(res => { sdPickResolve = res; }); }
+        SD_CONTACTS = (r.data || []).filter(c => c.status === 'accepted');
+      }
+      box.innerHTML = SD_CONTACTS.length ? SD_CONTACTS.map(c => { const nm = [c.other_first_name, c.other_last_name].filter(Boolean).join(' ') || c.other_email, dis = exclude.has(c.other_id);
+        return `<label class="cal-pick ${dis ? 'dis' : ''}"><input type="checkbox" data-id="${c.other_id}" data-name="${escapeHtml(nm)}" ${dis || selected.has(c.other_id) ? 'checked' : ''} ${dis ? 'disabled' : ''}><span class="av">${escapeHtml((nm[0] || '?').toUpperCase())}</span><span class="nm">${escapeHtml(nm)}<small>${dis ? 'Already added' : escapeHtml(c.other_email || '')}</small></span></label>`; }).join('')
+        : '<div class="ls" style="padding:8px 2px">You have no contacts yet. Add people on the Contacts page first.</div>';
+      return new Promise(res => { sdPickResolve = res; });
+    }
+    const sdPickEnd = v => { sdClose('sdPickOverlay'); const r = sdPickResolve; sdPickResolve = null; if (r) r(v); };
+    docEl('sdPickClose').onclick = () => sdPickEnd(null);
+    docEl('sdPickOverlay').onclick = e => { if (e.target === docEl('sdPickOverlay')) sdPickEnd(null); };
+    docEl('sdPickDone').onclick = () => sdPickEnd(new Map([...docEl('sdPickList').querySelectorAll('input[type=checkbox]:checked:not(:disabled)')].map(i => [i.dataset.id, i.dataset.name])));
+
+    // ---------- global search and "Export my data" ----------
+    // Study items appear in search where Study data is visible (Study mode, or Personal with "Show Study in Personal" on)
+    async function studySearchItems() {
+      if (!(LUMA_MODE === 'study' || prefOn('show_study_personal', false))) return [];
+      await sdEnsureLoaded(); if (SD.err) return [];
+      const ok = async p => { try { const r = await p; return r && !r.error && Array.isArray(r.data) ? r.data : []; } catch (e) { return []; } };
+      const [notes, projects] = await Promise.all([ok(LumaStudy.notes.list()), ok(LumaStudy.groups.list())]);
+      const out = [];
+      SD.courses.forEach(c => out.push({ type: 'study', raw: { kind: 'course', id: c.id }, title: c.name, sub: 'Study subject' + (c.code ? ' · ' + c.code : '') + (c.archived ? ' · archived' : ''), hay: [c.name, c.code, c.lecturer].join(' ') }));
+      SD.tasks.forEach(t => out.push({ type: 'study', raw: { kind: 'task', id: t.id }, title: t.title, sub: `${sdKind(t.kind)[1]} · ${t.status === 'done' ? 'done' : t.due_date ? 'due ' + sdShort(t.due_date) : 'no due date'}${sdCourse(t.course_id) ? ' · ' + sdCourse(t.course_id).name : ''}`, hay: [t.title, t.notes, (sdCourse(t.course_id) || {}).name].join(' ') }));
+      notes.forEach(n => out.push({ type: 'study', raw: { kind: 'note', id: n.id }, title: n.title, sub: 'Study note' + (sdCourse(n.course_id) ? ' · ' + sdCourse(n.course_id).name : ''), hay: [n.title, n.body].join(' ') }));
+      projects.forEach(p => out.push({ type: 'study', raw: { kind: 'group', id: p.id }, title: p.title, sub: 'Group project' + (p.course_name ? ' · ' + p.course_name : ''), hay: [p.title, p.course_name].join(' ') }));
+      return out;
+    }
+    async function sdOpenFromSearch(r) {
+      await sdEnsureLoaded();
+      if (r.kind === 'course') { const c = sdCourse(r.id); if (c) openCourseModal(c); }
+      else if (r.kind === 'task') { const t = SD.tasks.find(x => x.id === r.id); if (t) openTaskModal(t); }
+      else if (r.kind === 'note' && typeof sdOpenNoteById === 'function') sdOpenNoteById(r.id);
+      else if (r.kind === 'group' && typeof sdOpenProject === 'function') sdOpenProject(r.id);
+    }
+    async function sdExport() {
+      const get = async p => { try { const r = await p; return r && !r.error ? r.data : null; } catch (e) { return null; } };
+      return { semesters: await get(LumaStudy.semesters.list()), subjects: await get(LumaStudy.courses.list()), classes: await get(LumaStudy.classes.list()), cancelled_class_dates: await get(LumaStudy.skips.list()),
+        breaks_and_holidays: await get(LumaStudy.breaks.list()), assignments: await get(LumaStudy.tasks.list()), notes: await get(LumaStudy.notes.list()), notes_shared_with_me: await get(LumaStudy.notes.shared()), group_projects: await get(LumaStudy.groups.list()),
+        grade_scale: (LUMA_PROFILE && LUMA_PROFILE.preferences && LUMA_PROFILE.preferences.grade_scale) || 'standard' };
+    }
+
     // ---------- calendar: classes repeat every week, assignments show on their due date ----------
     // in Personal mode the person chooses whether Study shows on the Calendar (Settings → Preferences); in Study mode it always does
     const studyVisibleOnCalendar = () => LumaPlan.hasAddon('study') && (LUMA_MODE === 'study' || prefOn('show_study_personal', false));

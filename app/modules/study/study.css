@@ -190,3 +190,45 @@
     .sd-brk small { color:rgba(255,255,255,0.6); font-size:0.7rem; }
     .sd-course.arch { opacity:0.6; }
     .sc-arch { font-style:normal; margin-left:8px; font-size:0.58rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:2px 8px; border-radius:999px; background:rgba(255,255,255,0.12); color:rgba(255,255,255,0.75); }
+
+    /* notes, groups */
+    .sd-note { cursor:pointer; transition:.15s; }
+    .sd-note:hover { background:rgba(255,255,255,0.08); }
+    .sd-note .sn-h { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    .sd-note .sn-h b { color:#fff; font-size:0.92rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sd-note p { color:rgba(255,255,255,0.7); font-size:0.78rem; line-height:1.5; margin:0 0 8px; max-height:3.9em; overflow:hidden; }
+    .sd-note small { color:rgba(255,255,255,0.5); font-size:0.68rem; }
+    .sd-note.shared { border-color:rgba(251,191,36,0.3); }
+    .sd-note-text { white-space:pre-wrap; word-break:break-word; color:rgba(255,255,255,0.9); font-size:0.88rem; line-height:1.6; }
+    .sd-invite { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 18px; margin-bottom:12px; border-radius:18px; background:rgba(167,139,250,0.14); border:1px solid rgba(167,139,250,0.4); }
+    .sd-invite > i { font-size:1.2rem; color:#c4b5fd; }
+    .sd-invite .bd { flex:1; min-width:200px; }
+    .sd-invite .bd b { display:block; color:#fff; font-size:0.86rem; }
+    .sd-invite .bd small { color:rgba(255,255,255,0.65); font-size:0.72rem; }
+    .sd-invite .confirm-btn { flex:none; padding:8px 16px; }
+    .sd-proj { cursor:pointer; transition:.15s; }
+    .sd-proj:hover { background:rgba(255,255,255,0.08); }
+    .sp-h { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .sp-h b { color:#fff; font-size:0.95rem; }
+    .sp-m { display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; color:rgba(255,255,255,0.65); font-size:0.72rem; }
+    .sp-m i { margin-right:5px; }
+    .sp-m .over { color:#fca5a5; font-weight:600; }
+    .sp-m .soon { color:#fcd34d; font-weight:600; }
+    .sd-team { display:flex; flex-wrap:wrap; gap:8px; }
+    .sd-mem { display:flex; align-items:center; gap:8px; padding:5px 6px 5px 6px; border-radius:999px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); }
+    .sd-mem.pending { border-style:dashed; opacity:0.8; }
+    .sd-mem .av { width:26px; height:26px; border-radius:50%; display:grid; place-items:center; background:linear-gradient(135deg,#059669,#34d399); color:#fff; font-weight:700; font-size:0.72rem; }
+    .sd-mem .nm { color:#fff; font-size:0.78rem; }
+    .sd-mem .nm i { color:#fbbf24; font-size:0.62rem; margin-left:3px; }
+    .sd-mem .nm small { color:rgba(255,255,255,0.55); }
+    .sd-mem button { border:0; width:24px; height:24px; border-radius:50%; background:transparent; color:rgba(255,255,255,0.55); cursor:pointer; font-size:0.62rem; }
+    .sd-mem button:hover { background:rgba(255,255,255,0.15); color:#fff; }
+    .sd-ptask { display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid rgba(255,255,255,0.07); }
+    .sd-ptask .tt { flex:1; min-width:0; color:#fff; font-size:0.84rem; overflow:hidden; text-overflow:ellipsis; }
+    .sd-ptask.done .tt { text-decoration:line-through; color:rgba(255,255,255,0.5); }
+    .sd-ptask select, .sd-taskadd select { height:32px; max-width:150px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#fff; font:inherit; font-size:0.74rem; padding:0 8px; }
+    .sd-ptask select option, .sd-taskadd select option { color:#111; }
+    .sd-ptask .ic { border:0; width:28px; height:28px; border-radius:9px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.65); cursor:pointer; font-size:0.7rem; }
+    .sd-ptask .ic:hover { background:rgba(255,255,255,0.16); color:#fff; }
+    .sd-taskadd { display:flex; gap:8px; margin-top:10px; }
+    .sd-taskadd input { flex:1; min-width:0; height:38px; border-radius:11px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#fff; padding:0 12px; font:inherit; font-size:0.82rem; }

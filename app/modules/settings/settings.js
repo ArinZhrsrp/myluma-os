@@ -25,7 +25,7 @@
           ${card(`<div class="section-title"><i class="fa-solid fa-sliders"></i> Preferences</div><div class="pem-msg error" id="setPushError"></div>${prefs.map(p => `<div class="setting-row"><div class="sr-main"><div class="sr-t">${p[1]}</div><div class="sr-s" ${p[0] === 'notif' ? 'id="setNotifSub"' : ''}>${p[2]}</div></div><button class="switch ${p[0] === 'notif' ? '' : (savedPrefs[p[0]] ?? p[3]) ? 'on' : ''}" ${p[0] === 'notif' ? 'id="setNotifSwitch" data-push="1"' : `data-key="${p[0]}"`}><span class="knob"></span></button></div>`).join('')}`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-shield-halved"></i> Account &amp; data</div><div class="pem-msg error" id="acctError"></div><div class="pem-msg ok" id="acctOk"></div>
             <div class="setting-row"><div class="sr-main"><div class="sr-t">Change password</div><div class="sr-s">We'll email you a link to set a new one</div></div><button type="button" class="np-btn" id="acctPw">Send link</button></div>
-            <div class="setting-row"><div class="sr-main"><div class="sr-t">Export my data</div><div class="sr-s">Download your tasks, events, notes, habits, goals, bills, money and reminders as a file</div></div><button type="button" class="np-btn" id="acctExport">Export</button></div>
+            <div class="setting-row"><div class="sr-main"><div class="sr-t">Export my data</div><div class="sr-s">Download your tasks, events, notes, habits, goals, bills, money, reminders and study data as a file</div></div><button type="button" class="np-btn" id="acctExport">Export</button></div>
             <div class="setting-row"><div class="sr-main"><div class="sr-t">Sign out other devices</div><div class="sr-s">Log out everywhere except this device</div></div><button type="button" class="np-btn" id="acctOthers">Sign out</button></div>`)}
         </div>
         <div class="card full-width" style="margin-top:0.9rem" id="remPrefs">
@@ -39,6 +39,7 @@
             ${remCard('sub_on', 'fa-repeat', '#f472b6', 'Subscriptions', 'Before a subscription renews', fld('Remind me', 'sub_days', dayOpts) + fld('Send at', 'sub_hour', hourOpts))}
             ${remCard('goal_on', 'fa-bullseye', '#34d399', 'Goals', 'Before a goal deadline, and on the day', fld('Remind me', 'goal_days', dayOpts) + fld('Send at', 'goal_hour', hourOpts))}
             ${LumaPlan.hasAddon('study') ? remCard('study_on', 'fa-graduation-cap', '#34d399', 'Study', 'Before an assignment, test or exam is due, the day before, and on the day', fld('First reminder', 'study_days', dayOpts) + fld('Send at', 'study_hour', hourOpts)) : ''}
+            ${LumaPlan.hasAddon('study') ? remCard('class_on', 'fa-chalkboard-user', '#34d399', 'Classes', 'Shortly before each class on your timetable starts (not on cancelled days or breaks)', fld('Remind me', 'class_lead_min', [5, 10, 15, 30, 60].map(m => `<option value="${m}">${m} min before</option>`).join(''))) : ''}
             ${remCard('habit_on', 'fa-fire', '#fb923c', 'Habits', 'At the reminder time you set on each habit, if it is not done yet', '<button type="button" class="rp-link" data-golink="habits">Set times on each habit <i class="fa-solid fa-arrow-right"></i></button>')}
             ${remCard('health_on', 'fa-heart-pulse', '#f87171', 'Health', 'Water, steps, active minutes and sleep reminders', '<button type="button" class="rp-link" data-golink="health">Set times on the Health page <i class="fa-solid fa-arrow-right"></i></button>')}
             ${remCard('budget_on', 'fa-wallet', '#4ade80', 'Budget alerts', 'When your spending passes a share of your monthly budget, and when you go over', fld('Warn me at', 'budget_pct', [50, 60, 70, 75, 80, 85, 90, 95].map(p => `<option value="${p}">${p}% of budget</option>`).join('')))}
@@ -166,14 +167,14 @@
 
 
     const REM_HOURS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
-    const REM_DEFAULTS = { habit_on: true, health_on: true, budget_pct: 80, event_on: true, event_lead_min: 15, allday_hour: 8, task_on: true, task_hour: 9, bill_on: true, bill_hour: 9, bill_days: 3, sub_on: true, sub_hour: 9, sub_days: 3, goal_on: true, goal_hour: 9, goal_days: 3, budget_on: true, study_on: true, study_hour: 9, study_days: 3 };
+    const REM_DEFAULTS = { habit_on: true, health_on: true, budget_pct: 80, event_on: true, event_lead_min: 15, allday_hour: 8, task_on: true, task_hour: 9, bill_on: true, bill_hour: 9, bill_days: 3, sub_on: true, sub_hour: 9, sub_days: 3, goal_on: true, goal_hour: 9, goal_days: 3, budget_on: true, study_on: true, study_hour: 9, study_days: 3, class_on: true, class_lead_min: 15 };
     async function wireReminderPrefs(pg) {
       const box = pg.querySelector('#remPrefs'); if (!box) return;
       const err = m => { const e = box.querySelector('#remError'); e.textContent = m; e.style.display = m ? 'flex' : 'none'; };
       const { data, error } = await LumaAuth.client.schema('luma').from('reminder_prefs').select('*').maybeSingle();
       if (error) err(/reminder_prefs|schema cache|does not exist/i.test(error.message) ? 'Reminder settings aren\'t set up yet — run supabase/migrations/031_reminder_prefs.sql in the Supabase SQL Editor.' : error.message);
       const v = { ...REM_DEFAULTS, ...(data || {}) };
-      if (!LumaPlan.has('timing')) ['event_lead_min', 'allday_hour', 'task_hour', 'bill_hour', 'bill_days', 'sub_hour', 'sub_days', 'goal_hour', 'goal_days', 'budget_pct', 'study_hour', 'study_days'].forEach(k => { v[k] = REM_DEFAULTS[k]; }); // Dawn: the standard times are what is used, so that is what is shown
+      if (!LumaPlan.has('timing')) ['event_lead_min', 'allday_hour', 'task_hour', 'bill_hour', 'bill_days', 'sub_hour', 'sub_days', 'goal_hour', 'goal_days', 'budget_pct', 'study_hour', 'study_days', 'class_lead_min'].forEach(k => { v[k] = REM_DEFAULTS[k]; }); // Dawn: the standard times are what is used, so that is what is shown
       const dim = () => box.querySelectorAll('.setting-row, .rp-card').forEach(r => { const sw = r.querySelector('.switch'); r.classList.toggle('rem-off', !!sw && !sw.classList.contains('on')); });
       box.querySelectorAll('select[data-rem]').forEach(sel => { sel.value = String(v[sel.dataset.rem]); skinSelect(sel); });
       if (!LumaPlan.has('timing')) { // choosing the times is a Glow / Zenith feature; the on/off switches still work
@@ -238,6 +239,7 @@
               tasks: await get(LumaTasks.list()), events: await get(LumaEvents.list()), notes: (await get(LumaNotes.list()) || []).map(n => ({ id: n.id, title: n.title, body: n.body, tag: n.tag, created_at: n.created_at })),
               habits: await get(LumaHabits.list()), habit_logs: await get(LumaHabits.logsSince('2000-01-01')), goals: await get(LumaGoals.list()),
               bills_and_subscriptions: await get(LumaBills.list()), bill_payments: await get(LumaBills.listPayments()), money_entries: await get(LumaMoney.listEntries('2000-01-01')),
+              study: LumaPlan.hasAddon('study') && typeof sdExport === 'function' ? await sdExport() : undefined,
               reminders: await get(LumaReminders.list()), health_logs: await get(LumaHealth.listLogs('2000-01-01')), documents: (await get(LumaDocuments.listDocuments()) || []).map(d => ({ id: d.id, name: d.name, size_bytes: d.size_bytes, created_at: d.created_at })) };
             const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' })), a = document.createElement('a');
             a.href = url; a.download = `luma-export-${hToday()}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);

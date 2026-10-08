@@ -18,6 +18,8 @@
         ['sdClassOverlay', 'sdClassSave', () => shown('sdClassDelete')],
         ['sdTaskOverlay', 'sdTaskSave', () => shown('sdTaskDelete')],
         ['sdSemOverlay', 'sdSemSave', () => shown('sdSemDelete')],
+        ['sdNoteOverlay', 'sdNoteSave', () => shown('sdNoteDelete')],
+        ['sdProjOverlay', 'sdProjSave', () => true],
       ].forEach(([ovId, saveId, isEdit]) => {
         const ov = document.getElementById(ovId), save = document.getElementById(saveId); if (!ov || !save) return;
         let base = null, was = false;
