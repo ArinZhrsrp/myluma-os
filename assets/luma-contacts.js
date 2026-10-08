@@ -51,8 +51,13 @@
       return db().from("contacts").delete().eq("id", contactId);
     },
 
-    async listMessages(contactId) {
-      return db().from("messages").select("id, sender_id, body, created_at").eq("contact_id", contactId).order("created_at", { ascending: true });
+    // One page of a conversation, oldest first. Without `before` it is the latest `limit` messages; pass the
+    // created_at of the oldest message you already have to get the page before it.
+    async listMessages(contactId, { limit = 20, before = null } = {}) {
+      let q = db().from("messages").select("id, sender_id, body, created_at").eq("contact_id", contactId).order("created_at", { ascending: false }).limit(limit);
+      if (before) q = q.lt("created_at", before);
+      const { data, error } = await q;
+      return { data: data ? data.slice().reverse() : null, error };
     },
 
     async sendMessage(contactId, body) {

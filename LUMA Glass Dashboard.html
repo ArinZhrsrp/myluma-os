@@ -9897,6 +9897,28 @@
       chatScrollEl.appendChild(b);
       chatScrollEl.scrollTop = chatScrollEl.scrollHeight;
     }
+    // the chat opens on the latest 20 messages; scrolling to the top loads 20 more
+    const CHAT_PAGE = 20;
+    let chatOldest = null, chatHasMore = false, chatLoadingMore = false;
+    const chatTopNote = () => { let n = chatScrollEl.querySelector('.chat-top'); if (!n) { n = document.createElement('div'); n.className = 'chat-top'; n.style.cssText = 'text-align:center;font-size:0.68rem;color:rgba(255,255,255,0.45);padding:4px 0 10px'; chatScrollEl.prepend(n); } return n; };
+    function paintChatTop() { const n = chatTopNote(); n.textContent = chatLoadingMore ? 'Loading earlier messages…' : chatHasMore ? 'Scroll up for earlier messages' : ''; n.style.display = n.textContent ? '' : 'none'; }
+    async function loadEarlierChat() {
+      if (chatLoadingMore || !chatHasMore || !activeChatContactId) return;
+      const id = activeChatContactId; chatLoadingMore = true; paintChatTop();
+      const { data, error } = await LumaContacts.listMessages(id, { limit: CHAT_PAGE, before: chatOldest });
+      if (id !== activeChatContactId) return; // the chat was closed or switched meanwhile
+      chatLoadingMore = false;
+      if (error || !data) { paintChatTop(); return; }
+      const keep = chatScrollEl.scrollHeight, top = chatTopNote();
+      const frag = document.createDocumentFragment();
+      data.forEach(m => { const b = document.createElement('div'); b.className = 'bubble ' + (m.sender_id === LUMA_USER.id ? 'me' : 'ai'); b.textContent = m.body; frag.appendChild(b); });
+      top.after(frag); // oldest first, right under the "scroll up" note
+      if (data.length) chatOldest = data[0].created_at;
+      chatHasMore = data.length === CHAT_PAGE;
+      paintChatTop();
+      chatScrollEl.scrollTop = chatScrollEl.scrollHeight - keep; // stay on the message you were reading
+    }
+    chatScrollEl.addEventListener('scroll', () => { if (chatScrollEl.scrollTop < 40) loadEarlierChat(); });
 
     async function openContactChat(contactId, name, color) {
       paintChatLeft();
@@ -9911,9 +9933,14 @@
       chatInputEl.value = '';
       chatInputEl.focus();
 
-      const { data, error } = await LumaContacts.listMessages(contactId);
-      if (!error && data) data.forEach(m => pushContactBubble(m.sender_id === LUMA_USER.id ? 'me' : 'ai', m.body));
-      else if (error) pushContactBubble('ai', "Couldn't load message history: " + error.message);
+      chatOldest = null; chatHasMore = false; chatLoadingMore = false;
+      const { data, error } = await LumaContacts.listMessages(contactId, { limit: CHAT_PAGE });
+      if (!error && data) {
+        data.forEach(m => pushContactBubble(m.sender_id === LUMA_USER.id ? 'me' : 'ai', m.body));
+        if (data.length) chatOldest = data[0].created_at;
+        chatHasMore = data.length === CHAT_PAGE; paintChatTop();
+        chatScrollEl.scrollTop = chatScrollEl.scrollHeight; // start at the latest message
+      } else if (error) pushContactBubble('ai', "Couldn't load message history: " + error.message);
 
       // Opening the chat counts as reading whatever was unread — clears the
       // "New message" nudge in Follow-ups for this contact.
