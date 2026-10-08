@@ -63,7 +63,7 @@
 
     :root {
       --app-bg: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1920&q=80');
-      --theme-tint: rgba(15, 23, 42, 0.50);
+      --theme-tint: rgba(15, 23, 42, 0.45);
     }
 
     /* ===== BACKGROUND IMAGE (swappable via Settings) ===== */
@@ -9733,8 +9733,8 @@
     // ---------- Theme ----------
     const THEMES = {
       slate: 'rgba(100,116,139,0.28)',   // lightest: a soft grey-blue haze over the wallpaper
-      midnight: 'rgba(15,23,42,0.50)',   // the default: deep navy
-      obsidian: 'rgba(0,0,0,0.80)',      // darkest: near black
+      midnight: 'rgba(15,23,42,0.45)',   // the default: deep navy
+      obsidian: 'rgba(2,3,10,0.64)',     // darkest, but your wallpaper still shows through
     };
     function applyTheme(t) { if (THEMES[t]) document.documentElement.style.setProperty('--theme-tint', THEMES[t]); }
 
