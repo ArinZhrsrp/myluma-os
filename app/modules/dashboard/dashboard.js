@@ -73,7 +73,6 @@
 
     function paintDashboard() {
       if (!document.getElementById('dashChips')) return;
-      paintDashAddonNote();
       const today = hToday(), T = dashTasks, open = T.filter(t => t.status !== 'done');
       const overdue = open.filter(t => t.due_date && t.due_date < today), dueToday = open.filter(t => t.due_date === today);
       const hid = [...cHidden]; cHidden.clear(); // the calendar's category filter shouldn't hide things here
@@ -91,7 +90,8 @@
       dashSet('dashChips', [
         dashChip('fa-solid fa-fire', '#fca5a5', urgent ? `${urgent} task${urgent > 1 ? 's' : ''} due or overdue` : 'No tasks due today', 'tasks'),
         dashChip('fa-regular fa-calendar', '#93c5fd', events.length ? `${events.length} event${events.length > 1 ? 's' : ''} today` : 'No events today', 'calendar'),
-        budget ? dashChip('fa-solid fa-wallet', left < 0 ? '#fca5a5' : '#6ee7b7', left < 0 ? `${bRM(-left)} over budget` : `${bRM(left)} left to spend`, 'money') : dashChip('fa-solid fa-wallet', '#6ee7b7', `${bRM(spent)} spent this month`, 'money')
+        budget ? dashChip('fa-solid fa-wallet', left < 0 ? '#fca5a5' : '#6ee7b7', left < 0 ? `${bRM(-left)} over budget` : `${bRM(left)} left to spend`, 'money') : dashChip('fa-solid fa-wallet', '#6ee7b7', `${bRM(spent)} spent this month`, 'money'),
+        dashAddonChip()
       ].join(''));
 
       // suggestion
@@ -145,17 +145,13 @@
       paintDashHabits();
     }
 
-    // Study (and later Work) are hidden from Personal until the person chooses to show them: say so once, with a way to switch it on
-    function paintDashAddonNote() {
-      const box = document.getElementById('dashAddonNote'); if (!box) return;
-      const hidden = LumaPlan.hasAddon('study') && !prefOn('show_study_personal', false) && !prefOn('study_note_dismissed', false);
-      box.style.display = hidden ? '' : 'none';
-      if (hidden) box.innerHTML = '<i class="fa-solid fa-graduation-cap"></i><span>Your Study classes and deadlines are hidden here.</span><button type="button" data-addon-show="study">Show them</button><button type="button" class="x" data-addon-dismiss title="Don\'t show this again" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>';
-    }
+    // Study (and later Work) are hidden from Personal until the person chooses to show them: a chip beside the others says so, with a way to switch it on
+    const dashAddonChip = () => (LumaPlan.hasAddon('study') && !prefOn('show_study_personal', false) && !prefOn('study_note_dismissed', false))
+      ? '<span class="dash-addon" title="Study classes and deadlines are hidden from Personal"><i class="fa-solid fa-graduation-cap"></i> Study is hidden here<button type="button" data-addon-show="study">Show</button><button type="button" class="x" data-addon-dismiss title="Don\'t show this again" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button></span>' : '';
     document.getElementById('page-dashboard').addEventListener('click', async e => {
-      if (e.target.closest('[data-addon-dismiss]')) { await setLumaPref('study_note_dismissed', true); return paintDashAddonNote(); }
+      if (e.target.closest('[data-addon-dismiss]')) { await setLumaPref('study_note_dismissed', true); return paintDashboard(); }
       if (!e.target.closest('[data-addon-show]')) return;
-      await setLumaPref('show_study_personal', true); await sdEnsureLoaded(); paintDashAddonNote(); paintDashboard();
+      await setLumaPref('show_study_personal', true); await sdEnsureLoaded(); paintDashboard();
       flashToast('Study is now shown in Personal', 'You can change this in Settings → Preferences', 'fa-graduation-cap', '#34d399');
     });
     async function loadDashboard() {
