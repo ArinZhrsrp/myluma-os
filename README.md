@@ -383,6 +383,10 @@ supabase/migrations/
   055_study_semester_archive.sql  Archive a whole semester (Study → Archive)
   056_study_active_semester.sql  One ACTIVE semester at a time; everything new in Study goes into it
   057_delete_archived_semester.sql  Delete an archived semester and everything in it for good
+  058_study_groups_extras.sql  Group projects: comments, files, task reminders, anyone can start one
+  059_study_notes_extras.sql   Shared notes you can edit together; files on notes
+  060_study_reminders_v2.sql   Own reminder per assignment, timed items, overdue nudges; archived semesters stay quiet
+  061_grade_scales.sql         Grade scale per semester or subject
   042_backgrounds.sql          your uploaded wallpaper is saved with your account (private storage bucket)
   041_focus_sessions.sql       Focus mode: every completed focus session is saved
   040_admin_report.sql         Admin page: monthly report of people per plan + log of every plan change

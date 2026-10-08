@@ -31,10 +31,10 @@
   };
 
   window.LumaStudy = {
-    courses: table("study_courses", COURSE_BASE, "created_at", ["semester_id", "target_percent", "final_percent"]),
+    courses: table("study_courses", COURSE_BASE, "created_at", ["semester_id", "target_percent", "final_percent", "grade_scale"]),
     classes: table("study_classes", CLASS_BASE, "start_time", ["start_date", "end_date"]),
-    tasks: table("study_tasks", TASK, "due_date", ["semester_id"]),
-    semesters: Object.assign(table("study_semesters", SEMESTER, "start_date", ["archived_at", "is_active", "remark"]), {
+    tasks: table("study_tasks", TASK, "due_date", ["semester_id", "remind_at", "reminded_at"]),
+    semesters: Object.assign(table("study_semesters", SEMESTER, "start_date", ["archived_at", "is_active", "remark", "grade_scale"]), {
       // one semester is active at a time; these functions (migration 056) are the only way to change that
       activate: (id) => db().rpc("activate_study_semester", { p_id: id }),
       archive: (id, remark) => db().rpc("archive_study_semester", { p_id: id, p_remark: remark || "" }),
@@ -48,7 +48,12 @@
     notes: Object.assign(table("study_notes", "id, course_id, title, body, created_at, updated_at", "updated_at", ["semester_id"]), {
       shared: () => db().rpc("shared_study_notes"),
       sharedWith: (id) => db().rpc("study_note_shared_with", { p_note: id }),
-      share: (id, users) => db().rpc("share_study_note", { p_note: id, p_users: users }),
+      share: (id, users, canEdit) => db().rpc("share_study_note", { p_note: id, p_users: users, p_can_edit: !!canEdit }),
+      setEdit: (id, user, canEdit) => db().rpc("set_study_note_edit", { p_note: id, p_user: user, p_can_edit: !!canEdit }),
+      updateShared: (id, title, body) => db().rpc("update_shared_study_note", { p_note: id, p_title: title, p_body: body }),
+      files: (id) => db().rpc("note_files", { p_note: id }),
+      attach: (id, documentId) => db().rpc("attach_note_file", { p_note: id, p_document: documentId }),
+      detach: (fileId) => db().rpc("detach_note_file", { p_file: fileId }),
       unshare: (id, user) => db().rpc("unshare_study_note", { p_note: id, p_user: user }),
     }),
     // group projects (migration 054): everything goes through functions that check who is asking
@@ -64,6 +69,12 @@
       addTask: (id, title, assignee, due) => db().rpc("add_study_project_task", { p_project: id, p_title: title, p_assignee: assignee || null, p_due: due || null }),
       updateTask: (taskId, fields) => db().rpc("update_study_project_task", { p_task: taskId, p_fields: fields }),
       removeTask: (taskId) => db().rpc("delete_study_project_task", { p_task: taskId }),
+      comments: (id) => db().rpc("project_comments", { p_project: id }),
+      addComment: (id, body) => db().rpc("add_project_comment", { p_project: id, p_body: body }),
+      removeComment: (commentId) => db().rpc("delete_project_comment", { p_comment: commentId }),
+      files: (id) => db().rpc("project_files", { p_project: id }),
+      attach: (id, documentId) => db().rpc("attach_project_file", { p_project: id, p_document: documentId }),
+      detach: (fileId) => db().rpc("detach_project_file", { p_file: fileId }),
       nudge: (id, user, task) => db().rpc("nudge_study_project_member", { p_project: id, p_user: user, p_task: task || null }),
     },
     // focus sessions tagged with a subject since a moment (for "study time")
