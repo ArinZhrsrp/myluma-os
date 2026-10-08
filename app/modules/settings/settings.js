@@ -28,6 +28,18 @@
             <div class="setting-row"><div class="sr-main"><div class="sr-t">Export my data</div><div class="sr-s">Download your tasks, events, notes, habits, goals, bills, money, reminders and study data as a file</div></div><button type="button" class="np-btn" id="acctExport">Export</button></div>
             <div class="setting-row"><div class="sr-main"><div class="sr-t">Sign out other devices</div><div class="sr-s">Log out everywhere except this device</div></div><button type="button" class="np-btn" id="acctOthers">Sign out</button></div>`)}
         </div>
+        <div class="card full-width" style="margin-top:0.9rem" id="planCard">
+          <div class="section-title"><i class="fa-solid fa-crown"></i> Your plan and add-ons</div>
+          ${(() => {
+            const fmt = iso => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const end = iso => { if (!iso) return '<span class="pc-end">No end date</span>'; const d = LumaPlan.daysTo(iso); return `<span class="pc-end ${d <= 7 ? 'soon' : ''}"><i class="fa-regular fa-clock"></i> ${d < 0 ? 'Ended ' + fmt(iso) : 'Last day: ' + fmt(new Date(Date.parse(iso) - 1000).toISOString()) + (d === 0 ? ' (today)' : ` · ${d} day${d === 1 ? '' : 's'} left`)}</span>`; };
+            const row = (icon, color, name, right, status, btn) => `<div class="pc-row"><div class="rp-ico" style="--c:${color}"><i class="fa-solid ${icon}"></i></div><div class="pc-main"><div class="pc-name">${name}</div>${status}</div>${btn || ''}</div>`;
+            const plan = LumaPlan.plan, paid = plan !== 'dawn';
+            const addon = k => { const a = ADDONS[k], on = LumaPlan.hasAddon(k), info = LumaPlan.addonInfo[k] || {}; return row(a.icon, a.color, `${a.name} add-on${info.source === 'trial' && on ? ' <em>free trial</em>' : ''}`, '', on ? end(info.expires_at) : `<span class="pc-end off">Not switched on · ${a.price}</span>`, on ? (info.expires_at ? `<button type="button" class="np-btn" data-pc-renew="addon:${k}"><i class="fa-brands fa-whatsapp"></i> Renew</button>` : '') : `<button type="button" class="np-btn" data-pc-buy="${k}"><i class="fa-brands fa-whatsapp"></i> Get ${a.name}</button>`); };
+            return row(paid ? 'fa-sun' : 'fa-seedling', paid ? '#fbbf24' : '#34d399', `${LumaPlan.name()} plan`, '', paid ? end(LumaPlan.planExpires) : '<span class="pc-end off">Free forever</span>', paid ? (LumaPlan.planExpires ? '<button type="button" class="np-btn" data-pc-renew="plan:' + plan + '"><i class="fa-brands fa-whatsapp"></i> Renew</button>' : '') : '<button type="button" class="np-btn" data-pc-plans>See plans</button>') + addon('work') + addon('study');
+          })()}
+          <p class="ls" style="margin-top:0.7rem;font-size:0.7rem;line-height:1.5">Plans and add-ons are monthly. The last day is the last day you can use it; after that you go back to the free Dawn plan (or the add-on switches off) and everything you made is kept. We remind you 7 days and 1 day before.</p>
+        </div>
         <div class="card full-width" style="margin-top:0.9rem" id="remPrefs">
           <div class="section-title"><i class="fa-regular fa-clock"></i> Reminders</div>
           <p class="ls" style="font-size:0.72rem;line-height:1.5">Choose which reminders you get and when. Times follow your time zone (${tzOffsetLabel()}). They arrive in your inbox and as push notifications.</p>
@@ -199,6 +211,7 @@
     WIRE.settings = function (pg, key) {
         wireReminderPrefs(pg);
         pg.querySelector('#planPill')?.addEventListener('click', openPlans);
+        pg.querySelector('#planCard')?.addEventListener('click', e => { const rn = e.target.closest('[data-pc-renew]'); if (rn) return requestRenew(rn.dataset.pcRenew); const by = e.target.closest('[data-pc-buy]'); if (by) return requestAddon(by.dataset.pcBuy); if (e.target.closest('[data-pc-plans]')) openPlans(); });
         pg.querySelector('#logoutBtn')?.addEventListener('click', openLogoutConfirm);
         // Notifications switch = push on this device
         pg.querySelector('#setNotifSwitch')?.addEventListener('click', async e => {

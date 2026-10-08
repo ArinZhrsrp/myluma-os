@@ -21,7 +21,7 @@
       if (SD.keepTab) SD.keepTab = false; else SD.tab = 'overview'; // opening Study from the menu starts on its first page (Overview); a flow that needs another tab sets keepTab
       if (sdGuest()) SD.tab = 'groups';
       const info = (LumaPlan.addonInfo && LumaPlan.addonInfo.study) || {}, ends = info.expires_at ? new Date(info.expires_at) : null;
-      const note = ends && info.source === 'trial' ? ` · trial ends ${ends.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}` : '';
+      const left = ends ? Math.ceil((ends - Date.now()) / 864e5) : null, note = ends ? ` · ${info.source === 'trial' ? 'free trial' : 'add-on'} until ${new Date(ends - 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (${left} day${left === 1 ? '' : 's'} left)` : '';
       return head('Study', `<span id="sdSub">Loading…</span>${note}`,
         `<div class="sd-tabs" id="sdTabs">${SD_TABS.filter(t => !sdGuest() || t[0] === 'groups').map(([k, n, i]) => `<button type="button" data-sdtab="${k}" class="${SD.tab === k ? 'on' : ''}"><i class="fa-solid ${i}"></i><span>${n}</span></button>`).join('')}</div><button class="create-btn" id="sdAdd"><i class="fa-solid fa-plus"></i> <span id="sdAddT">Add assignment</span></button>`) +
         '<div id="sdRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';

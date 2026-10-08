@@ -114,3 +114,13 @@
 
     /* Settings: the heading stays put; only the cards scroll */
     .main-content.fit #setRoot { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    /* plan and add-ons card */
+    .pc-row { display:flex; align-items:center; gap:14px; padding:12px 4px; border-bottom:1px solid rgba(255,255,255,0.07); }
+    .pc-row:last-of-type { border-bottom:0; }
+    .pc-main { flex:1; min-width:0; }
+    .pc-name { color:#fff; font-size:0.9rem; font-weight:600; }
+    .pc-name em { font-style:normal; font-size:0.6rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:2px 8px; border-radius:999px; background:rgba(251,191,36,0.2); color:#fcd34d; margin-left:6px; }
+    .pc-end { display:inline-flex; align-items:center; gap:6px; color:rgba(255,255,255,0.7); font-size:0.76rem; margin-top:3px; }
+    .pc-end.soon { color:#fca5a5; font-weight:600; }
+    .pc-end.off { color:rgba(255,255,255,0.5); }
+    .pc-row .np-btn i { margin-right:6px; }
