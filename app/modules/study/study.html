@@ -240,10 +240,10 @@
         <div id="sdProjPending" style="display:none"></div>
         <div id="sdProjMain">
           <div class="pem-row">
-            <div class="pem-field"><label>Project</label><input id="sdProjTitle" type="text" maxlength="120" autocomplete="off"></div>
-            <div class="pem-field"><label>Subject</label><input id="sdProjCourse" type="text" maxlength="80" autocomplete="off"></div>
+            <div class="pem-field"><label>Project <span style="color:#fca5a5">*</span></label><input id="sdProjTitle" type="text" maxlength="120" autocomplete="off"></div>
+            <div class="pem-field"><label>Subject <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdProjCourse" type="text" maxlength="80" autocomplete="off"></div>
           </div>
-          <div class="pem-field"><label>Due date</label><input id="sdProjDue" type="text"></div>
+          <div class="pem-field"><label>Due date <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdProjDue" type="text"></div>
           <div class="pem-field"><label>Team</label><div class="sd-team" id="sdProjTeam"></div><button type="button" class="np-btn" id="sdProjInvite" style="margin-top:8px"><i class="fa-solid fa-user-plus"></i> Invite from contacts</button></div>
           <div class="pem-field"><label>Tasks</label><div id="sdProjTasks"></div>
             <div class="sd-taskadd"><input id="sdProjTaskTitle" type="text" maxlength="140" placeholder="Add a task and press Enter" autocomplete="off"><input id="sdProjTaskDue" type="text"><select id="sdProjTaskWho"></select><button type="button" class="np-btn" id="sdProjTaskAdd"><i class="fa-solid fa-plus"></i></button></div>
@@ -255,6 +255,7 @@
             <div class="sd-cmt-add"><textarea id="sdProjCmtText" maxlength="1000" placeholder="Write a comment…"></textarea><button type="button" class="np-btn" id="sdProjCmtSend" title="Send the comment" aria-label="Send the comment"><i class="fa-solid fa-paper-plane"></i></button></div>
             <div class="pem-msg error" id="sdProjCmtErr" style="margin:0 0 8px"></div>
             <div id="sdProjComments"></div></div>
+          <div class="pem-hint" style="margin:4px 0 0"><span style="color:#fca5a5">*</span> required. Tasks, comments and files are saved as soon as you add them. <b>Save</b> is only for changes to the project details and the shared notes, so it stays greyed out until you change one of those.</div>
         </div>
       </div>
       <div class="pem-actions" style="gap:10px">

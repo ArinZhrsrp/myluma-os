@@ -23,7 +23,7 @@
       ].forEach(([ovId, saveId, isEdit]) => {
         const ov = document.getElementById(ovId), save = document.getElementById(saveId); if (!ov || !save) return;
         let base = null, was = false;
-        const refresh = () => { if (base == null) return; save.disabled = sig(ov) === base; };
+        const refresh = () => { if (base == null) return; save.disabled = sig(ov) === base; save.title = save.disabled ? 'Nothing has changed yet' : ''; };
         new MutationObserver(() => {
           const on = ov.classList.contains('open');
           if (on && !was && isEdit()) { base = null; save.disabled = true; setTimeout(() => { base = sig(ov); refresh(); }, 150); }
