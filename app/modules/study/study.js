@@ -7,7 +7,7 @@
     const SD_STATUS = [['todo', 'To do'], ['in_progress', 'In progress'], ['done', 'Done']];
     const SD_DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']]; // weekday numbers: 0 = Sunday (same as the database)
     const SD_TABS = [['overview', 'Overview', 'fa-table-columns'], ['timetable', 'Timetable', 'fa-calendar-week'], ['assignments', 'Assignments', 'fa-list-check'], ['subjects', 'Subjects', 'fa-book']];
-    const SD = { courses: [], classes: [], tasks: [], focus: [], tab: 'overview', filter: 'open', fCourse: '', err: null, loadedAt: 0 };
+    const SD = { courses: [], classes: [], tasks: [], focus: [], tab: 'overview', filter: 'open', fCourse: '', showEnded: false, err: null, loadedAt: 0 };
 
     MODULES.study = function () {
       const info = (LumaPlan.addonInfo && LumaPlan.addonInfo.study) || {}, ends = info.expires_at ? new Date(info.expires_at) : null;
@@ -30,6 +30,11 @@
     const sdNowMin = () => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; };
     const sdWeekStart = () => { const k = sdKey(); return sdAdd(k, -((sdDow(k) + 6) % 7)); }; // this week's Monday
     const sdMinText = m => m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '') : m + ' min';
+    const sdAddMonths = (k, n) => { const d = new Date(k + 'T00:00:00Z'), day = d.getUTCDate(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); d.setUTCDate(Math.min(day, new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate())); return d.toISOString().slice(0, 10); };
+    const sdShort = k => sdFmtDate(k, { day: 'numeric', month: 'short' });
+    // a class runs on its weekday between its start and end dates (no dates = every week)
+    const sdClassOn = (c, k) => c.weekday === sdDow(k) && (!c.start_date || k >= c.start_date) && (!c.end_date || k <= c.end_date);
+    const sdClassEnded = c => !!c.end_date && c.end_date < sdKey();
     const sdPct = g => String(Math.round(g * 10) / 10);
     const sdKind = k => SD_KINDS.find(x => x[0] === k) || SD_KINDS[5];
     const sdCC = c => c ? `<span class="sd-cc" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}</span>` : '';
@@ -97,14 +102,15 @@
     }
     function sdClassCard(c) {
       const co = sdCourse(c.course_id), kind = (SD_CLASS_KINDS.find(x => x[0] === c.kind) || SD_CLASS_KINDS[0])[1];
-      return `<button type="button" class="sd-cls" data-cls="${c.id}" style="--c:${co ? co.color : '#34d399'}"><b>${sdT12(c.start_time)} – ${sdT12(c.end_time)}</b><span class="sd-cn">${escapeHtml(co ? co.name : 'Class')}</span><small>${[c.room, kind].filter(Boolean).map(escapeHtml).join(' · ')}</small></button>`;
+      const when = sdClassEnded(c) ? 'Ended ' + sdShort(c.end_date) : c.start_date && c.start_date > sdKey() ? 'From ' + sdShort(c.start_date) + (c.end_date ? ' to ' + sdShort(c.end_date) : '') : c.end_date ? 'Until ' + sdShort(c.end_date) : '';
+      return `<button type="button" class="sd-cls ${sdClassEnded(c) ? 'ended' : ''}" data-cls="${c.id}" style="--c:${co ? co.color : '#34d399'}"><b>${sdT12(c.start_time)} – ${sdT12(c.end_time)}</b><span class="sd-cn">${escapeHtml(co ? co.name : 'Class')}</span><small>${[c.room, kind].filter(Boolean).map(escapeHtml).join(' · ')}</small>${when ? `<small class="sd-when">${when}</small>` : ''}</button>`;
     }
 
     function sdOverview() {
       const today = sdKey(), dow = sdDow(today), nowM = sdNowMin();
       const open = SD.tasks.filter(t => t.status !== 'done');
       const overdue = open.filter(t => t.due_date && t.due_date < today), week = open.filter(t => t.due_date && t.due_date >= today && sdDiff(today, t.due_date) <= 7);
-      const todays = SD.classes.filter(c => c.weekday === dow).sort((a, b) => sdHM(a.start_time).localeCompare(sdHM(b.start_time)));
+      const todays = SD.classes.filter(c => sdClassOn(c, today)).sort((a, b) => sdHM(a.start_time).localeCompare(sdHM(b.start_time)));
       const mins = SD.focus.reduce((s, r) => s + r.minutes, 0);
       const tiles = [['fa-list-check', '#60a5fa', week.length, 'Due this week'], ['fa-triangle-exclamation', overdue.length ? '#f87171' : '#94a3b8', overdue.length, 'Overdue'], ['fa-chalkboard-user', '#34d399', todays.length, 'Classes today'], ['fa-hourglass-half', '#a78bfa', sdMinText(mins), 'Studied this week']]
         .map(([i, c, v, l]) => `<div class="sd-tile" style="--c:${c}"><i class="fa-solid ${i}"></i><div><b>${v}</b><span>${l}</span></div></div>`).join('');
@@ -132,16 +138,16 @@
     }
 
     function sdTimetable() {
-      const today = sdDow(sdKey());
+      const today = sdDow(sdKey()), ended = SD.classes.filter(sdClassEnded), shown = SD.classes.filter(c => SD.showEnded || !sdClassEnded(c));
       if (!SD.classes.length) {
         return card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-calendar-week"></i></div><div class="h-empty-t">Build your weekly timetable</div>
           <div class="h-empty-s">${SD.courses.length ? 'Add each class once: pick the subject, the days and the time. It repeats every week and shows on your Calendar too.' : 'Add your subjects first, then put each class on the timetable.'}</div>
           <div class="h-empty-chips"><button type="button" class="h-chip" data-add="${SD.courses.length ? 'class' : 'course'}"><i class="fa-solid fa-plus" style="color:#34d399"></i>${SD.courses.length ? 'Add a class' : 'Add a subject'}</button></div></div>`);
       }
       return `<div class="sd-week">${SD_DAYS.map(([d, n]) => {
-        const list = SD.classes.filter(c => c.weekday === d).sort((a, b) => sdHM(a.start_time).localeCompare(sdHM(b.start_time)));
+        const list = shown.filter(c => c.weekday === d).sort((a, b) => sdHM(a.start_time).localeCompare(sdHM(b.start_time)));
         return `<div class="sd-day ${d === today ? 'today' : ''}"><div class="sd-dh"><span>${n}</span><button type="button" data-add="class" data-day="${d}" title="Add a class on ${n}"><i class="fa-solid fa-plus"></i></button></div>${list.length ? list.map(sdClassCard).join('') : '<div class="sd-free">Free</div>'}</div>`;
-      }).join('')}</div>`;
+      }).join('')}</div>${ended.length ? `<div class="sd-endednote"><button type="button" data-ended>${SD.showEnded ? 'Hide' : 'Show'} ended classes (${ended.length})</button></div>` : ''}`;
     }
 
     function sdAssignments() {
@@ -159,7 +165,7 @@
     function sdSubjects() {
       if (!SD.courses.length) return card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-book"></i></div><div class="h-empty-t">No subjects yet</div><div class="h-empty-s">A subject groups its classes, assignments, grades and study time.</div><div class="h-empty-chips"><button type="button" class="h-chip" data-add="course"><i class="fa-solid fa-plus" style="color:#34d399"></i>Add a subject</button></div></div>`);
       return `<div class="grid-2">${SD.courses.map(c => {
-        const g = sdGrade(c.id), open = SD.tasks.filter(t => t.course_id === c.id && t.status !== 'done').length, n = SD.classes.filter(x => x.course_id === c.id).length;
+        const g = sdGrade(c.id), open = SD.tasks.filter(t => t.course_id === c.id && t.status !== 'done').length, n = SD.classes.filter(x => x.course_id === c.id && !sdClassEnded(x)).length;
         const mins = SD.focus.filter(r => r.course_id === c.id).reduce((s, r) => s + r.minutes, 0);
         return `<div class="card sd-course" data-course="${c.id}" style="--c:${c.color}"><div class="sc-top"><span class="sc-dot"></span><div class="sc-main"><div class="sc-t">${escapeHtml(c.name)}</div><div class="sc-s">${[c.code, c.lecturer, c.credit_hours != null ? c.credit_hours + ' credit hour' + (c.credit_hours === 1 ? '' : 's') : ''].filter(Boolean).map(escapeHtml).join(' · ') || 'Tap to add details'}</div></div><button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
           <div class="sc-stats"><div><b>${g == null ? '—' : sdPct(g) + '%'}</b><span>Grade</span></div><div><b>${open}</b><span>To do</span></div><div><b>${n}</b><span>Classes / week</span></div><div><b>${mins ? sdMinText(mins) : '—'}</b><span>This week</span></div></div></div>`;
@@ -167,7 +173,7 @@
     }
 
     // ---------- the three popups ----------
-    const SDF = { courseId: null, color: SD_COLORS[0], classId: null, days: new Set(), classKind: 'lecture', taskId: null, taskKind: 'assignment', taskStatus: 'todo' };
+    const SDF = { courseId: null, color: SD_COLORS[0], classId: null, days: new Set(), classKind: 'lecture', endMode: 'weeks', taskId: null, taskKind: 'assignment', taskStatus: 'todo' };
     const sdOpen = id => { const o = docEl(id); o.classList.add('open'); o.querySelectorAll('.pem-body').forEach(el => { el.scrollTop = 0; }); };
     const sdClose = id => docEl(id).classList.remove('open');
     const sdChips = (id, list, cur, attr) => { docEl(id).innerHTML = list.map(([k, n, i]) => `<button type="button" class="h-chip sm ${k === cur ? 'on' : ''}" data-${attr}="${k}">${i ? `<i class="fa-solid ${i}"></i>` : ''}${n}</button>`).join(''); };
@@ -225,14 +231,41 @@
       docEl('sdClassStart').value = c ? sdHM(c.start_time) : '09:00'; docEl('sdClassEnd').value = c ? sdHM(c.end_time) : '10:00';
       ['sdClassStart', 'sdClassEnd'].forEach(id => docEl(id)._luTimeRefresh && docEl(id)._luTimeRefresh());
       docEl('sdClassRoom').value = c ? c.room || '' : '';
+      docEl('sdClassFrom').value = c && c.start_date ? c.start_date : sdKey(); docEl('sdClassUntil').value = c && c.end_date ? c.end_date : '';
+      SDF.endMode = c ? (c.end_date ? 'date' : 'none') : 'weeks'; docEl('sdClassCount').value = c ? '' : '14';
+      ['sdClassFrom', 'sdClassUntil'].forEach(id => docEl(id)._luDateRefresh && docEl(id)._luDateRefresh());
+      sdPaintEnd();
       docEl('sdClassDelete').style.display = c ? '' : 'none'; sdErr('sdClassError', '');
       sdPaintDays(); sdChips('sdClassKinds', SD_CLASS_KINDS.map(([k, n]) => [k, n, '']), SDF.classKind, 'ck');
       sdOpen('sdClassOverlay');
     }
+    const SD_END_MODES = [['weeks', 'Weeks'], ['months', 'Months'], ['date', 'On a date'], ['none', 'No end']];
+    // when a class stops: after N weeks, after N months, on a date, or never (every week)
+    function sdClassRange() {
+      const from = docEl('sdClassFrom').value, n = +docEl('sdClassCount').value;
+      if (!from) return { text: 'Pick the date the class starts.', end: null };
+      let end = null;
+      if (SDF.endMode === 'weeks' && n > 0) end = sdAdd(from, n * 7 - 1);
+      else if (SDF.endMode === 'months' && n > 0) end = sdAdd(sdAddMonths(from, n), -1);
+      else if (SDF.endMode === 'date') end = docEl('sdClassUntil').value || null;
+      const text = end ? `Runs ${sdShort(from)} to ${sdShort(end)}${SDF.endMode === 'weeks' || SDF.endMode === 'months' ? ` (${n} ${SDF.endMode === 'weeks' ? 'week' : 'month'}${n === 1 ? '' : 's'})` : ''}` : SDF.endMode === 'none' ? `Every week from ${sdShort(from)}, with no end date.` : SDF.endMode === 'date' ? 'Pick the date it ends.' : 'Enter how long it runs.';
+      return { text, end };
+    }
+    function sdPaintEndInfo() { docEl('sdClassRange').textContent = sdClassRange().text; }
+    function sdPaintEnd() {
+      sdChips('sdClassEndMode', SD_END_MODES.map(([k, n]) => [k, n, '']), SDF.endMode, 'em');
+      const counted = SDF.endMode === 'weeks' || SDF.endMode === 'months';
+      docEl('sdClassCountWrap').style.display = counted ? '' : 'none'; docEl('sdClassUntilWrap').style.display = SDF.endMode === 'date' ? '' : 'none';
+      docEl('sdClassCountUnit').textContent = SDF.endMode === 'months' ? 'months' : 'weeks';
+      sdPaintEndInfo();
+    }
+    docEl('sdClassCount').addEventListener('input', () => { docEl('sdClassCount').value = docEl('sdClassCount').value.replace(/\D/g, ''); sdPaintEndInfo(); });
+    ['sdClassFrom', 'sdClassUntil'].forEach(id => docEl(id).addEventListener('change', sdPaintEndInfo));
     docEl('sdClassClose').onclick = () => sdClose('sdClassOverlay');
     docEl('sdClassOverlay').onclick = e => {
       if (e.target === docEl('sdClassOverlay')) return sdClose('sdClassOverlay');
       const d = e.target.closest('[data-day]'); if (d) { const n = +d.dataset.day; if (SDF.classId) SDF.days = new Set([n]); else if (SDF.days.has(n)) { if (SDF.days.size > 1) SDF.days.delete(n); } else SDF.days.add(n); return sdPaintDays(); }
+      const em = e.target.closest('[data-em]'); if (em) { const was = SDF.endMode; SDF.endMode = em.dataset.em; if ((SDF.endMode === 'weeks' || SDF.endMode === 'months') && was !== SDF.endMode) docEl('sdClassCount').value = SDF.endMode === 'weeks' ? '14' : '4'; return sdPaintEnd(); }
       const k = e.target.closest('[data-ck]'); if (k) { SDF.classKind = k.dataset.ck; sdChips('sdClassKinds', SD_CLASS_KINDS.map(([a, n]) => [a, n, '']), SDF.classKind, 'ck'); }
     };
     docEl('sdClassSave').onclick = async () => {
@@ -240,7 +273,12 @@
       if (!course) return sdErr('sdClassError', 'Pick a subject.');
       if (!start || !end) return sdErr('sdClassError', 'Set the start and end time.');
       if (end <= start) return sdErr('sdClassError', 'The class must end after it starts.');
-      const base = { course_id: course, start_time: start, end_time: end, room: docEl('sdClassRoom').value.trim(), kind: SDF.classKind };
+      const from = docEl('sdClassFrom').value, until = sdClassRange().end, n = +docEl('sdClassCount').value;
+      if (!from) return sdErr('sdClassError', 'Pick the date the class starts.');
+      if ((SDF.endMode === 'weeks' && !(n >= 1 && n <= 60)) || (SDF.endMode === 'months' && !(n >= 1 && n <= 24))) return sdErr('sdClassError', SDF.endMode === 'weeks' ? 'Enter 1 to 60 weeks.' : 'Enter 1 to 24 months.');
+      if (SDF.endMode === 'date' && !until) return sdErr('sdClassError', 'Pick the date the class ends.');
+      if (until && until < from) return sdErr('sdClassError', 'The end date must be after the start date.');
+      const base = { course_id: course, start_time: start, end_time: end, room: docEl('sdClassRoom').value.trim(), kind: SDF.classKind, start_date: from, end_date: until };
       sdErr('sdClassError', ''); sdBtn('sdClassSave', true);
       let res;
       if (SDF.classId) res = await LumaStudy.classes.update(SDF.classId, { ...base, weekday: [...SDF.days][0] });
@@ -318,7 +356,7 @@
     function studyCalItems(k) {
       if (!studyVisibleOnCalendar()) return [];
       const out = [];
-      if (!cHidden.has('Classes')) SD.classes.filter(c => c.weekday === sdDow(k)).forEach(c => { const co = sdCourse(c.course_id); out.push({ type: 'sdclass', id: c.id, title: co ? co.name : 'Class', time: sdHM(c.start_time), end: sdHM(c.end_time), color: co ? co.color : '#34d399', cat: 'Classes', label: 'Class' }); });
+      if (!cHidden.has('Classes')) SD.classes.filter(c => sdClassOn(c, k)).forEach(c => { const co = sdCourse(c.course_id); out.push({ type: 'sdclass', id: c.id, title: co ? co.name : 'Class', time: sdHM(c.start_time), end: sdHM(c.end_time), color: co ? co.color : '#34d399', cat: 'Classes', label: 'Class' }); });
       if (!cHidden.has('Study')) SD.tasks.filter(t => t.due_date === k && t.status !== 'done').forEach(t => { const co = sdCourse(t.course_id); out.push({ type: 'sdtask', id: t.id, title: t.title, color: co ? co.color : '#a78bfa', cat: 'Study', label: sdKind(t.kind)[1] + ' due' }); });
       return out;
     }
@@ -334,6 +372,7 @@
       pg.querySelector('#sdRoot').addEventListener('click', e => {
         const chk = e.target.closest('[data-check]'); if (chk) return sdToggleDone(chk.dataset.check);
         const add = e.target.closest('[data-add]'); if (add) return add.dataset.add === 'course' ? openCourseModal(null) : openClassModal(null, add.dataset.day != null ? +add.dataset.day : undefined);
+        if (e.target.closest('[data-ended]')) { SD.showEnded = !SD.showEnded; return sdPaint(); }
         const f = e.target.closest('[data-f]'); if (f) { SD.filter = f.dataset.f; return sdPaint(); }
         const fc = e.target.closest('[data-fc]'); if (fc) { SD.fCourse = fc.dataset.fc; return sdPaint(); }
         const cls = e.target.closest('[data-cls]'); if (cls) return openClassModal(SD.classes.find(x => x.id === cls.dataset.cls));

@@ -103,3 +103,11 @@
     /* the Add button keeps one width whatever its label, so the tabs beside it never shift */
     #sdAdd { width:168px; justify-content:center; flex:none; }
     @media (max-width:900px) { #sdAdd { width:auto; min-width:150px; } }
+
+    .sd-cls.ended { opacity:0.5; }
+    .sd-cls .sd-when { color:#a7f3d0; }
+    .sd-endednote { margin-top:12px; }
+    .sd-endednote button { border:0; background:transparent; color:rgba(255,255,255,0.6); font:600 0.74rem inherit; font-family:inherit; cursor:pointer; text-decoration:underline; }
+    .sd-endednote button:hover { color:#fff; }
+    .sd-endrow { display:flex; align-items:center; gap:10px; margin-top:8px; color:rgba(255,255,255,0.75); font-size:0.8rem; }
+    .sd-endrow input { width:84px; }

@@ -75,16 +75,21 @@
       window.lumaFocusLoad = loadSetup; // called again once the profile is known
 
       // ---- history ----
-      // Study add-on: tag the session with a subject (for "study time" on the Study page)
-      const subjectId = () => { const row = document.getElementById('fmSubjectRow'); return row && row.style.display !== 'none' ? document.getElementById('fmSubject').value : ''; };
+      // Study mode: tag the session with a subject (for "study time" on the Study page) — small chips under the timer, nothing when there are no subjects
+      let fmSubj = '';
+      const subjectId = () => { const row = document.getElementById('fmSubjectRow'); return row && row.style.display !== 'none' ? fmSubj : ''; };
+      function drawSubjects() {
+        document.getElementById('fmSubject').innerHTML = [{ id: '', name: 'No subject', color: '' }, ...SD.courses].map(c => `<button type="button" class="${c.id === fmSubj ? 'on' : ''}" data-subj="${c.id}" ${c.color ? `style="--c:${c.color}"` : ''}>${c.color ? '<i></i>' : ''}${escapeHtml(c.name)}</button>`).join('');
+      }
       async function paintSubjects() {
-        const row = document.getElementById('fmSubjectRow'), sel = document.getElementById('fmSubject'); if (!row) return;
+        const row = document.getElementById('fmSubjectRow'); if (!row) return;
         if (!LumaPlan.hasAddon('study') || LUMA_MODE !== 'study' || typeof sdEnsureLoaded !== 'function') { row.style.display = 'none'; return; }
         await sdEnsureLoaded();
         if (!SD.courses.length) { row.style.display = 'none'; return; }
-        const keep = sel.value; sel.innerHTML = '<option value="">No subject</option>' + SD.courses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-        sel.value = SD.courses.some(c => c.id === keep) ? keep : ''; skinSelect(sel); row.style.display = '';
+        if (!SD.courses.some(c => c.id === fmSubj)) fmSubj = '';
+        drawSubjects(); row.style.display = '';
       }
+      document.getElementById('fmSubject').addEventListener('click', e => { const b = e.target.closest('[data-subj]'); if (b) { fmSubj = b.dataset.subj; drawSubjects(); } });
       async function recordSession(minutes) {
         try { await LumaAuth.client.schema('luma').from('focus_sessions').insert({ minutes, sound: curSound, started_at: startedAt || new Date().toISOString(), ...(subjectId() ? { course_id: subjectId() } : {}) }); } catch (e) { }
         paintStats();

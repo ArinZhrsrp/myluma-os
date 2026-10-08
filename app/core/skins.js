@@ -83,6 +83,8 @@
     skinDate(document.getElementById('tkDue'));
     skinDate(document.getElementById('calEvDate'));
     skinDate(document.getElementById('sdTaskDue'));
+    skinDate(document.getElementById('sdClassFrom'));
+    skinDate(document.getElementById('sdClassUntil'));
 
     // Themed time picker (hour / minute / AM-PM). The hidden input holds a 24-hour 'HH:MM' value and fires
     // "input" + "change" when it changes; opts.clear adds a Clear link for optional fields.
