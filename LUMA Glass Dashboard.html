@@ -8959,6 +8959,7 @@
       <div id="contactChatScroll" class="chat-scroll" style="max-height:400px;min-height:220px"></div>
       <div class="chat-input"><input id="contactChatInput" placeholder="Message…" autocomplete="off"><button
           class="chat-send" id="contactChatSend"><i class="fa-solid fa-arrow-up"></i></button></div>
+      <div id="chatLeft" style="font-size:0.68rem;color:rgba(255,255,255,0.6);text-align:right;margin-top:6px">50 messages a day</div>
     </div>
   </div>
 
@@ -9898,6 +9899,7 @@
     }
 
     async function openContactChat(contactId, name, color) {
+      paintChatLeft();
       closeContactChat();
       activeChatContactId = contactId;
       chatNameEl.textContent = name;
@@ -9938,7 +9940,15 @@
       chatInputEl.value = '';
       pushContactBubble('me', text);
       const { error } = await LumaContacts.sendMessage(activeChatContactId, text);
-      if (error) pushContactBubble('ai', "Couldn't send that — " + error.message);
+      if (error) pushContactBubble('ai', /^Daily limit/i.test(error.message) ? error.message : "Couldn't send that — " + error.message);
+      paintChatLeft();
+    }
+    // "N messages left today" under the chat box (the limit is 50 a day on every plan)
+    async function paintChatLeft() {
+      const el = document.getElementById('chatLeft'); if (!el) return;
+      const { data, error } = await LumaAuth.client.schema('luma').rpc('chat_left_today'); if (error || data === null || data === undefined) return;
+      el.textContent = data === 0 ? "You've used all of today's messages. It resets at midnight." : `${data} message${data === 1 ? '' : 's'} left today`;
+      el.style.color = data === 0 ? '#fca5a5' : data <= 10 ? '#fcd34d' : 'rgba(255,255,255,0.6)';
     }
     chatSendBtn.addEventListener('click', sendContactChatMessage);
     chatInputEl.addEventListener('keydown', e => { if (e.key === 'Enter') sendContactChatMessage(); });
@@ -12136,9 +12146,9 @@
       luConfirm({ title: 'Not in your plan', message: `${feature} is available on ${need}. Want to see the plans?`, ok: 'See plans', icon: 'fa-lock', tone: 'info' }).then(ok => { if (ok) openPlans(); });
     }
     const PLANS = [
-      { id: 'dawn', name: 'Dawn', icon: 'fa-seedling', color: '#34d399', tag: 'Start here', price: 'Free forever', rank: 0, perks: ['Lumi: 3 questions a day (answers only)', '50 MB of file storage (5 MB per file)', '5 custom reminders', '5 habits, 3 goals, 5 bills', '3 contacts', 'Core calendar, tasks, notes, money and health', '2 wallpapers, 1 theme'] },
-      { id: 'glow', name: 'Glow', icon: 'fa-sun', color: '#fbbf24', tag: 'The full toolkit', price: 'RM9 / month', rank: 1, perks: ['Lumi: 10 questions a day, and it can add things for you', '3 AI insights a day in Analytics', '300 MB of file storage (20 MB per file)', '25 custom reminders', '10 habits, 5 goals, 12 bills', '12 contacts', 'Adjustable reminder times', 'Malaysian payroll calculator', 'All built-in wallpapers and themes'] },
-      { id: 'zenith', name: 'Zenith', icon: 'fa-rocket', color: '#a78bfa', tag: 'No limits', price: 'RM19 / month', rank: 2, perks: ['Lumi: 15 questions a day, and it can add things for you', '10 AI insights a day in Analytics', '1 GB of file storage (50 MB per file)', 'Unlimited reminders, habits, goals, bills and contacts', 'Everything in Glow', 'Upload your own wallpaper', 'Early access to new features'] },
+      { id: 'dawn', name: 'Dawn', icon: 'fa-seedling', color: '#34d399', tag: 'Start here', price: 'Free forever', rank: 0, perks: ['Lumi: 3 questions a day (answers only)', '50 MB of file storage (5 MB per file)', '5 custom reminders', '5 habits, 3 goals, 5 bills', '3 contacts', 'Core calendar, tasks, notes, money and health', '2 wallpapers, 1 theme', 'Chat with contacts: up to 50 messages a day'] },
+      { id: 'glow', name: 'Glow', icon: 'fa-sun', color: '#fbbf24', tag: 'The full toolkit', price: 'RM9 / month', rank: 1, perks: ['Lumi: 10 questions a day, and it can add things for you', '3 AI insights a day in Analytics', '300 MB of file storage (20 MB per file)', '25 custom reminders', '10 habits, 5 goals, 12 bills', '12 contacts', 'Adjustable reminder times', 'Malaysian payroll calculator', 'All built-in wallpapers and themes', 'Chat with contacts: up to 50 messages a day'] },
+      { id: 'zenith', name: 'Zenith', icon: 'fa-rocket', color: '#a78bfa', tag: 'No limits', price: 'RM19 / month', rank: 2, perks: ['Lumi: 15 questions a day, and it can add things for you', '10 AI insights a day in Analytics', '1 GB of file storage (50 MB per file)', 'Unlimited reminders, habits, goals, bills and contacts', 'Everything in Glow', 'Upload your own wallpaper', 'Early access to new features', 'Chat with contacts: up to 50 messages a day'] },
     ];
     let planFirst = false, planResolve = null; // planFirst: the welcome version shown once after the first login
     function openPlans(first) {
