@@ -9678,6 +9678,7 @@
       if (!session) return; // requireSession already redirected
       LUMA_USER = session.user;
 
+      await flushPendingProfile(); // anything that could not be saved last time
       const { data, error } = await LumaAuth.getProfile();
       if (!error) LUMA_PROFILE = data;
       await LumaPlan.load(); // which plan this account is on, and its limits
@@ -9742,11 +9743,28 @@
     // Background, theme and preferences all live on luma.profiles now (see
     // applyUserUI below) instead of localStorage, so they follow the
     // account rather than the browser.
+    // Your look and settings (theme, wallpaper, preferences) live in your account, so they follow you to any device.
+    // If saving fails (offline, a hiccup) the change is kept on this device and sent the next time you open LUMA.
+    const PENDING_PROFILE = 'luma_profile_pending';
+    async function saveProfile(fields) {
+      const { data, error } = await LumaAuth.updateProfile(fields);
+      if (!error) { LUMA_PROFILE = data; return { data }; }
+      try { const p = JSON.parse(localStorage.getItem(PENDING_PROFILE) || '{}'); localStorage.setItem(PENDING_PROFILE, JSON.stringify({ ...p, ...fields })); } catch (e) { }
+      console.warn("LUMA: couldn't save to your account yet", error.message);
+      flashToast("Couldn't save that to your account", "It's kept on this device and will be saved when you next open LUMA online.", 'fa-triangle-exclamation', '#f59e0b');
+      return { error };
+    }
+    async function flushPendingProfile() {
+      try {
+        const p = JSON.parse(localStorage.getItem(PENDING_PROFILE) || 'null'); if (!p) return;
+        const { data, error } = await LumaAuth.updateProfile(p);
+        if (!error) { LUMA_PROFILE = data; localStorage.removeItem(PENDING_PROFILE); }
+      } catch (e) { }
+    }
     async function setLumaPref(key, val) {
       const prefs = { ...((LUMA_PROFILE && LUMA_PROFILE.preferences) || {}), [key]: val };
-      const { data, error } = await LumaAuth.updateProfile({ preferences: prefs });
-      if (!error) LUMA_PROFILE = data;
-      else console.warn("LUMA: couldn't save preference (is the luma schema exposed yet?)", error.message);
+      if (LUMA_PROFILE) LUMA_PROFILE.preferences = prefs; // use it at once; the save follows
+      await saveProfile({ preferences: prefs });
     }
 
     const prefOn = (key, dflt) => { const v = ((LUMA_PROFILE && LUMA_PROFILE.preferences) || {})[key]; return v === undefined ? dflt : !!v; };
@@ -14089,9 +14107,7 @@
         pg.querySelectorAll('.theme-opt').forEach(o => o.addEventListener('click', async () => {
           if (o.classList.contains('plan-lock')) return planLocked('More themes', 'the Glow and Zenith plans');
           const t = o.dataset.theme; applyTheme(t); markTheme(t);
-          const { data, error } = await LumaAuth.updateProfile({ theme: t });
-          if (!error) LUMA_PROFILE = data;
-          else console.warn("LUMA: couldn't save theme (is the luma schema exposed yet?)", error.message);
+          await saveProfile({ theme: t });
         }));
         // background — saved to luma.profiles.background_url
         const mark = (val) => pg.querySelectorAll('.bg-thumb').forEach(t => t.classList.toggle('active', t.dataset.bg === val));
@@ -14099,9 +14115,7 @@
         pg.querySelectorAll('.bg-thumb').forEach(t => t.addEventListener('click', async () => {
           if (t.classList.contains('plan-lock')) return planLocked('More wallpapers', 'the Glow and Zenith plans');
           const url = t.dataset.bg; mark(url); if (!await applyBgValue(url)) return luAlert('Could not load that picture. Try uploading it again.');
-          const { data, error } = await LumaAuth.updateProfile({ background_url: url });
-          if (!error) LUMA_PROFILE = data;
-          else console.warn("LUMA: couldn't save background (is the luma schema exposed yet?)", error.message);
+          await saveProfile({ background_url: url });
         }));
         const file = pg.querySelector('#bgFile');
         pg.querySelector('#bgUpload').addEventListener('click', () => LumaPlan.has('own_wallpaper') ? file.click() : planLocked('Uploading your own wallpaper', 'the Zenith plan'));
