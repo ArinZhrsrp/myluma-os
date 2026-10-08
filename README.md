@@ -356,6 +356,7 @@ supabase/migrations/
   032_reminders.sql            Reminders page: your own reminders (e.g. last weekday of the month), inbox + push
   033_plans.sql                plans Dawn / Glow / Zenith: limits table + enforcement (existing accounts become Zenith)
   035_more_reminder_prefs.sql  Settings → Reminders: habits + health on/off, budget warning percentage
+  039_lock_health_reminder_times.sql  Dawn: Health reminder times fixed (Glow / Zenith can choose)
   038_lock_budget_pct.sql      Dawn: budget warning level fixed at 80% (Glow / Zenith can choose)
   037_chat_limit.sql           chat: 50 messages a day per person on every plan (luma.plan_limits 'chat_messages')
   036_admin.sql                super admin: Admin page, change anyone's plan (audit log)
