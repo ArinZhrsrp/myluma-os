@@ -10232,11 +10232,12 @@
       const { data, error } = await LumaAuth.client.schema('luma').from('reminder_prefs').select('*').maybeSingle();
       if (error) err(/reminder_prefs|schema cache|does not exist/i.test(error.message) ? 'Reminder settings aren\'t set up yet — run supabase/migrations/031_reminder_prefs.sql in the Supabase SQL Editor.' : error.message);
       const v = { ...REM_DEFAULTS, ...(data || {}) };
+      if (!LumaPlan.has('timing')) ['event_lead_min', 'allday_hour', 'task_hour', 'bill_hour', 'bill_days', 'sub_hour', 'sub_days', 'goal_hour', 'goal_days', 'budget_pct'].forEach(k => { v[k] = REM_DEFAULTS[k]; }); // Dawn: the standard times are what is used, so that is what is shown
       const dim = () => box.querySelectorAll('.setting-row, .rp-card').forEach(r => { const sw = r.querySelector('.switch'); r.classList.toggle('rem-off', !!sw && !sw.classList.contains('on')); });
       box.querySelectorAll('select[data-rem]').forEach(sel => { sel.value = String(v[sel.dataset.rem]); skinSelect(sel); });
       if (!LumaPlan.has('timing')) { // choosing the times is a Glow / Zenith feature; the on/off switches still work
         box.querySelectorAll('select[data-rem]').forEach(sel => { const b = sel._luWrap && sel._luWrap.querySelector('button'); if (b) b.disabled = true; sel._luWrap && sel._luWrap.classList.add('plan-locked'); });
-        const note = document.createElement('div'); note.className = 'ls'; note.style.cssText = 'margin:2px 0 6px;color:#fcd34d'; note.innerHTML = '<i class="fa-solid fa-lock"></i> Choosing reminder times and the budget warning level is available on Glow and Zenith. You can still switch each reminder on or off.'; box.querySelector('#remError').after(note);
+        const note = document.createElement('div'); note.className = 'ls'; note.style.cssText = 'margin:2px 0 6px;color:#fcd34d'; note.innerHTML = '<i class="fa-solid fa-lock"></i> These are the standard times and levels, and they are what is used when a reminder is on. Choosing your own is available on Glow and Zenith.'; box.querySelector('#remError').after(note);
       }
       box.querySelectorAll('.switch[data-rem]').forEach(sw => sw.classList.toggle('on', !!v[sw.dataset.rem]));
       dim();
@@ -13625,7 +13626,7 @@
       function lockRemTimes() {
         const locked = !LumaPlan.has('timing'), D = LumaHealth.DEFAULT_REMINDERS;
         let note = docEl('remLockNote');
-        if (!note) { note = document.createElement('div'); note.id = 'remLockNote'; note.className = 'ls'; note.style.cssText = 'margin:0 0 10px;color:#fcd34d'; note.innerHTML = '<i class="fa-solid fa-lock"></i> Choosing reminder times is available on Glow and Zenith. You can still switch each reminder on or off.'; docEl('remError').after(note); }
+        if (!note) { note = document.createElement('div'); note.id = 'remLockNote'; note.className = 'ls'; note.style.cssText = 'margin:0 0 10px;color:#fcd34d'; note.innerHTML = '<i class="fa-solid fa-lock"></i> These are the standard times, and they are what is used when a reminder is on. Choosing your own is available on Glow and Zenith.'; docEl('remError').after(note); }
         note.style.display = locked ? '' : 'none';
         if (locked) {
           const vals = { rWEvery: D.water_every_min, rWFrom: D.water_from, rWTo: D.water_to, rSEvery: D.steps_every_min, rSFrom: D.steps_from, rSTo: D.steps_to, rAEvery: D.active_every_min, rAFrom: D.active_from, rATo: D.active_to, rBed: D.bedtime, rWake: D.wake_time, rLead: D.sleep_lead_min };
