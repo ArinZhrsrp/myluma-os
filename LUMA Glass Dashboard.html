@@ -13854,8 +13854,8 @@
           const ans = faq.querySelector('.faq-a');
           const ic = faq.querySelector('.faq-ic');
           const open = ans.style.display === 'block';
-          ans.style.display = open ? 'none' : 'block';
-          ic.style.transform = open ? 'none' : 'rotate(90deg)';
+          pg.querySelectorAll('.faq').forEach(o => { o.querySelector('.faq-a').style.display = 'none'; o.querySelector('.faq-ic').style.transform = 'none'; }); // only one answer open at a time
+          if (!open) { ans.style.display = 'block'; ic.style.transform = 'rotate(90deg)'; faq.scrollIntoView({ block: 'nearest' }); }
         }));
       }
       return wp;
