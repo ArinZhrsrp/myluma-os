@@ -3425,3 +3425,8 @@
     .ad-perks li i { color:var(--ac); font-size:0.72rem; margin-top:4px; flex:none; }
     .ad-actions { display:flex; flex-direction:column; gap:8px; }
     .ad-actions .confirm-btn { width:100%; }
+    #planAddons { margin-top:18px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.1); }
+    #planAddons .pa-head { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+    #planAddons .pa-t { color:#fff; font-weight:700; font-size:1rem; }
+    #planAddons .pa-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    @media (max-width:640px) { #planAddons .pa-grid { grid-template-columns:1fr; } }
