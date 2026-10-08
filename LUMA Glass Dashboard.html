@@ -4256,6 +4256,12 @@
     .adm-meta { color:rgba(255,255,255,0.65); font-size:0.72rem; line-height:1.5; }
     .adm-plan .lu-select, .adm-plan .lu-sel-btn { width:100%; }
 
+    /* heading stays put; the page's content scrolls (Health, Contacts, Lumi, Support) */
+    .main-content.fit .page.active > .fit-root { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+
+    /* Settings: the heading stays put; only the cards scroll */
+    .main-content.fit #setRoot { flex:1 1 auto; min-height:0; overflow-y:auto; padding:2px 6px 24px 0; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+
     /* Dashboard: the top bar stays put; only the widgets scroll */
     .main-content.fit #page-dashboard .dashboard-grid { flex:1 1 auto; min-height:0; overflow-y:auto; align-content:start; grid-auto-rows:max-content; padding:2px 6px 24px 0; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
 
@@ -9621,6 +9627,7 @@
       const { data, error } = await LumaAuth.getProfile();
       if (!error) LUMA_PROFILE = data;
       await LumaPlan.load(); // which plan this account is on, and its limits
+      Object.keys(rendered).forEach(k => delete rendered[k]); // anything drawn before the plan was known is drawn again
       if (LumaPlan.admin) document.getElementById('menuAdmin').style.display = '';
       setAppTimezone((LUMA_PROFILE && LUMA_PROFILE.timezone) || (LUMA_USER.user_metadata && LUMA_USER.user_metadata.timezone)); // the time zone chosen at sign-up / in Edit profile
       if (error) console.info("LUMA: luma.profiles not reachable yet (run supabase/migrations/001_profiles_contacts_chat.sql and expose the schema) — using signup metadata instead.", error.message);
@@ -10160,11 +10167,19 @@
       analytics: 'Analytics', settings: 'Settings', support: 'Support', notifications: 'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin', 'dashboard']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin', 'dashboard', 'settings', 'health', 'contacts', 'assistant', 'support']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
     const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin']);
 
+    // pages whose markup is "heading + content": the content goes into one scrolling box so the heading stays put
+    const FIT_WRAP = new Set(['health', 'contacts', 'assistant', 'support']);
+    function fitWrap(pg, key) {
+      if (!FIT_WRAP.has(key) || pg.querySelector(':scope > .fit-root')) return;
+      const head = pg.querySelector(':scope > .page-head'), box = document.createElement('div'); box.className = 'fit-root';
+      [...pg.children].forEach(c => { if (c !== head) box.appendChild(c); });
+      pg.appendChild(box);
+    }
     function goTo(key) {
       if (!key || !titles[key]) return;
       closeContactChat(); // tear down any open chat's realtime subscription before navigating away
@@ -10173,7 +10188,7 @@
       if (pg) pg.classList.add('active');
       pageTitle.textContent = titles[key];
       document.querySelectorAll('.menu').forEach(i => i.classList.toggle('active', i.dataset.page === key));
-      if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); rendered[key] = true; LumaLoader.page(pg, key, wireModule(key)); } else if (key !== 'dashboard') LumaLoader.page(pg, key);
+      if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); fitWrap(pg, key); rendered[key] = true; LumaLoader.page(pg, key, wireModule(key)); } else if (key !== 'dashboard') LumaLoader.page(pg, key);
       const mc = document.querySelector('.main-content');
       mc.classList.toggle('fit', FIT_PAGES.has(key));
       if (key === 'calendar') calOnShow();
@@ -10385,7 +10400,7 @@
         const fld = (label, key, opts) => `<label class="rp-f"><span>${label}</span><select data-rem="${key}">${opts}</select></label>`;
         const remCard = (key, icon, color, title, desc, fields) => `<div class="rp-card ${fields ? '' : 'rp-slim'}"><div class="rp-top"><div class="rp-ico" style="--c:${color}"><i class="fa-solid ${icon}"></i></div><div class="rp-t"><div class="a">${title}</div><div class="b">${desc}</div></div><button type="button" class="switch" data-rem="${key}"><span class="knob"></span></button></div>${fields ? `<div class="rp-ctl">${fields}</div>` : ''}</div>`;
         return head('Settings', 'Preferences, theme and integrations') +
-          `<div class="card full-width" style="margin-bottom:0.9rem">
+          `<div id="setRoot"><div class="card full-width" style="margin-bottom:0.9rem">
           <div class="section-title"><i class="fa-regular fa-image"></i> Background</div>
           <p class="ls" style="margin-bottom:0.9rem">Choose a wallpaper or upload your own.</p>
           <div class="bg-grid" id="bgGrid">
@@ -10420,7 +10435,7 @@
             ${remCard('budget_on', 'fa-wallet', '#4ade80', 'Budget alerts', 'When your spending passes a share of your monthly budget, and when you go over', fld('Warn me at', 'budget_pct', [50, 60, 70, 75, 80, 85, 90, 95].map(p => `<option value="${p}">${p}% of budget</option>`).join('')))}
           </div>
           <p class="ls" style="margin-top:0.9rem;font-size:0.7rem;line-height:1.5">Your own one-off and repeating reminders (like the monthly timesheet) live on the Reminders page.</p>
-        </div>`;
+        </div></div>`;
       },
     };
 
@@ -14088,7 +14103,7 @@
       const fromPush = /[?&]from=push\b/.test(location.search);
       if (fresh && !fromPush) { if (location.hash) history.replaceState(null, '', location.pathname + location.search); return; }
       const key = decodeURIComponent(location.hash.slice(1));
-      if (key && key !== 'dashboard' && titles[key]) goTo(key);
+      if (key && key !== 'dashboard' && titles[key]) LumaPlan.loaded.then(() => goTo(key)); // wait for the plan so locked things render locked
     })();
 
     // widget shortcut links → modules
