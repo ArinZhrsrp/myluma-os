@@ -146,12 +146,14 @@
       flashToast(r.data === 'sent' ? 'Nudge sent' : 'Already nudged recently', r.data === 'sent' ? (m ? m.name : '') : 'You can nudge the same person again after a few hours', r.data === 'sent' ? 'fa-hand' : 'fa-clock', r.data === 'sent' ? '#22c55e' : '#fbbf24');
     }
     async function sdAddProjTask() {
-      const title = docEl('sdProjTaskTitle').value.trim(); if (!title) return;
+      const title = docEl('sdProjTaskTitle').value.trim();
+      if (!title) { sdErr('sdProjError', 'Type what the task is first, then press +.'); docEl('sdProjTaskTitle').focus(); return; }
       sdErr('sdProjError', ''); const r = await LumaStudy.groups.addTask(SDG.id, title, docEl('sdProjTaskWho').value, docEl('sdProjTaskDue').value || null);
       if (r.error) return sdErr('sdProjError', r.error.message);
       docEl('sdProjTaskTitle').value = ''; docEl('sdProjTaskDue').value = ''; docEl('sdProjTaskDue')._luDateRefresh && docEl('sdProjTaskDue')._luDateRefresh(); sdReloadProject();
     }
     docEl('sdProjTaskAdd').onclick = sdAddProjTask;
+    docEl('sdProjTaskTitle').addEventListener('input', () => sdErr('sdProjError', ''));
     docEl('sdProjTaskTitle').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sdAddProjTask(); } });
     docEl('sdProjInvite').onclick = async () => {
       const got = await sdPickContacts({ title: 'Invite classmates', exclude: new Set(SDG.d.members.map(m => m.user_id)) }); if (!got || !got.size) return;

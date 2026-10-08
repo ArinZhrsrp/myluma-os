@@ -346,3 +346,8 @@
     .sa-search input { flex:1; min-width:0; border:0; outline:0; background:transparent; color:#fff; font:inherit; font-size:0.84rem; }
     .sa-search input::placeholder { color:rgba(255,255,255,0.4); }
     .sd-row[data-sr] { cursor:pointer; }
+    /* the add-task row: the task text gets its own line, so it never gets squeezed out by the date, person and + */
+    .sd-taskadd { flex-wrap:wrap; align-items:center; }
+    .sd-taskadd #sdProjTaskTitle { flex:1 1 100%; min-width:0; }
+    .sd-taskadd .lu-select { flex:1 1 150px; min-width:140px; }
+    .sd-taskadd .np-btn { flex:none; width:44px; height:38px; }
