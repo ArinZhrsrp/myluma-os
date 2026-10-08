@@ -74,7 +74,7 @@
       }
       docEl('addonActions').innerHTML = (a.live ? '' : `<div class="ls" style="margin-bottom:4px">We're building this right now. It works on every plan (Dawn, Glow and Zenith) and will open here when it's ready.</div>`) + btn.join('');
       docEl('addonOverlay').classList.add('open');
-      docEl('addonOverlay').querySelectorAll('.profile-edit-modal').forEach(el => { el.scrollTop = 0; });
+      docEl('addonOverlay').querySelectorAll('.pem-body, .profile-edit-modal').forEach(el => { el.scrollTop = 0; });
     }
     const closeAddon = () => docEl('addonOverlay').classList.remove('open');
     docEl('addonClose').onclick = closeAddon;
