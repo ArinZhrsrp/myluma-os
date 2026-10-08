@@ -1,17 +1,32 @@
 // LUMA — module: studyarchive (the Study → Archive page)
     // Every semester you archived ("Done with this semester") lives here, with all its details: subjects and marks, timetable, assignments and notes.
     // Open one to look back; Restore brings the semester and its subjects back to your Study page. Subjects archived on their own are under "Archived subjects".
-    const SA = { sem: null, tab: 'subjects', other: null }; // sem: a semester id, '__none' (subjects archived on their own) or null (the list)
+    const SA = { sem: null, tab: 'subjects', other: null, q: '' }; // sem: a semester id, '__none' (subjects archived on their own) or null (the list)
     const SA_TABS = [['subjects', 'Subjects', 'fa-book'], ['timetable', 'Timetable', 'fa-calendar-week'], ['assignments', 'Assignments', 'fa-list-check'], ['notes', 'Notes', 'fa-note-sticky'], ['groups', 'Groups', 'fa-user-group'], ['other', 'Other', 'fa-layer-group']];
 
     MODULES.studyarchive = function () {
-      SA.sem = null; SA.tab = 'subjects'; SA.other = null; // opening the archive from the menu starts on the list of semesters
-      return head('Study archive', '<span id="saSub">Loading…</span>', `<div id="saBack" style="display:none"><button type="button" class="create-btn" id="saBackBtn"><i class="fa-solid fa-arrow-left"></i> All semesters</button></div>`) + '<div id="saRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+      SA.sem = null; SA.tab = 'subjects'; SA.other = null; SA.q = ''; // opening the archive from the menu starts on the list of semesters
+      return head('Study archive', '<span id="saSub">Loading…</span>', `<div class="sa-search"><i class="fa-solid fa-magnifying-glass"></i><input id="saSearch" type="text" placeholder="Search the archive…" autocomplete="off" value="${escapeHtml(SA.q)}"></div><div id="saBack" style="display:none"><button type="button" class="create-btn" id="saBackBtn"><i class="fa-solid fa-arrow-left"></i> All semesters</button></div>`) + '<div id="saRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
     };
     // the subjects shown for the archived semester being looked at
     const saCourses = () => SA.sem === '__none' ? SD.courses.filter(c => c.archived && !(c.semester_id && sdSem(c.semester_id) && sdSem(c.semester_id).archived_at)) : SD.courses.filter(c => c.semester_id === SA.sem);
     const saDateRange = sem => `${sdShort(sem.start_date)} to ${sdFmtDate(sem.end_date, { day: 'numeric', month: 'short', year: 'numeric' })}`;
 
+    // search everything that is archived: semesters (and their remarks), subjects, assignments, notes and group projects
+    function saResults(q) {
+      const words = q.toLowerCase().split(/\s+/).filter(Boolean), hit = (...t) => { const h = t.join(' ').toLowerCase(); return words.every(w => h.includes(w)); };
+      const sems = SD.semesters.filter(x => x.archived_at), out = [];
+      const groupsOf = (semId, courses) => {
+        const ids = courses.map(c => c.id), label = semId === '__none' ? 'Archived subjects' : (sdSem(semId) || {}).name;
+        courses.forEach(c => { if (hit(c.name, c.code, c.lecturer)) out.push({ sem: semId, label, tab: 'subjects', icon: 'fa-book', title: c.name, sub: 'Subject' + (c.code ? ' · ' + c.code : '') }); });
+        SD.tasks.filter(t => ids.includes(t.course_id) || (semId !== '__none' && t.semester_id === semId)).forEach(t => { if (hit(t.title, t.notes, (sdCourse(t.course_id) || {}).name)) out.push({ sem: semId, label, tab: 'assignments', icon: 'fa-list-check', title: t.title, sub: `${sdKind(t.kind)[1]}${sdCourse(t.course_id) ? ' · ' + sdCourse(t.course_id).name : ''}${t.due_date ? ' · ' + sdShort(t.due_date) : ''}` }); });
+        SDN.notes.filter(n => ids.includes(n.course_id) || (semId !== '__none' && n.semester_id === semId)).forEach(n => { if (hit(n.title, n.body)) out.push({ sem: semId, label, tab: 'notes', icon: 'fa-note-sticky', title: n.title, sub: 'Note' + (sdCourse(n.course_id) ? ' · ' + sdCourse(n.course_id).name : '') }); });
+        if (semId !== '__none') SDG.list.filter(p => p.semester_id === semId).forEach(p => { if (hit(p.title, p.course_name)) out.push({ sem: semId, label, tab: 'groups', icon: 'fa-user-group', title: p.title, sub: 'Group project' }); });
+      };
+      sems.forEach(sem => { if (hit(sem.name, sem.remark)) out.push({ sem: sem.id, label: sem.name, tab: 'subjects', icon: 'fa-calendar-days', title: sem.name, sub: sem.remark ? 'Semester · “' + sem.remark.slice(0, 60) + '”' : 'Semester' }); groupsOf(sem.id, SD.courses.filter(c => c.semester_id === sem.id)); });
+      groupsOf('__none', SD.courses.filter(c => c.archived && !(c.semester_id && sdSem(c.semester_id) && sdSem(c.semester_id).archived_at)));
+      return out;
+    }
     function saPaint() {
       const root = document.getElementById('saRoot'), sub = document.getElementById('saSub'); if (!root) return;
       const back = document.getElementById('saBack'); back.style.display = SA.sem ? '' : 'none';
@@ -19,6 +34,12 @@
       const sems = SD.semesters.filter(x => x.archived_at).sort((a, b) => b.end_date.localeCompare(a.end_date));
       const loose = SD.courses.filter(c => c.archived && !(c.semester_id && sdSem(c.semester_id) && sdSem(c.semester_id).archived_at));
       if (SA.sem && SA.sem !== '__none' && !sdSem(SA.sem)) SA.sem = null;
+      if (!SA.sem && SA.q.trim()) {
+        const res = saResults(SA.q.trim()); sub.textContent = `${res.length} result${res.length === 1 ? '' : 's'} in the archive`;
+        const by = {}; res.forEach(r => { (by[r.sem] = by[r.sem] || { label: r.label, rows: [] }).rows.push(r); });
+        root.innerHTML = res.length ? Object.keys(by).map(k => card(`<div class="section-title"><i class="fa-solid fa-box-archive"></i> ${escapeHtml(by[k].label)} <span class="sd-count">${by[k].rows.length}</span></div>${by[k].rows.map(r => `<div class="sd-row" data-sr data-sem="${k}" data-tab="${r.tab}"><i class="fa-solid ${r.icon}" style="color:#34d399;width:22px;text-align:center"></i><div class="sd-rb"><div class="sd-rt">${escapeHtml(r.title)}</div><div class="sd-rm">${escapeHtml(r.sub)}</div></div><i class="fa-solid fa-chevron-right" style="color:rgba(255,255,255,0.4);font-size:0.7rem"></i></div>`).join('')}`)).join('') : card(`<div class="ls" style="padding:8px 2px">Nothing in the archive matches “${escapeHtml(SA.q.trim())}”.</div>`);
+        return;
+      }
       if (!SA.sem) {
         sub.textContent = sems.length || loose.length ? `${sems.length} archived semester${sems.length === 1 ? '' : 's'}${loose.length ? ` · ${loose.length} archived subject${loose.length === 1 ? '' : 's'}` : ''}` : 'Finished semesters live here';
         if (!sems.length && !loose.length) { root.innerHTML = card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-box-archive"></i></div><div class="h-empty-t">Nothing archived yet</div><div class="h-empty-s">When a semester is over, open Study → Semesters and choose <b>Done with this semester</b>. Its subjects, timetable, assignments and marks are kept here, and you can open them any time.</div><div class="h-empty-chips"><button type="button" class="h-chip" data-sa-go="study"><i class="fa-solid fa-calendar-days" style="color:#34d399"></i>Go to Semesters</button></div></div>`); return; }
@@ -105,7 +126,11 @@
     }
     WIRE.studyarchive = async function (pg) {
       pg.querySelector('#saBackBtn').addEventListener('click', () => { SA.sem = null; saPaint(); });
+      const box = pg.querySelector('#saSearch');
+      box.addEventListener('focus', async () => { let more = false; if (!SDN.loaded) { await sdNotesLoad(); more = true; } if (!SDG.loaded) { await sdGroupsLoad(); more = true; } if (more && SA.q.trim()) saPaint(); });
+      box.addEventListener('input', () => { SA.q = box.value; SA.sem = null; saPaint(); });
       pg.querySelector('#saRoot').addEventListener('click', async e => {
+        const sr = e.target.closest('[data-sr]'); if (sr) { SA.q = ''; document.getElementById('saSearch').value = ''; SA.sem = sr.dataset.sem; SA.tab = sr.dataset.tab; saPaint(); if (SA.tab === 'notes' && !SDN.loaded) { await sdNotesLoad(); saPaint(); } if (SA.tab === 'groups' && !SDG.loaded) { await sdGroupsLoad(); saPaint(); } return; }
         const go = e.target.closest('[data-sa-go]'); if (go) { if (go.dataset.saGo === 'study') { SD.tab = 'semesters'; SD.keepTab = true; } return goTo(go.dataset.saGo); }
         const open = e.target.closest('[data-sa-open]'); if (open) { SA.sem = open.dataset.saOpen; SA.tab = 'subjects'; saPaint(); const r = document.getElementById('saRoot'); if (r) r.scrollTop = 0; return; }
         const tab = e.target.closest('[data-sa-tab]'); if (tab) {
