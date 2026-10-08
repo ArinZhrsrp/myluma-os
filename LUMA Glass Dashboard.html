@@ -4229,6 +4229,9 @@
     .rp-f { flex:1; min-width:0; display:flex; flex-direction:column; gap:5px; }
     .rp-f > span { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.55); font-weight:600; }
     .rp-f .lu-select, .rp-f .lu-sel-btn { width:100%; }
+    .rp-link { width:100%; height:44px; border-radius:12px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.9); font:500 0.78rem inherit; font-family:inherit; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:0.15s; }
+    .rp-link:hover { background:rgba(255,255,255,0.1); }
+    .rp-link i { font-size:0.65rem; }
     .rp-card.rp-slim { grid-column:1 / -1; padding:12px 14px; } /* a card with no options sits as one slim row instead of stretching */
     .rp-card.rem-off .rp-ctl { opacity:0.4; pointer-events:none; }
 
@@ -10133,7 +10136,7 @@
     const btn = (label, icon) => `<button class="create-btn">${icon ? `<i class="fa-solid ${icon}"></i>` : ''} ${label}</button>`;
 
     const REM_HOURS = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
-    const REM_DEFAULTS = { event_on: true, event_lead_min: 15, allday_hour: 8, task_on: true, task_hour: 9, bill_on: true, bill_hour: 9, bill_days: 3, sub_on: true, sub_hour: 9, sub_days: 3, goal_on: true, goal_hour: 9, goal_days: 3, budget_on: true };
+    const REM_DEFAULTS = { habit_on: true, health_on: true, budget_pct: 80, event_on: true, event_lead_min: 15, allday_hour: 8, task_on: true, task_hour: 9, bill_on: true, bill_hour: 9, bill_days: 3, sub_on: true, sub_hour: 9, sub_days: 3, goal_on: true, goal_hour: 9, goal_days: 3, budget_on: true };
     async function wireReminderPrefs(pg) {
       const box = pg.querySelector('#remPrefs'); if (!box) return;
       const err = m => { const e = box.querySelector('#remError'); e.textContent = m; e.style.display = m ? 'flex' : 'none'; };
@@ -10143,7 +10146,7 @@
       const dim = () => box.querySelectorAll('.setting-row, .rp-card').forEach(r => { const sw = r.querySelector('.switch'); r.classList.toggle('rem-off', !!sw && !sw.classList.contains('on')); });
       box.querySelectorAll('select[data-rem]').forEach(sel => { sel.value = String(v[sel.dataset.rem]); skinSelect(sel); });
       if (!LumaPlan.has('timing')) { // choosing the times is a Glow / Zenith feature; the on/off switches still work
-        box.querySelectorAll('select[data-rem]').forEach(sel => { const b = sel._luWrap && sel._luWrap.querySelector('button'); if (b) b.disabled = true; sel._luWrap && sel._luWrap.classList.add('plan-locked'); });
+        box.querySelectorAll('select[data-rem]:not([data-rem="budget_pct"])').forEach(sel => { const b = sel._luWrap && sel._luWrap.querySelector('button'); if (b) b.disabled = true; sel._luWrap && sel._luWrap.classList.add('plan-locked'); });
         const note = document.createElement('div'); note.className = 'ls'; note.style.cssText = 'margin:2px 0 6px;color:#fcd34d'; note.innerHTML = '<i class="fa-solid fa-lock"></i> Choosing reminder times is available on Glow and Zenith. You can still switch each reminder on or off.'; box.querySelector('#remError').after(note);
       }
       box.querySelectorAll('.switch[data-rem]').forEach(sw => sw.classList.toggle('on', !!v[sw.dataset.rem]));
@@ -10154,6 +10157,7 @@
         if (e) err(/reminder_prefs|schema cache|does not exist/i.test(e.message) ? 'Reminder settings aren\'t set up yet — run supabase/migrations/031_reminder_prefs.sql in the Supabase SQL Editor.' : e.message);
         else flashToast('Reminder saved', '', 'fa-check', '#22c55e');
       };
+      box.addEventListener('click', e => { const g = e.target.closest('[data-golink]'); if (g) goTo(g.dataset.golink); });
       box.addEventListener('change', e => { const sel = e.target.closest('select[data-rem]'); if (sel) save({ [sel.dataset.rem]: Number(sel.value) }); });
       box.addEventListener('click', e => { const sw = e.target.closest('.switch[data-rem]'); if (!sw) return; setTimeout(() => { dim(); save({ [sw.dataset.rem]: sw.classList.contains('on') }); }, 0); });
     }
@@ -10315,7 +10319,7 @@
         </div>
         <div class="card full-width" style="margin-top:0.9rem" id="remPrefs">
           <div class="section-title"><i class="fa-regular fa-clock"></i> Reminders</div>
-          <p class="ls">Choose which reminders you get and when. Times follow your time zone (${tzOffsetLabel()}). They arrive in your inbox and as push notifications.</p>
+          <p class="ls" style="font-size:0.72rem;line-height:1.5">Choose which reminders you get and when. Times follow your time zone (${tzOffsetLabel()}). They arrive in your inbox and as push notifications.</p>
           <div class="pem-msg error" id="remError"></div>
           <div class="rp-grid">
             ${remCard('event_on', 'fa-calendar', '#8b5cf6', 'Calendar events', 'Before a timed event, and a morning heads-up for all-day ones', fld('Remind me', 'event_lead_min', [5, 10, 15, 30, 60].map(m => `<option value="${m}">${m} min before</option>`).join('')) + fld('All-day at', 'allday_hour', hourOpts))}
@@ -10323,9 +10327,11 @@
             ${remCard('bill_on', 'fa-file-invoice-dollar', '#f59e0b', 'Bills', 'Before the due date, on it, and the day after if unpaid', fld('Remind me', 'bill_days', dayOpts) + fld('Send at', 'bill_hour', hourOpts))}
             ${remCard('sub_on', 'fa-repeat', '#f472b6', 'Subscriptions', 'Before a subscription renews', fld('Remind me', 'sub_days', dayOpts) + fld('Send at', 'sub_hour', hourOpts))}
             ${remCard('goal_on', 'fa-bullseye', '#34d399', 'Goals', 'Before a goal deadline, and on the day', fld('Remind me', 'goal_days', dayOpts) + fld('Send at', 'goal_hour', hourOpts))}
-            ${remCard('budget_on', 'fa-wallet', '#4ade80', 'Budget alerts', 'At 80% of your monthly budget, and when you go over', '')}
+            ${remCard('habit_on', 'fa-fire', '#fb923c', 'Habits', 'At the reminder time you set on each habit, if it is not done yet', '<button type="button" class="rp-link" data-golink="habits">Set times on each habit <i class="fa-solid fa-arrow-right"></i></button>')}
+            ${remCard('health_on', 'fa-heart-pulse', '#f87171', 'Health', 'Water, steps, active minutes and sleep reminders', '<button type="button" class="rp-link" data-golink="health">Set times on the Health page <i class="fa-solid fa-arrow-right"></i></button>')}
+            ${remCard('budget_on', 'fa-wallet', '#4ade80', 'Budget alerts', 'When your spending passes a share of your monthly budget, and when you go over', fld('Warn me at', 'budget_pct', [50, 60, 70, 75, 80, 85, 90, 95].map(p => `<option value="${p}">${p}% of budget</option>`).join('')))}
           </div>
-          <p class="ls" style="margin-top:0.9rem">Health reminders (water, steps, sleep) are set on the Health page. Each habit has its own reminder time, and your own reminders live on the Reminders page.</p>
+          <p class="ls" style="margin-top:0.9rem;font-size:0.7rem;line-height:1.5">Your own one-off and repeating reminders (like the monthly timesheet) live on the Reminders page.</p>
         </div>`;
       },
     };

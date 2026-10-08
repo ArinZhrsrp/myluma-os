@@ -301,6 +301,7 @@ supabase/migrations/
   031_reminder_prefs.sql       Settings → Reminders: on/off + timing per reminder type
   032_reminders.sql            Reminders page: your own reminders (e.g. last weekday of the month), inbox + push
   033_plans.sql                plans Dawn / Glow / Zenith: limits table + enforcement (existing accounts become Zenith)
+  035_more_reminder_prefs.sql  Settings → Reminders: habits + health on/off, budget warning percentage
   034_weekly_review.sql        Sunday 18:00 weekly review notification (Settings → Preferences → Weekly review)
 ```
 
