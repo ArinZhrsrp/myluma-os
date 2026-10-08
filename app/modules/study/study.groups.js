@@ -107,7 +107,7 @@
         const up = await LumaDocuments.upload(file); if (up.error) throw new Error(up.error.message);
         const at = await LumaStudy.groups.attach(SDG.id, up.data.id); if (at.error) throw new Error(at.error.message);
       } catch (e) { sdErr('sdProjError', 'Could not attach the file: ' + e.message); }
-      b.disabled = false; b.innerHTML = '<i class="fa-solid fa-paperclip"></i> Attach a file'; sdLoadFiles();
+      b.disabled = false; b.innerHTML = '<i class="fa-solid fa-paperclip"></i> Attach a file'; sdLoadFiles(); if (!docEl('sdProjError').textContent) flashToast('File attached', 'Your teammates can open it now', 'fa-paperclip', '#22c55e');
     };
     docEl('sdProjCmtSend').onclick = async () => {
       const t = docEl('sdProjCmtText').value.trim(); sdErr('sdProjCmtErr', '');
@@ -154,7 +154,7 @@
       if (!title) { sdErr('sdProjError', 'Type what the task is first, then press +.'); docEl('sdProjTaskTitle').focus(); return; }
       sdErr('sdProjError', ''); const r = await LumaStudy.groups.addTask(SDG.id, title, docEl('sdProjTaskWho').value, docEl('sdProjTaskDue').value || null);
       if (r.error) return sdErr('sdProjError', r.error.message);
-      docEl('sdProjTaskTitle').value = ''; docEl('sdProjTaskDue').value = ''; docEl('sdProjTaskDue')._luDateRefresh && docEl('sdProjTaskDue')._luDateRefresh(); sdReloadProject();
+      docEl('sdProjTaskTitle').value = ''; docEl('sdProjTaskDue').value = ''; docEl('sdProjTaskDue')._luDateRefresh && docEl('sdProjTaskDue')._luDateRefresh(); sdReloadProject(); flashToast('Task added', title, 'fa-check', '#22c55e');
     }
     docEl('sdProjTaskAdd').onclick = sdAddProjTask;
     docEl('sdProjTaskTitle').addEventListener('input', () => sdErr('sdProjError', ''));
@@ -164,11 +164,14 @@
       const r = await LumaStudy.groups.invite(SDG.id, [...got.keys()]); if (r.error) return sdErr('sdProjError', r.error.message);
       flashToast('Invitations sent', [...got.values()].join(', '), 'fa-paper-plane', '#22c55e'); sdReloadProject();
     };
+    // the Save button says what is going on: greyed + "All changes saved" while there is nothing to save, "Save changes" once you have edited the details or notes
+    new MutationObserver(() => { const b = docEl('sdProjSave'); if (b.textContent.trim() === 'Saving…') return; b.innerHTML = b.disabled ? '<i class="fa-solid fa-check"></i> All changes saved' : 'Save changes'; }).observe(docEl('sdProjSave'), { attributes: true, attributeFilter: ['disabled'] });
+    docEl('sdProjSave').innerHTML = '<i class="fa-solid fa-check"></i> All changes saved';
     docEl('sdProjSave').onclick = async () => {
       const owner = SDG.d.project.owner_id === sdMe(), title = docEl('sdProjTitle').value.trim();
       if (owner && !title) return sdErr('sdProjError', 'The project needs a name.');
       const fields = owner ? { title, course_name: docEl('sdProjCourse').value.trim(), due_date: docEl('sdProjDue').value || null, notes: docEl('sdProjNotes').value } : { notes: docEl('sdProjNotes').value };
-      sdErr('sdProjError', ''); sdBtn('sdProjSave', true); const r = await LumaStudy.groups.update(SDG.id, fields); sdBtn('sdProjSave', false, 'Save');
+      sdErr('sdProjError', ''); sdBtn('sdProjSave', true); const r = await LumaStudy.groups.update(SDG.id, fields); sdBtn('sdProjSave', false, 'Save changes');
       if (r.error) return sdErr('sdProjError', r.error.message);
       sdClose('sdProjOverlay'); sdGroupsLoad(); flashToast('Project saved', '', 'fa-check', '#22c55e');
     };
