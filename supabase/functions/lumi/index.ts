@@ -34,6 +34,9 @@ const PROVIDERS = [
 const EXPENSE_CATS = ["Housing", "Food & dining", "Groceries", "Transport", "Bills & utilities", "Subscriptions", "Shopping", "Health", "Entertainment", "Education", "Insurance", "Debt", "Other"];
 const INCOME_CATS = ["Bonus", "Freelance", "Investment", "Gift", "Other income"];
 const EVENT_CATS = ["Work", "Meeting", "Personal", "Health", "Social", "Other"];
+const STUDY_KINDS = ["assignment", "quiz", "test", "exam", "project", "other"];
+const REMINDER_KINDS = ["once", "daily", "weekdays", "weekends", "weekly", "monthly", "yearly"];
+const STUDY_COLORS = ["#34d399", "#60a5fa", "#a78bfa", "#f472b6", "#fbbf24", "#fb923c", "#f87171", "#2dd4bf"];
 
 // ---- tools -----------------------------------------------------------------
 const TOOLS = [
@@ -41,7 +44,7 @@ const TOOLS = [
     title: s("Event title"), date: s("YYYY-MM-DD"), start_time: s("24-hour HH:MM, omit for an all-day event"), end_time: s("24-hour HH:MM, optional"),
     category: { type: "string", enum: EVENT_CATS }, repeats: { type: "string", enum: ["none", "daily", "weekly", "monthly", "yearly"] }, note: s("optional note"),
   }, ["title", "date"]),
-  fn("create_task", "Add a task. A due date is required (ask the user if they didn't give one).", {
+  fn("create_task", "Add one task. A due date is required: if the user gave none, choose a sensible one.", {
     title: s("Task title"), due_date: s("YYYY-MM-DD"), priority: { type: "string", enum: ["low", "med", "high"] },
     tag: { type: "string", enum: ["Personal", "Work", "Study", "Errand"] }, notes: s("optional notes"),
   }, ["title", "due_date"]),
@@ -54,8 +57,28 @@ const TOOLS = [
     amount: n("amount in the user's currency, above 0"), kind: { type: "string", enum: ["expense", "income"] },
     category: s("Expense: " + EXPENSE_CATS.join(", ") + ". Income: " + INCOME_CATS.join(", ")), name: s("short description"), date: s("YYYY-MM-DD, default today"),
   }, ["amount"]),
+  // ----- several at once (up to 20): used for "add 10 reminders", "add my timetable", "add 5 assignments" … -----
+  fn("create_reminders", "Create one or more reminders on the user's Reminders page (up to 20). Missing details are filled with sensible values.", {
+    items: arr({ title: s("Reminder text"), date: s("YYYY-MM-DD (first date)"), time: s("24-hour HH:MM"), note: s("optional"), repeats: { type: "string", enum: REMINDER_KINDS } }, ["title"]),
+  }, ["items"]),
+  fn("add_study_items", "Add assignments, quizzes, tests, exams or projects to the Study area (up to 20). LUMA reminds the user before each is due, so use this for study reminders and deadlines. The subject is created if it is new.", {
+    items: arr({ title: s("Title"), kind: { type: "string", enum: STUDY_KINDS }, subject: s("Subject name"), due_date: s("YYYY-MM-DD"), due_time: s("24-hour HH:MM, optional"), weight: n("percent of the subject's grade, optional"), notes: s("optional") }, ["title"]),
+  }, ["items"]),
+  fn("add_study_subjects", "Add subjects (courses) to the Study area (up to 20).", {
+    items: arr({ name: s("Subject name"), code: s("optional code"), credit_hours: { type: "integer", description: "optional" } }, ["name"]),
+  }, ["items"]),
+  fn("add_study_classes", "Add weekly classes to the user's timetable (up to 20). The subject is created if it is new.", {
+    items: arr({ subject: s("Subject name"), weekdays: { type: "array", items: { type: "integer" }, description: "0 = Sunday … 6 = Saturday" }, start_time: s("24-hour HH:MM"), end_time: s("24-hour HH:MM"), room: s("optional"), kind: { type: "string", enum: ["lecture", "tutorial", "lab", "other"] }, weeks: { type: "integer", description: "how many weeks it runs, omit for every week" }, starts_on: s("YYYY-MM-DD, default today") }, ["subject", "weekdays"]),
+  }, ["items"]),
+  fn("create_tasks", "Add several tasks at once (up to 20). Missing details are filled with sensible values.", {
+    items: arr({ title: s("Task title"), due_date: s("YYYY-MM-DD"), priority: { type: "string", enum: ["low", "med", "high"] }, tag: { type: "string", enum: ["Personal", "Work", "Study", "Errand"] }, notes: s("optional") }, ["title"]),
+  }, ["items"]),
+  fn("create_events", "Add several calendar events at once (up to 20). Missing details are filled with sensible values.", {
+    items: arr({ title: s("Event title"), date: s("YYYY-MM-DD"), start_time: s("24-hour HH:MM, omit for all-day"), end_time: s("optional"), category: { type: "string", enum: EVENT_CATS }, note: s("optional") }, ["title"]),
+  }, ["items"]),
   fn("get_overview", "Read the user's current data: open tasks, upcoming events, this month's money, bills, last 7 days of health and habits.", {}, []),
 ];
+function arr(properties: Record<string, unknown>, required: string[]) { return { type: "array", maxItems: 20, items: { type: "object", properties, required } }; }
 function s(description: string) { return { type: "string", description }; }
 function n(description: string) { return { type: "number", description }; }
 function fn(name: string, description: string, properties: Record<string, unknown>, required: string[]) {
@@ -64,11 +87,26 @@ function fn(name: string, description: string, properties: Record<string, unknow
 
 const isDate = (v: unknown) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && !isNaN(Date.parse(v));
 const isTime = (v: unknown) => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+const addMinutes = (t: string, m: number) => { const [h, mi] = t.split(":").map(Number), v = Math.min(23 * 60 + 59, h * 60 + mi + m); return String(Math.floor(v / 60)).padStart(2, "0") + ":" + String(v % 60).padStart(2, "0"); };
+const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * 864e5).toISOString().slice(0, 10);
+const list = (v: unknown): any[] => (Array.isArray(v) ? v.filter((x) => x && typeof x === "object").slice(0, 20) : []);
 const pick = (v: unknown, list: string[], d: string) => (typeof v === "string" && list.find((x) => x.toLowerCase() === v.toLowerCase())) || d;
 
 async function runTool(name: string, a: any, db: any, today: string, uid: string): Promise<unknown> {
   const fail = (m: string) => ({ ok: false, error: m });
-  const res = (r: { data?: any; error?: any }, ok: unknown) => (r.error ? fail(r.error.message) : { ok: true, ...(ok as object) });
+  const res = (r: { data?: any; error?: any }, ok: unknown) => (r.error ? fail(/row-level security|violates/i.test(r.error.message) ? "That isn't switched on for this account (for Study, the Study add-on must be active)." : r.error.message) : { ok: true, ...(ok as object) });
+  // finds a subject by name, creating it when it is new (used by the study tools)
+  const courseIds = async (names: string[]) => {
+    const { data: have } = await db.from("study_courses").select("id, name");
+    const map = new Map<string, string>((have || []).map((c: any) => [String(c.name).toLowerCase(), c.id]));
+    for (const nm of [...new Set(names.map((x) => String(x || "").trim()).filter(Boolean))]) {
+      if (map.has(nm.toLowerCase())) continue;
+      const r = await db.from("study_courses").insert({ name: nm.slice(0, 80), color: STUDY_COLORS[map.size % STUDY_COLORS.length] }).select("id").single();
+      if (r.error) throw new Error(r.error.message);
+      map.set(nm.toLowerCase(), r.data.id);
+    }
+    return map;
+  };
   switch (name) {
     case "create_event": {
       if (!a.title || !isDate(a.date)) return fail("Need a title and a date (YYYY-MM-DD).");
@@ -106,6 +144,63 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
       const kind = a.kind === "income" ? "income" : "expense";
       const row = { kind, amount, category: pick(a.category, kind === "income" ? INCOME_CATS : EXPENSE_CATS, kind === "income" ? "Other income" : "Other"), name: String(a.name || "").slice(0, 80), entry_date: isDate(a.date) ? a.date : today };
       return res(await db.from("money_entries").insert(row), { logged: kind, ...row });
+    }
+    case "create_reminders": {
+      const items = list(a.items); if (!items.length) return fail("No reminders given.");
+      const rows = items.map((x: any, i: number) => ({ title: String(x.title || "").trim().slice(0, 120), note: String(x.note || "").slice(0, 300), kind: pick(x.repeats, REMINDER_KINDS, "once"), start_date: isDate(x.date) ? x.date : addDays(today, 1 + i), remind_time: isTime(x.time) ? x.time : "09:00" })).filter((r: any) => r.title);
+      if (!rows.length) return fail("Each reminder needs a title.");
+      return res(await db.from("reminders").insert(rows), { created: "reminders", count: rows.length, titles: rows.map((r: any) => r.title) });
+    }
+    case "add_study_items": {
+      const items = list(a.items); if (!items.length) return fail("Nothing to add.");
+      try {
+        const ids = await courseIds(items.map((x: any) => x.subject));
+        const rows = items.map((x: any, i: number) => ({
+          title: String(x.title || "").trim().slice(0, 140), kind: pick(x.kind, STUDY_KINDS, "assignment"), course_id: ids.get(String(x.subject || "").trim().toLowerCase()) || null,
+          due_date: isDate(x.due_date) ? x.due_date : addDays(today, 3 + i * 2), due_time: isTime(x.due_time) ? x.due_time : null,
+          weight: typeof x.weight === "number" && x.weight >= 0 && x.weight <= 100 ? x.weight : null, notes: String(x.notes || "").slice(0, 1000),
+        })).filter((r: any) => r.title);
+        if (!rows.length) return fail("Each item needs a title.");
+        return res(await db.from("study_tasks").insert(rows), { created: "study items", count: rows.length, titles: rows.map((r: any) => r.title) });
+      } catch (e) { return fail((e as Error).message); }
+    }
+    case "add_study_subjects": {
+      const items = list(a.items); if (!items.length) return fail("Nothing to add.");
+      try {
+        const { data: have } = await db.from("study_courses").select("name");
+        const known = new Set((have || []).map((c: any) => String(c.name).toLowerCase()));
+        const rows = items.filter((x: any) => String(x.name || "").trim() && !known.has(String(x.name).trim().toLowerCase())).map((x: any, i: number) => ({ name: String(x.name).trim().slice(0, 80), code: String(x.code || "").slice(0, 20), credit_hours: Number.isInteger(x.credit_hours) && x.credit_hours >= 0 && x.credit_hours <= 30 ? x.credit_hours : null, color: STUDY_COLORS[(known.size + i) % STUDY_COLORS.length] }));
+        if (!rows.length) return fail("Those subjects already exist.");
+        return res(await db.from("study_courses").insert(rows), { created: "subjects", count: rows.length, titles: rows.map((r: any) => r.name) });
+      } catch (e) { return fail((e as Error).message); }
+    }
+    case "add_study_classes": {
+      const items = list(a.items); if (!items.length) return fail("Nothing to add.");
+      try {
+        const ids = await courseIds(items.map((x: any) => x.subject));
+        const rows: any[] = [];
+        for (const x of items) {
+          const course = ids.get(String(x.subject || "").trim().toLowerCase()); if (!course) continue;
+          const st = isTime(x.start_time) ? x.start_time : "09:00", en = isTime(x.end_time) && x.end_time > st ? x.end_time : addMinutes(st, 60), from = isDate(x.starts_on) ? x.starts_on : today;
+          const weeks = Number.isInteger(x.weeks) && x.weeks > 0 && x.weeks <= 60 ? x.weeks : null;
+          for (const wd of (Array.isArray(x.weekdays) ? x.weekdays : [])) if (Number.isInteger(wd) && wd >= 0 && wd <= 6) rows.push({ course_id: course, weekday: wd, start_time: st, end_time: en, room: String(x.room || "").slice(0, 60), kind: pick(x.kind, ["lecture", "tutorial", "lab", "other"], "lecture"), start_date: from, end_date: weeks ? addDays(from, weeks * 7 - 1) : null });
+        }
+        if (!rows.length) return fail("Each class needs a subject and at least one weekday.");
+        let r = await db.from("study_classes").insert(rows);
+        if (r.error && /start_date|end_date|schema cache/i.test(r.error.message)) r = await db.from("study_classes").insert(rows.map(({ start_date, end_date, ...rest }) => rest)); // migration 047 not run yet
+        return res(r, { created: "classes", count: rows.length });
+      } catch (e) { return fail((e as Error).message); }
+    }
+    case "create_tasks": case "create_events": {
+      const items = list(a.items); if (!items.length) return fail("Nothing to add.");
+      const one = name === "create_tasks" ? "create_task" : "create_event";
+      const done: string[] = [], errs: string[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const x = items[i], fixed = one === "create_task" ? { ...x, due_date: isDate(x.due_date) ? x.due_date : addDays(today, 3 + i) } : { ...x, date: isDate(x.date) ? x.date : addDays(today, 1 + i) };
+        const out: any = await runTool(one, fixed, db, today, uid);
+        if (out?.ok) done.push(String(x.title || "")); else errs.push(out?.error || "failed");
+      }
+      return done.length ? { ok: true, created: one === "create_task" ? "tasks" : "events", count: done.length, titles: done, ...(errs.length ? { failed: errs.length, first_error: errs[0] } : {}) } : fail(errs[0] || "Nothing was added.");
     }
     case "get_overview": {
       const monthStart = today.slice(0, 8) + "01", weekAgo = new Date(Date.parse(today) - 6 * 864e5).toISOString().slice(0, 10), in14 = new Date(Date.parse(today) + 14 * 864e5).toISOString().slice(0, 10);
@@ -155,12 +250,14 @@ async function chat(messages: unknown[], tools?: unknown[]) {
   throw new Error(errs.join(" | ") || "No AI provider is configured.");
 }
 
-const SYSTEM = (now: string, tz: string, name: string) => `You are Lumi, the assistant inside the LUMA personal-OS app. The user is ${name || "the user"}.
+const SYSTEM = (now: string, tz: string, name: string, view: string, page: string) => `You are Lumi, the assistant inside the LUMA personal-OS app. The user is ${name || "the user"}.
 Current date and time: ${now} (time zone ${tz}). Resolve words like "today", "tomorrow" and "Friday" from this.
 
 You ONLY help with things inside LUMA: tasks, calendar events, notes, health (sleep, water, steps, active minutes, mood), money (expenses, income, budget, bills, subscriptions), habits and study (subjects, classes, assignments, tests and exams), plus short questions and advice about the user's own data.
 - Use the tools to do things. After a tool succeeds, say exactly what you saved in one short sentence. If a tool fails, say so honestly.
-- If a task has no due date, ask for it. For anything else that is missing, make a sensible guess and say what you assumed.
+- Do not ask follow-up questions about missing details. Fill them in with sensible, varied values (spread dates over the coming days or weeks, use realistic names) and say briefly what you assumed. Only ask when you cannot tell what the user wants at all.
+- When the user asks for several things ("add 10 reminders", "add my timetable"), use the matching batch tool once with all items (up to 20).
+- The user is now in ${view === "study" ? "Study mode" : view === "work" ? "Work mode" : "Personal mode"}${page ? ", on the " + page + " page" : ""}. When they ask to add or create something without saying what kind, create it for where they are: in Study mode that means study items (assignments, quizzes, tests, exams with due dates — LUMA reminds them automatically, so "reminders" in Study mode means these), subjects or timetable classes; in Personal mode use the page they are on (Reminders page → reminders, Tasks → tasks, Calendar → events, Health → a health log, Money → an expense).
 - To answer questions about the user's data, call get_overview first. Never invent numbers.
 - You cannot delete or edit existing items; tell the user to do that in the app.
 - If asked anything unrelated to LUMA (general knowledge, coding, news, jokes, other people), politely say you can only help with their LUMA data and offer what you can do.
@@ -185,6 +282,7 @@ Deno.serve(async (req) => {
   const num = (v: unknown, d: number) => (typeof v === "number" ? v : d);
   const chatLimit = num(L.lumi_questions, CHAT_LIMIT), insightLimit = num(L.insights, INSIGHT_LIMIT), canAct = num(L.lumi_actions, 1) !== 0;
   const limit = mode === "chat" ? chatLimit : insightLimit;
+  const view = body.view === "study" || body.view === "work" ? body.view : "personal", page = String(body.page || "").replace(/[^a-z]/g, "").slice(0, 20);
   const tz = String(body.tz || "Asia/Kuala_Lumpur"), today = isDate(body.today) ? body.today : new Date().toISOString().slice(0, 10), now = String(body.now || today);
   const name = String(u.user.user_metadata?.full_name || u.user.user_metadata?.name || "").slice(0, 60);
 
@@ -211,7 +309,7 @@ Deno.serve(async (req) => {
 
     const history = (Array.isArray(body.messages) ? body.messages : []).slice(-8).map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 1000) }));
     if (!history.length || history[history.length - 1].role !== "user") return json({ error: "Say something first." }, 400);
-    const msgs: any[] = [{ role: "system", content: SYSTEM(now, tz, name) + (canAct ? "" : "\n- On the user's current plan you can only read and answer. You cannot add or log anything. If asked to, say that adding things through Lumi is available on the Glow and Zenith plans.") }, ...history];
+    const msgs: any[] = [{ role: "system", content: SYSTEM(now, tz, name, view, page) + (canAct ? "" : "\n- On the user's current plan you can only read and answer. You cannot add or log anything. If asked to, say that adding things through Lumi is available on the Glow and Zenith plans.") }, ...history];
     const tools = canAct ? TOOLS : TOOLS.filter((t: any) => t.function.name === "get_overview");
     const actions: unknown[] = [];
     for (let i = 0; i < 4; i++) {
