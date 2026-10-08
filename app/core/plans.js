@@ -38,12 +38,12 @@
       box.style.display = '';
       box.innerHTML = `<div class="pa-head"><div class="pa-t">Add-ons</div><div class="ls">Work and Study go on top of any plan.</div></div><div class="pa-grid">` + Object.keys(ADDONS).map(k => {
         const a = ADDONS[k], on = LumaPlan.hasAddon(k), info = LumaPlan.addonInfo[k] || {};
-        const status = on ? (info.source === 'trial' && info.expires_at ? `Trial until ${when(info.expires_at)}` : info.expires_at ? `Active until ${when(info.expires_at)}` : 'Active') : a.live ? a.price : 'Coming soon';
+        const status = on ? (info.source === 'trial' && info.expires_at ? `Trial until ${when(info.expires_at)}` : info.expires_at ? `Active until ${when(info.expires_at)}` : 'Active') : a.price;
         return `<div class="plan-card ${on ? 'cur' : ''}" style="--pc:${a.color}">
           ${on ? '<span class="pb">Active</span>' : ''}
           <div class="pn"><span class="pi"><i class="fa-solid ${a.icon}"></i></span>${a.name}</div><div class="pt">${a.tag}</div><div class="pp">${status}</div>
           <ul>${a.perks.slice(0, 3).map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('')}</ul>
-          <button type="button" class="pbtn ${on ? '' : 'up'}" data-addon="${k}" ${on ? 'data-open' : ''} style="cursor:pointer">${on ? `Open ${a.name} mode` : a.live ? `<i class="fa-solid fa-plus"></i> Get ${a.name}` : 'See what\'s coming'}</button>
+          ${on ? `<button type="button" class="pbtn" data-addon="${k}" data-open style="cursor:pointer">Open ${a.name} mode</button>` : `<button type="button" class="pbtn up" data-addon-buy="${k}"><i class="fa-brands fa-whatsapp"></i> Get ${a.name}</button><button type="button" class="pbtn" data-addon="${k}" style="cursor:pointer">See what's included</button>`}
         </div>`;
       }).join('') + '</div>';
     }
@@ -61,6 +61,7 @@
     docEl('planOverlay').onclick = e => {
       if (e.target === docEl('planOverlay')) return closePlans();
       const up = e.target.closest('[data-up]'); if (up) return requestUpgrade(up.dataset.up);
+      const buy = e.target.closest('[data-addon-buy]'); if (buy) { closePlans(); return requestAddon(buy.dataset.addonBuy); }
       const ad = e.target.closest('[data-addon]'); if (ad) { if (ad.hasAttribute('data-open')) { closePlans(); return switchMode(ad.dataset.addon); } return openAddon(ad.dataset.addon); }
       if (e.target.closest('[data-stay]')) closePlans();
     };

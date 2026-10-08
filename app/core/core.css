@@ -3431,3 +3431,5 @@
     #planAddons .pa-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
     @media (max-width:640px) { #planAddons .pa-grid { grid-template-columns:1fr; } }
     .fixed-modal>.ad-actions { flex:none; margin-top:14px; }
+    .ad-hero .ad-price { margin-left:auto; flex:none; padding:5px 12px; border-radius:999px; background:color-mix(in srgb, var(--ac) 22%, transparent); color:#fff; font-size:0.78rem; font-weight:700; }
+    .plan-card button.pbtn + button.pbtn { margin-top:2px; }

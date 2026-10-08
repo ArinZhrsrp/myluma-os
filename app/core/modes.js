@@ -1,8 +1,7 @@
 // LUMA — core: modes (Personal / Work / Study)
     // The switcher at the top of the menu. Personal is the normal LUMA; Work and Study are add-ons (see
     // supabase/migrations/044_addons.sql) that bring their own menu. A mode without its add-on shows what it is and
-    // how to get it. `live: false` = still being built: the add-on is shown as "coming soon" and can't be bought or tried yet
-    // (an admin can still switch it on from the Admin page to test it).
+    // how to get it: a request to you on WhatsApp with the person's details (like a plan upgrade). `live: true` also opens the free 7-day trial.
     const ADDONS = {
       work: { name: 'Work', icon: 'fa-briefcase', color: '#60a5fa', tag: 'Projects & teams', price: 'RM15 / month', live: false,
         perks: ['Projects with tasks, assignees, due dates and status', 'Board, list and timeline (Gantt) views', 'Comments and file uploads on every task', 'Invite people who already have a LUMA account', 'Time tracking and a monthly timesheet you can download'] },
@@ -65,6 +64,15 @@
     }
     document.getElementById('modeSwitch').addEventListener('click', e => { const b = e.target.closest('button[data-mode]'); if (b && b.dataset.mode !== LUMA_MODE) switchMode(b.dataset.mode); });
 
+    // opens WhatsApp with the person's details and the add-on they picked already typed in (same as a plan upgrade)
+    function requestAddon(key) {
+      const a = ADDONS[key]; if (!a) return;
+      const num = String(window.LUMA_WHATSAPP || '').replace(/\D/g, '');
+      if (!num) return luAlert('The WhatsApp number for requests isn\'t set up yet. Please email aeinscape@gmail.com to add this.', 'Almost there');
+      const msg = `Hi LUMA! I'd like to add an add-on.\n\nName: ${lumaFullName()}\nEmail: ${lumaEmail()}\nCurrent plan: ${LumaPlan.name()}\nAdd-on: ${a.name}\nPrice: ${a.price}`;
+      window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    }
+
     // ----- the add-on popup (what it is, and how to get it) -----
     let addonKey = null;
     function openAddon(key) {
@@ -72,16 +80,14 @@
       const ends = (LumaPlan.addonInfo[key] || {}).expires_at;
       docEl('addonTitle').textContent = a.name + ' mode';
       docEl('addonHero').style.setProperty('--ac', a.color);
-      docEl('addonHero').innerHTML = `<span class="ai"><i class="fa-solid ${a.icon}"></i></span><div><div class="an">${a.name} add-on</div><div class="at">${a.tag}${a.live ? ' · ' + a.price : ''}</div></div>${a.live ? '' : '<span class="soon">Coming soon</span>'}`;
+      docEl('addonHero').innerHTML = `<span class="ai"><i class="fa-solid ${a.icon}"></i></span><div><div class="an">${a.name} add-on</div><div class="at">${a.tag}</div></div><span class="ad-price">${a.price}</span>`;
       docEl('addonPerks').style.setProperty('--ac', a.color);
       docEl('addonPerks').innerHTML = a.perks.map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('');
       docEl('addonError').textContent = '';
-      const btn = [];
-      if (a.live) {
-        if (LumaPlan.canTrial(key)) btn.push(`<button type="button" class="confirm-btn save" data-trial>Start 7-day free trial</button>`);
-        btn.push(`<button type="button" class="confirm-btn ${LumaPlan.canTrial(key) ? 'cancel' : 'save'}" data-ask><i class="fa-brands fa-whatsapp"></i> Get ${a.name} on WhatsApp</button>`);
-      }
-      docEl('addonActions').innerHTML = (a.live ? '' : `<div class="ls" style="margin-bottom:4px">We're building this right now. It works on every plan (Dawn, Glow and Zenith) and will open here when it's ready.</div>`) + btn.join('');
+      const btn = [], trial = a.live && LumaPlan.canTrial(key);
+      if (trial) btn.push(`<button type="button" class="confirm-btn save" data-trial>Start 7-day free trial</button>`);
+      btn.push(`<button type="button" class="confirm-btn ${trial ? 'cancel' : 'save'}" data-ask><i class="fa-brands fa-whatsapp"></i> Get ${a.name} · ${a.price}</button>`);
+      docEl('addonActions').innerHTML = `<div class="ls" style="margin-bottom:4px">It works on every plan (Dawn, Glow and Zenith). We'll open WhatsApp with your details filled in, and switch it on once payment is sorted.</div>` + btn.join('');
       docEl('addonOverlay').classList.add('open');
       docEl('addonOverlay').querySelectorAll('.pem-body, .profile-edit-modal').forEach(el => { el.scrollTop = 0; });
     }
@@ -90,11 +96,7 @@
     docEl('addonOverlay').onclick = async e => {
       if (e.target === docEl('addonOverlay')) return closeAddon();
       const a = ADDONS[addonKey]; if (!a) return;
-      if (e.target.closest('[data-ask]')) {
-        const num = String(window.LUMA_WHATSAPP || '').replace(/\D/g, ''); if (!num) return;
-        const msg = `Hi LUMA! I'd like to add ${a.name} mode.\n\nName: ${lumaFullName()}\nEmail: ${lumaEmail()}\nCurrent plan: ${LumaPlan.name()}\nAdd-on: ${a.name}\nPrice: ${a.price}`;
-        window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener'); return closeAddon();
-      }
+      if (e.target.closest('[data-ask]')) { closeAddon(); return requestAddon(addonKey); }
       const t = e.target.closest('[data-trial]'); if (!t) return;
       t.disabled = true;
       const { error } = await LumaAuth.client.schema('luma').rpc('start_addon_trial', { p_addon: addonKey });
