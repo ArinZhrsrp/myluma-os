@@ -73,6 +73,7 @@
 
     function paintDashboard() {
       if (!document.getElementById('dashChips')) return;
+      paintDashAddonNote();
       const today = hToday(), T = dashTasks, open = T.filter(t => t.status !== 'done');
       const overdue = open.filter(t => t.due_date && t.due_date < today), dueToday = open.filter(t => t.due_date === today);
       const hid = [...cHidden]; cHidden.clear(); // the calendar's category filter shouldn't hide things here
@@ -144,8 +145,21 @@
       paintDashHabits();
     }
 
+    // Study (and later Work) are hidden from Personal until the person chooses to show them: say so once, with a way to switch it on
+    function paintDashAddonNote() {
+      const box = document.getElementById('dashAddonNote'); if (!box) return;
+      const hidden = LumaPlan.hasAddon('study') && !prefOn('show_study_personal', false) && !prefOn('study_note_dismissed', false);
+      box.style.display = hidden ? '' : 'none';
+      if (hidden) box.innerHTML = '<i class="fa-solid fa-graduation-cap"></i><span>Your Study classes and deadlines are hidden here.</span><button type="button" data-addon-show="study">Show them</button><button type="button" class="x" data-addon-dismiss title="Don\'t show this again" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>';
+    }
+    document.getElementById('page-dashboard').addEventListener('click', async e => {
+      if (e.target.closest('[data-addon-dismiss]')) { await setLumaPref('study_note_dismissed', true); return paintDashAddonNote(); }
+      if (!e.target.closest('[data-addon-show]')) return;
+      await setLumaPref('show_study_personal', true); await sdEnsureLoaded(); paintDashAddonNote(); paintDashboard();
+      flashToast('Study is now shown in Personal', 'You can change this in Settings → Preferences', 'fa-graduation-cap', '#34d399');
+    });
     async function loadDashboard() {
-      const [t, ev, rm] = await Promise.all([LumaTasks.list(), LumaEvents.list(), LumaReminders.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(hKeyAdd(hToday(), -70)).then(h => { an = { ...(an || {}), health: h.error ? [] : (h.data || []) }; }), LumaHealth.getGoals().then(g => { an = { ...(an || {}), goals: g.data }; })]);
+      const [t, ev, rm] = await Promise.all([LumaTasks.list(), LumaEvents.list(), LumaReminders.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(hKeyAdd(hToday(), -70)).then(h => { an = { ...(an || {}), health: h.error ? [] : (h.data || []) }; }), LumaHealth.getGoals().then(g => { an = { ...(an || {}), goals: g.data }; }), (LumaPlan.hasAddon('study') && prefOn('show_study_personal', false)) ? sdEnsureLoaded() : null]);
       if (!rm.error) REMS = rm.data || [];
       dashTasks = t.error ? [] : t.data; CTASKS = dashTasks; if (!ev.error) CEV = ev.data || [];
       an = { ...(an || {}), tasks: dashTasks };

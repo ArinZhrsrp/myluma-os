@@ -314,7 +314,7 @@
 
     // ---------- calendar: classes repeat every week, assignments show on their due date ----------
     // in Personal mode the person chooses whether Study shows on the Calendar (Settings → Preferences); in Study mode it always does
-    const studyVisibleOnCalendar = () => LumaPlan.hasAddon('study') && (LUMA_MODE === 'study' || prefOn('show_study_personal', true));
+    const studyVisibleOnCalendar = () => LumaPlan.hasAddon('study') && (LUMA_MODE === 'study' || prefOn('show_study_personal', false));
     function studyCalItems(k) {
       if (!studyVisibleOnCalendar()) return [];
       const out = [];
