@@ -6,16 +6,23 @@
     const SD_CLASS_KINDS = [['lecture', 'Lecture'], ['tutorial', 'Tutorial'], ['lab', 'Lab'], ['other', 'Other']];
     const SD_STATUS = [['todo', 'To do'], ['in_progress', 'In progress'], ['done', 'Done']];
     const SD_DAYS = [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']]; // weekday numbers: 0 = Sunday (same as the database)
-    const SD_TABS = [['overview', 'Overview', 'fa-table-columns'], ['timetable', 'Timetable', 'fa-calendar-week'], ['assignments', 'Assignments', 'fa-list-check'], ['subjects', 'Subjects', 'fa-book'], ['semesters', 'Semesters', 'fa-calendar-days']];
+    const SD_TABS = [['overview', 'Overview', 'fa-table-columns'], ['timetable', 'Timetable', 'fa-calendar-week'], ['assignments', 'Assignments', 'fa-list-check'], ['subjects', 'Subjects', 'fa-book'], ['semesters', 'Semesters', 'fa-calendar-days'], ['notes', 'Notes', 'fa-note-sticky'], ['groups', 'Groups', 'fa-user-group']];
     // grade scale used for letters and GPA points (Malaysian 4.0 scale; marks below the lowest row are F)
-    const SD_SCALE = [[80, 'A', 4.0], [75, 'A-', 3.67], [70, 'B+', 3.33], [65, 'B', 3.0], [60, 'B-', 2.67], [55, 'C+', 2.33], [50, 'C', 2.0], [47, 'C-', 1.67], [44, 'D+', 1.33], [40, 'D', 1.0], [0, 'F', 0]];
-    const SD = { semesters: [], courses: [], classes: [], tasks: [], focus: [], tab: 'overview', filter: 'open', fCourse: '', showEnded: false, err: null, loadedAt: 0 };
+    const SD_SCALE_DEFAULT = [[80, 'A', 4.0], [75, 'A-', 3.67], [70, 'B+', 3.33], [65, 'B', 3.0], [60, 'B-', 2.67], [55, 'C+', 2.33], [50, 'C', 2.0], [47, 'C-', 1.67], [44, 'D+', 1.33], [40, 'D', 1.0], [0, 'F', 0]];
+    const SD = { semesters: [], courses: [], classes: [], tasks: [], skips: [], breaks: [], focus: [], tab: 'overview', showArchived: false, filter: 'open', fCourse: '', showEnded: false, err: null, loadedAt: 0 };
+
+    // what each tab shows and what its Add button does; the Notes and Groups files add their own entries
+    const SD_VIEW = {}, SD_CLICK = [], SD_ONSHOW = {}; // SD_ONSHOW: a tab's own loader, run when it is opened
+    const SD_ADD = { overview: ['Add assignment', () => openTaskModal(null)], timetable: ['Add class', () => openClassModal(null)], assignments: ['Add assignment', () => openTaskModal(null)], subjects: ['Add subject', () => openCourseModal(null)], semesters: ['Add semester', () => openSemModal(null)] };
+    // a classmate invited to a group project can use the Groups tab even without the Study add-on of their own
+    const sdGuest = () => !LumaPlan.hasAddon('study');
 
     MODULES.study = function () {
+      if (sdGuest()) SD.tab = 'groups';
       const info = (LumaPlan.addonInfo && LumaPlan.addonInfo.study) || {}, ends = info.expires_at ? new Date(info.expires_at) : null;
       const note = ends && info.source === 'trial' ? ` · trial ends ${ends.toLocaleDateString('en-MY', { day: 'numeric', month: 'short' })}` : '';
       return head('Study', `<span id="sdSub">Loading…</span>${note}`,
-        `<div class="sd-tabs" id="sdTabs">${SD_TABS.map(([k, n, i]) => `<button type="button" data-sdtab="${k}" class="${SD.tab === k ? 'on' : ''}"><i class="fa-solid ${i}"></i><span>${n}</span></button>`).join('')}</div><button class="create-btn" id="sdAdd"><i class="fa-solid fa-plus"></i> <span id="sdAddT">Add assignment</span></button>`) +
+        `<div class="sd-tabs" id="sdTabs">${SD_TABS.filter(t => !sdGuest() || t[0] === 'groups').map(([k, n, i]) => `<button type="button" data-sdtab="${k}" class="${SD.tab === k ? 'on' : ''}"><i class="fa-solid ${i}"></i><span>${n}</span></button>`).join('')}</div><button class="create-btn" id="sdAdd"><i class="fa-solid fa-plus"></i> <span id="sdAddT">Add assignment</span></button>`) +
         '<div id="sdRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
     };
 
@@ -35,10 +42,16 @@
     const sdAddMonths = (k, n) => { const d = new Date(k + 'T00:00:00Z'), day = d.getUTCDate(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); d.setUTCDate(Math.min(day, new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate())); return d.toISOString().slice(0, 10); };
     const sdShort = k => sdFmtDate(k, { day: 'numeric', month: 'short' });
     // a class runs on its weekday between its start and end dates (no dates = every week)
-    const sdClassOn = (c, k) => c.weekday === sdDow(k) && (!c.start_date || k >= c.start_date) && (!c.end_date || k <= c.end_date);
+    const sdArchived = id => { const co = sdCourse(id); return !!(co && co.archived); };
+    const sdSkipped = (c, k) => SD.skips.some(x => x.class_id === c.id && x.skip_date === k);
+    const sdInBreak = k => SD.breaks.find(b => k >= b.start_date && k <= b.end_date);
+    // does the class happen on day k? (right weekday, inside its dates, not cancelled, not in a break, subject not archived)
+    const sdClassOn = (c, k) => c.weekday === sdDow(k) && (!c.start_date || k >= c.start_date) && (!c.end_date || k <= c.end_date) && !sdSkipped(c, k) && !sdInBreak(k) && !sdArchived(c.course_id);
     const sdClassEnded = c => !!c.end_date && c.end_date < sdKey();
     const sdSem = id => SD.semesters.find(x => x.id === id);
-    const sdLetter = p => SD_SCALE.find(x => p >= x[0]) || SD_SCALE[SD_SCALE.length - 1];
+    // the grade scale: yours (Semesters → Grade scale) or the common Malaysian 4.0 scale
+    const sdScale = () => { const g = LUMA_PROFILE && LUMA_PROFILE.preferences && LUMA_PROFILE.preferences.grade_scale; return Array.isArray(g) && g.length >= 2 && g.every(r => Array.isArray(r) && r.length === 3) ? g : SD_SCALE_DEFAULT; };
+    const sdLetter = p => { const sc = sdScale(); return sc.find(x => p >= x[0]) || sc[sc.length - 1]; };
     // a subject's mark: the final mark you entered, otherwise worked out from the scores you have so far
     const sdMark = c => c.final_percent != null ? Number(c.final_percent) : sdGrade(c.id);
     // the semester we are in now (or the next one coming, or the latest that ended)
@@ -99,10 +112,10 @@
     // ---------- loading ----------
     async function sdLoad() {
       try {
-        const [c, k, t, f, sm] = await Promise.all([LumaStudy.courses.list(), LumaStudy.classes.list(), LumaStudy.tasks.list(), LumaStudy.focusSince(new Date(sdWeekStart() + 'T00:00:00').toISOString()), LumaStudy.semesters.list()]);
+        const [c, k, t, f, sm, sk, br] = await Promise.all([LumaStudy.courses.list(), LumaStudy.classes.list(), LumaStudy.tasks.list(), LumaStudy.focusSince(new Date(sdWeekStart() + 'T00:00:00').toISOString()), LumaStudy.semesters.list(), LumaStudy.skips.list(), LumaStudy.breaks.list()]);
         const bad = c.error || k.error || t.error;
         SD.err = bad ? bad.message : null;
-        if (!bad) { SD.courses = c.data || []; SD.classes = k.data || []; SD.tasks = t.data || []; SD.focus = f.error ? [] : (f.data || []); SD.semesters = sm.error ? [] : (sm.data || []); } // semesters need migration 049: without it the rest still works
+        if (!bad) { SD.courses = c.data || []; SD.classes = k.data || []; SD.tasks = t.data || []; SD.focus = f.error ? [] : (f.data || []); SD.semesters = sm.error ? [] : (sm.data || []); SD.skips = sk.error ? [] : (sk.data || []); SD.breaks = br.error ? [] : (br.data || []); } // semesters need migration 049: without it the rest still works
       } catch (e) { SD.err = e.message || 'Could not load'; }
       SD.loadedAt = Date.now();
     }
@@ -113,21 +126,21 @@
     function sdPaint() {
       const root = docEl('sdRoot'), sub = docEl('sdSub'); if (!root) return;
       document.querySelectorAll('#sdTabs button').forEach(b => b.classList.toggle('on', b.dataset.sdtab === SD.tab));
-      docEl('sdAddT').textContent = SD.tab === 'timetable' ? 'Add class' : SD.tab === 'subjects' ? 'Add subject' : SD.tab === 'semesters' ? 'Add semester' : 'Add assignment';
-      if (SD.err) {
+      const add = SD_ADD[SD.tab]; docEl('sdAdd').style.display = add && !sdGuest() ? '' : 'none'; if (add) docEl('sdAddT').textContent = add[0];
+      if (SD.err && !SD_VIEW[SD.tab]) {
         sub.textContent = 'Could not load';
         root.innerHTML = card(`<div class="ls">Could not load your study data: ${escapeHtml(SD.err)}. ${/study_|schema cache|does not exist/i.test(SD.err) ? 'Has <b>supabase/migrations/045_study.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
         return;
       }
       const open = SD.tasks.filter(t => t.status !== 'done');
       sub.textContent = SD.courses.length ? `${SD.courses.length} subject${SD.courses.length === 1 ? '' : 's'} · ${open.length} to do` : 'Classes, assignments and exams in one place';
-      if (!SD.courses.length && !SD.tasks.length && !SD.semesters.length && SD.tab !== 'semesters') {
+      if (!SD_VIEW[SD.tab] && !SD.courses.length && !SD.tasks.length && !SD.semesters.length && SD.tab !== 'semesters') {
         root.innerHTML = card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-graduation-cap"></i></div><div class="h-empty-t">Set up your semester</div>
           <div class="h-empty-s">Start with your subjects, then add your weekly classes and the assignments, tests and exams that are coming. LUMA reminds you before each one is due.</div>
           <div class="h-empty-chips"><button type="button" class="h-chip" data-add="course"><i class="fa-solid fa-plus" style="color:#34d399"></i>Add your first subject</button></div></div>`);
         return;
       }
-      root.innerHTML = SD.tab === 'timetable' ? sdTimetable() : SD.tab === 'assignments' ? sdAssignments() : SD.tab === 'subjects' ? sdSubjects() : SD.tab === 'semesters' ? sdSemesters() : sdOverview();
+      root.innerHTML = (SD_VIEW[SD.tab] || { timetable: sdTimetable, assignments: sdAssignments, subjects: sdSubjects, semesters: sdSemesters }[SD.tab] || sdOverview)();
     }
 
     function sdRow(t) {
@@ -187,16 +200,40 @@
     }
 
     function sdTimetable() {
-      const today = sdDow(sdKey()), ended = SD.classes.filter(sdClassEnded), shown = SD.classes.filter(c => SD.showEnded || !sdClassEnded(c));
+      const today = sdDow(sdKey()), live = SD.classes.filter(c => !sdArchived(c.course_id)), ended = live.filter(sdClassEnded), shown = live.filter(c => SD.showEnded || !sdClassEnded(c));
       if (!SD.classes.length) {
         return card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-calendar-week"></i></div><div class="h-empty-t">Build your weekly timetable</div>
           <div class="h-empty-s">${SD.courses.length ? 'Add each class once: pick the subject, the days and the time. It repeats every week and shows on your Calendar too.' : 'Add your subjects first, then put each class on the timetable.'}</div>
           <div class="h-empty-chips"><button type="button" class="h-chip" data-add="${SD.courses.length ? 'class' : 'course'}"><i class="fa-solid fa-plus" style="color:#34d399"></i>${SD.courses.length ? 'Add a class' : 'Add a subject'}</button></div></div>`);
       }
-      return `<div class="sd-week">${SD_DAYS.map(([d, n]) => {
+      const listHtml = `<div class="sd-week">${SD_DAYS.map(([d, n]) => {
         const list = shown.filter(c => c.weekday === d).sort((a, b) => sdHM(a.start_time).localeCompare(sdHM(b.start_time)));
         return `<div class="sd-day ${d === today ? 'today' : ''}"><div class="sd-dh"><span>${n}</span><button type="button" data-add="class" data-day="${d}" title="Add a class on ${n}"><i class="fa-solid fa-plus"></i></button></div>${list.length ? list.map(sdClassCard).join('') : '<div class="sd-free">Free</div>'}</div>`;
-      }).join('')}</div>${ended.length ? `<div class="sd-endednote"><button type="button" data-ended>${SD.showEnded ? 'Hide' : 'Show'} ended classes (${ended.length})</button></div>` : ''}`;
+      }).join('')}</div>`;
+      const endedNote = ended.length ? `<div class="sd-endednote"><button type="button" data-ended>${SD.showEnded ? 'Hide' : 'Show'} ended classes (${ended.length})</button></div>` : '';
+      const view = sdTtView(), toggle = window.innerWidth < 900 ? '' : `<div class="sd-tt-top"><div class="sd-seg"><button type="button" data-tt="grid" class="${view === 'grid' ? 'on' : ''}"><i class="fa-solid fa-table-cells"></i> Grid</button><button type="button" data-tt="list" class="${view === 'list' ? 'on' : ''}"><i class="fa-solid fa-list"></i> List</button></div></div>`;
+      return toggle + (view === 'grid' ? sdGrid(shown, today) : listHtml) + endedNote;
+    }
+
+    const sdTtView = () => { if (window.innerWidth < 900) return 'list'; try { return localStorage.getItem('luma_tt_view') || 'grid'; } catch (e) { return 'grid'; } };
+    // the timetable as a week grid: hours down the side, a block per class sized by its length
+    function sdGrid(list, todayDow) {
+      const H = 48, mins = list.flatMap(c => [sdMin(c.start_time), sdMin(c.end_time)]);
+      const from = (mins.length ? Math.min(8, Math.floor(Math.min(...mins) / 60)) : 8) * 60, to = (mins.length ? Math.min(24, Math.max(18, Math.ceil(Math.max(...mins) / 60))) : 18) * 60, total = (to - from) / 60 * H;
+      const nowM = sdNowMin(), hours = []; for (let m = from; m < to; m += 60) hours.push(m);
+      const layout = arr => { // classes that overlap in time share the column side by side
+        const out = []; let cluster = [], end = -1;
+        const flush = () => { const lanes = []; cluster.forEach(it => { let l = lanes.findIndex(e => e <= it.s); if (l < 0) { l = lanes.length; lanes.push(0); } lanes[l] = it.e; it.lane = l; }); cluster.forEach(it => { it.lanes = lanes.length; }); out.push(...cluster); cluster = []; end = -1; };
+        arr.forEach(it => { if (cluster.length && it.s >= end) flush(); cluster.push(it); end = Math.max(end, it.e); }); if (cluster.length) flush(); return out;
+      };
+      const cols = SD_DAYS.map(([d, n]) => {
+        const items = layout(list.filter(c => c.weekday === d).map(c => ({ c, s: sdMin(c.start_time), e: Math.max(sdMin(c.end_time), sdMin(c.start_time) + 20) })).sort((a, b) => a.s - b.s || b.e - a.e));
+        const blocks = items.map(({ c, s: a, e: z, lane, lanes }) => { const co = sdCourse(c.course_id); const h = Math.max(22, (z - a) / 60 * H - 2); return `<button type="button" class="sd-gblk ${sdClassEnded(c) ? 'ended' : ''} ${h < 40 ? 'tiny' : ''}" data-cls="${c.id}" style="--c:${co ? co.color : '#34d399'};top:${(a - from) / 60 * H}px;height:${h}px;left:calc(${lane * 100 / lanes}% + 2px);width:calc(${100 / lanes}% - 4px)" title="${escapeHtml(co ? co.name : 'Class')} · ${sdT12(c.start_time)} – ${sdT12(c.end_time)}${c.room ? ' · ' + escapeHtml(c.room) : ''}"><b>${sdT12(c.start_time)}</b><span>${escapeHtml(co ? co.name : 'Class')}</span>${c.room ? `<small>${escapeHtml(c.room)}</small>` : ''}</button>`; }).join('');
+        const now = d === todayDow && nowM >= from && nowM <= to ? `<div class="sd-gnow" style="top:${(nowM - from) / 60 * H}px"></div>` : '';
+        return `<div class="sd-gcol ${d === todayDow ? 'today' : ''}" style="height:${total}px">${blocks}${now}</div>`;
+      }).join('');
+      return `<div class="sd-grid"><div class="sd-ghead"><span></span>${SD_DAYS.map(([d, n]) => `<div class="${d === todayDow ? 'today' : ''}">${n}<button type="button" data-add="class" data-day="${d}" title="Add a class on ${n}"><i class="fa-solid fa-plus"></i></button></div>`).join('')}</div>
+        <div class="sd-gbody" style="--h:${H}px"><div class="sd-ghours" style="height:${total}px">${hours.map(m => `<span style="top:${(m - from) / 60 * H}px">${fmt12(String(Math.floor(m / 60)).padStart(2, '0') + ':00')}</span>`).join('')}</div>${cols}</div></div>`;
     }
 
     function sdAssignments() {
@@ -214,21 +251,30 @@
     function sdCourseCard(c) {
       const m = sdMark(c), open = SD.tasks.filter(t => t.course_id === c.id && t.status !== 'done').length, n = SD.classes.filter(x => x.course_id === c.id && !sdClassEnded(x)).length;
       const mins = SD.focus.filter(r => r.course_id === c.id).reduce((a, r) => a + r.minutes, 0), L = m != null ? sdLetter(m) : null, need = sdNeeded(c);
-      return `<div class="card sd-course" data-course="${c.id}" style="--c:${c.color}"><div class="sc-top"><span class="sc-dot"></span><div class="sc-main"><div class="sc-t">${escapeHtml(c.name)}</div><div class="sc-s">${[c.code, c.lecturer, c.credit_hours != null ? c.credit_hours + ' credit hour' + (c.credit_hours === 1 ? '' : 's') : ''].filter(Boolean).map(escapeHtml).join(' · ') || 'Tap to add details'}</div></div><button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
+      return `<div class="card sd-course ${c.archived ? 'arch' : ''}" data-course="${c.id}" style="--c:${c.color}"><div class="sc-top"><span class="sc-dot"></span><div class="sc-main"><div class="sc-t">${escapeHtml(c.name)}${c.archived ? '<em class="sc-arch">Archived</em>' : ''}</div><div class="sc-s">${[c.code, c.lecturer, c.credit_hours != null ? c.credit_hours + ' credit hour' + (c.credit_hours === 1 ? '' : 's') : ''].filter(Boolean).map(escapeHtml).join(' · ') || 'Tap to add details'}</div></div><button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
         <div class="sc-stats"><div><b>${m == null ? '—' : sdPct(m) + '%'}${L ? `<em>${L[1]}</em>` : ''}</b><span>${c.final_percent != null ? 'Final mark' : 'Grade so far'}</span></div><div><b>${open}</b><span>To do</span></div><div><b>${n}</b><span>Classes / week</span></div><div><b>${mins ? sdMinText(mins) : '—'}</b><span>This week</span></div></div>
         ${need ? `<div class="sc-need ${need.cls}"><i class="fa-solid fa-bullseye"></i>${need.text}</div>` : ''}</div>`;
     }
     function sdSubjects() {
-      if (!SD.courses.length) return card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-book"></i></div><div class="h-empty-t">No subjects yet</div><div class="h-empty-s">A subject groups its classes, assignments, grades and study time.</div><div class="h-empty-chips"><button type="button" class="h-chip" data-add="course"><i class="fa-solid fa-plus" style="color:#34d399"></i>Add a subject</button></div></div>`);
-      if (!SD.semesters.length) return `<div class="grid-2">${SD.courses.map(sdCourseCard).join('')}</div>`;
+      const archived = SD.courses.filter(c => c.archived), list = SD.courses.filter(c => SD.showArchived || !c.archived);
+      const tail = archived.length ? `<div class="sd-endednote"><button type="button" data-archived>${SD.showArchived ? 'Hide' : 'Show'} archived subjects (${archived.length})</button></div>` : '';
+      return sdSubjectsList(list) + tail;
+    }
+    function sdSubjectsList(courses) {
+      if (!courses.length) return card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-book"></i></div><div class="h-empty-t">No subjects yet</div><div class="h-empty-s">A subject groups its classes, assignments, grades and study time.</div><div class="h-empty-chips"><button type="button" class="h-chip" data-add="course"><i class="fa-solid fa-plus" style="color:#34d399"></i>Add a subject</button></div></div>`);
+      if (!SD.semesters.length) return `<div class="grid-2">${courses.map(sdCourseCard).join('')}</div>`;
       const cur = sdCurrentSem(), order = [...SD.semesters].sort((a, b) => (a === cur ? -1 : b === cur ? 1 : b.start_date.localeCompare(a.start_date)));
-      const groups = order.map(sem => [sem, SD.courses.filter(c => c.semester_id === sem.id)]).filter(([, l]) => l.length);
-      const none = SD.courses.filter(c => !c.semester_id || !sdSem(c.semester_id)); if (none.length) groups.push([null, none]);
+      const groups = order.map(sem => [sem, courses.filter(c => c.semester_id === sem.id)]).filter(([, l]) => l.length);
+      const none = courses.filter(c => !c.semester_id || !sdSem(c.semester_id)); if (none.length) groups.push([null, none]);
       return groups.map(([sem, list]) => { const g = sdGpa(list); return `<div class="sd-gh"><b>${sem ? escapeHtml(sem.name) : 'No semester'}</b>${sem && sem === cur ? '<em>Current</em>' : ''}${g ? `<span>GPA ${g.gpa.toFixed(2)}</span>` : ''}</div><div class="grid-2" style="margin-bottom:16px">${list.map(sdCourseCard).join('')}</div>`; }).join('');
     }
 
     // ---------- semesters: the planner, GPA and CGPA ----------
     function sdSemesters() {
+      const toolbar = `<div class="sd-toolbar"><button type="button" class="np-btn" data-scale><i class="fa-solid fa-sliders"></i> Grade scale</button><button type="button" class="np-btn" data-breaks><i class="fa-solid fa-umbrella-beach"></i> Breaks &amp; holidays${SD.breaks.length ? ' (' + SD.breaks.length + ')' : ''}</button></div>`;
+      return toolbar + sdSemestersBody();
+    }
+    function sdSemestersBody() {
       if (!SD.semesters.length) return card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-calendar-days"></i></div><div class="h-empty-t">Plan your semesters</div>
         <div class="h-empty-s">Add a semester with its first and last day. LUMA shows which week you are in, fills in the end date of your timetable classes, and works out your GPA when you put your subjects in it.</div>
         <div class="h-empty-chips"><button type="button" class="h-chip" data-add="semester"><i class="fa-solid fa-plus" style="color:#34d399"></i>Add a semester</button></div></div>`);
@@ -256,25 +302,26 @@
     const sdHint = m => /study_|schema cache|does not exist/i.test(m) ? 'Study isn\'t set up yet — run supabase/migrations/045_study.sql in the SQL Editor.' : /row-level security|violates/i.test(m) ? 'Your Study add-on isn\'t active, so changes can\'t be saved.' : m;
     function sdCourseOptions(selId, cur, none) {
       const sel = docEl(selId);
-      sel.innerHTML = (none ? '<option value="">No subject</option>' : '') + SD.courses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}${c.code ? ' (' + escapeHtml(c.code) + ')' : ''}</option>`).join('');
-      sel.value = cur && sdCourse(cur) ? cur : (none ? '' : (SD.courses[0] || {}).id || '');
+      sel.innerHTML = (none ? '<option value="">No subject</option>' : '') + SD.courses.filter(c => !c.archived || c.id === cur).map(c => `<option value="${c.id}">${escapeHtml(c.name)}${c.code ? ' (' + escapeHtml(c.code) + ')' : ''}</option>`).join('');
+      sel.value = cur && sdCourse(cur) ? cur : (none ? '' : (SD.courses.find(c => !c.archived) || {}).id || '');
       skinSelect(sel);
     }
 
     // --- subject ---
     function sdPaintColors() { docEl('sdCourseColors').innerHTML = SD_COLORS.map(c => `<button type="button" class="sd-sw ${c === SDF.color ? 'on' : ''}" data-color="${c}" style="--c:${c}" aria-label="Colour ${c}"></button>`).join(''); }
+    function sdPaintCourseStatus() { sdChips('sdCourseStatus', [['active', 'Active', 'fa-circle-check'], ['archived', 'Archived', 'fa-box-archive']], SDF.archived ? 'archived' : 'active', 'cs'); }
     function openCourseModal(c) {
-      SDF.courseId = c ? c.id : null; SDF.color = c ? c.color : SD_COLORS[SD.courses.length % SD_COLORS.length];
+      SDF.courseId = c ? c.id : null; SDF.color = c ? c.color : SD_COLORS[SD.courses.length % SD_COLORS.length]; SDF.archived = !!(c && c.archived);
       docEl('sdCourseTitle').textContent = c ? 'Edit subject' : 'New subject';
       docEl('sdCourseName').value = c ? c.name : ''; docEl('sdCourseCode').value = c ? c.code || '' : ''; docEl('sdCourseLecturer').value = c ? c.lecturer || '' : ''; docEl('sdCourseCredits').value = c && c.credit_hours != null ? c.credit_hours : '';
       const sem = docEl('sdCourseSem'); sem.innerHTML = '<option value="">No semester</option>' + [...SD.semesters].sort((a, b) => b.start_date.localeCompare(a.start_date)).map(x => `<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');
       sem.value = c ? (c.semester_id && sdSem(c.semester_id) ? c.semester_id : '') : ((sdCurrentSem() || {}).id || ''); skinSelect(sem);
       docEl('sdCourseTarget').value = c && c.target_percent != null ? +c.target_percent : ''; docEl('sdCourseFinal').value = c && c.final_percent != null ? +c.final_percent : '';
-      docEl('sdCourseDelete').style.display = c ? '' : 'none'; sdErr('sdCourseError', ''); sdPaintColors();
+      docEl('sdCourseDelete').style.display = c ? '' : 'none'; sdErr('sdCourseError', ''); sdPaintColors(); sdPaintCourseStatus();
       sdOpen('sdCourseOverlay'); setTimeout(() => docEl('sdCourseName').focus(), 50);
     }
     docEl('sdCourseClose').onclick = () => sdClose('sdCourseOverlay');
-    docEl('sdCourseOverlay').onclick = e => { if (e.target === docEl('sdCourseOverlay')) return sdClose('sdCourseOverlay'); const b = e.target.closest('[data-color]'); if (b) { SDF.color = b.dataset.color; sdPaintColors(); } };
+    docEl('sdCourseOverlay').onclick = e => { if (e.target === docEl('sdCourseOverlay')) return sdClose('sdCourseOverlay'); const b = e.target.closest('[data-color]'); if (b) { SDF.color = b.dataset.color; sdPaintColors(); } const st = e.target.closest('[data-cs]'); if (st) { SDF.archived = st.dataset.cs === 'archived'; sdPaintCourseStatus(); } };
     ['sdCourseTarget', 'sdCourseFinal'].forEach(id => docEl(id).addEventListener('input', () => { const v = cleanDecimal(docEl(id).value); if (v !== docEl(id).value) docEl(id).value = v; }));
     docEl('sdCourseCredits').addEventListener('input', () => { docEl('sdCourseCredits').value = docEl('sdCourseCredits').value.replace(/\D/g, ''); });
     docEl('sdCourseName').addEventListener('keydown', e => { if (e.key === 'Enter') docEl('sdCourseSave').click(); });
@@ -284,7 +331,7 @@
       if (cr !== '' && +cr > 30) return sdErr('sdCourseError', 'Credit hours should be between 0 and 30.');
       const target = sdNum(docEl('sdCourseTarget').value), fin = sdNum(docEl('sdCourseFinal').value);
       if (Number.isNaN(target) || (target != null && (target < 0 || target > 100)) || Number.isNaN(fin) || (fin != null && (fin < 0 || fin > 100))) return sdErr('sdCourseError', 'Marks are percentages between 0 and 100.');
-      const fields = { name, code: docEl('sdCourseCode').value.trim(), lecturer: docEl('sdCourseLecturer').value.trim(), credit_hours: cr === '' ? null : +cr, color: SDF.color, semester_id: docEl('sdCourseSem').value || null, target_percent: target, final_percent: fin };
+      const fields = { name, code: docEl('sdCourseCode').value.trim(), lecturer: docEl('sdCourseLecturer').value.trim(), credit_hours: cr === '' ? null : +cr, color: SDF.color, semester_id: docEl('sdCourseSem').value || null, target_percent: target, final_percent: fin, archived: SDF.archived };
       sdErr('sdCourseError', ''); sdBtn('sdCourseSave', true);
       const { data, error } = SDF.courseId ? await LumaStudy.courses.update(SDF.courseId, fields) : await LumaStudy.courses.add(fields);
       sdBtn('sdCourseSave', false, 'Save subject');
@@ -354,10 +401,31 @@
       ['sdClassFrom', 'sdClassUntil'].forEach(id => docEl(id)._luDateRefresh && docEl(id)._luDateRefresh());
       sdPaintEnd();
       docEl('sdClassDelete').style.display = c ? '' : 'none'; sdErr('sdClassError', '');
+      docEl('sdClassSkipsField').style.display = c ? '' : 'none';
+      if (c) { let k = sdKey(); for (let i = 0; i < 7 && sdDow(k) !== c.weekday; i++) k = sdAdd(k, 1); docEl('sdClassSkipDate').value = k; docEl('sdClassSkipDate')._luDateRefresh && docEl('sdClassSkipDate')._luDateRefresh(); sdPaintClassSkips(); }
       if (!c) sdApplySemToClass();
       sdPaintDays(); sdChips('sdClassKinds', SD_CLASS_KINDS.map(([k, n]) => [k, n, '']), SDF.classKind, 'ck');
       sdOpen('sdClassOverlay');
     }
+    // single sessions you cancelled (holiday, lecturer away): the class stays, only that date is skipped
+    function sdPaintClassSkips() {
+      docEl('sdClassSkips').innerHTML = SD.skips.filter(x => x.class_id === SDF.classId).sort((a, b) => a.skip_date.localeCompare(b.skip_date)).map(x => `<span class="cal-gchip"><i class="fa-solid fa-ban" style="font-size:0.6rem;color:#fca5a5"></i>${sdFmtDate(x.skip_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}<button type="button" data-skip-del="${x.id}" aria-label="Bring this class back"><i class="fa-solid fa-xmark"></i></button></span>`).join('');
+    }
+    docEl('sdClassSkips').onclick = async e => {
+      const b = e.target.closest('[data-skip-del]'); if (!b) return;
+      const { error } = await LumaStudy.skips.remove(b.dataset.skipDel); if (error) return sdErr('sdClassError', error.message);
+      SD.skips = SD.skips.filter(x => x.id !== b.dataset.skipDel); sdPaintClassSkips(); sdAfterSave();
+    };
+    docEl('sdClassSkipAdd').onclick = async () => {
+      const c = SD.classes.find(x => x.id === SDF.classId), d = docEl('sdClassSkipDate').value; if (!c) return;
+      if (!d) return sdErr('sdClassError', 'Pick the date to cancel.');
+      if (sdDow(d) !== c.weekday) return sdErr('sdClassError', `That date is a ${sdFmtDate(d, { weekday: 'long' })}; this class is on ${(SD_DAYS.find(x => x[0] === c.weekday) || [])[1]}.`);
+      if (SD.skips.some(x => x.class_id === c.id && x.skip_date === d)) return sdErr('sdClassError', 'That date is already cancelled.');
+      sdErr('sdClassError', '');
+      const { data, error } = await LumaStudy.skips.add({ class_id: c.id, skip_date: d });
+      if (error) return sdErr('sdClassError', /study_class_skips|schema cache|does not exist/i.test(error.message) ? 'Cancelled dates aren\'t set up yet — run supabase/migrations/052_study_extras.sql.' : sdHint(error.message));
+      SD.skips.push(data); sdPaintClassSkips(); sdAfterSave();
+    };
     // a new class in a subject that belongs to a semester runs until that semester ends
     function sdApplySemToClass() {
       const co = sdCourse(docEl('sdClassCourse').value), sem = co && sdSem(co.semester_id); if (!sem) return;
@@ -477,6 +545,52 @@
       if (status === 'done') flashToast('Done', t.title, 'fa-check', '#22c55e');
     }
 
+    // --- grade scale ---
+    let SC_ROWS = [];
+    function paintScaleRows() { docEl('sdScaleRows').innerHTML = SC_ROWS.map((r, i) => `<div class="sd-scale-r" data-i="${i}"><input type="text" inputmode="decimal" data-k="0" value="${escapeHtml(String(r[0]))}" aria-label="From %"><input type="text" maxlength="3" data-k="1" value="${escapeHtml(String(r[1]))}" aria-label="Letter"><input type="text" inputmode="decimal" data-k="2" value="${escapeHtml(String(r[2]))}" aria-label="GPA points"><button type="button" data-del="${i}" title="Remove this row" aria-label="Remove this row"><i class="fa-regular fa-trash-can"></i></button></div>`).join(''); }
+    function openScale() { SC_ROWS = sdScale().map(r => r.slice()); sdErr('sdScaleError', ''); paintScaleRows(); sdOpen('sdScaleOverlay'); }
+    docEl('sdScaleClose').onclick = () => sdClose('sdScaleOverlay');
+    docEl('sdScaleOverlay').onclick = e => { if (e.target === docEl('sdScaleOverlay')) sdClose('sdScaleOverlay'); const d = e.target.closest('[data-del]'); if (d) { if (SC_ROWS.length <= 2) return sdErr('sdScaleError', 'Keep at least two rows.'); SC_ROWS.splice(+d.dataset.del, 1); paintScaleRows(); } };
+    docEl('sdScaleRows').addEventListener('input', e => { const inp = e.target.closest('input[data-k]'); if (!inp) return; SC_ROWS[+inp.closest('[data-i]').dataset.i][+inp.dataset.k] = inp.value; });
+    docEl('sdScaleAdd').onclick = () => { if (SC_ROWS.length >= 20) return; SC_ROWS.push(['', '', '']); paintScaleRows(); };
+    docEl('sdScaleReset').onclick = () => { SC_ROWS = SD_SCALE_DEFAULT.map(r => r.slice()); sdErr('sdScaleError', ''); paintScaleRows(); };
+    docEl('sdScaleSave').onclick = async () => {
+      const rows = SC_ROWS.map(r => [Number(String(r[0]).replace(',', '.')), String(r[1]).trim(), Number(String(r[2]).replace(',', '.'))]);
+      if (rows.some(r => !isFinite(r[0]) || r[0] < 0 || r[0] > 100 || String(SC_ROWS[rows.indexOf(r)][0]).trim() === '')) return sdErr('sdScaleError', 'Every row needs a "From %" between 0 and 100.');
+      if (rows.some(r => !r[1] || r[1].length > 3)) return sdErr('sdScaleError', 'Every row needs a letter (up to 3 characters).');
+      if (rows.some((r, i) => !isFinite(r[2]) || r[2] < 0 || r[2] > 10 || String(SC_ROWS[i][2]).trim() === '')) return sdErr('sdScaleError', 'GPA points are numbers from 0 to 10.');
+      if (new Set(rows.map(r => r[0])).size !== rows.length) return sdErr('sdScaleError', 'Two rows start at the same percentage.');
+      if (!rows.some(r => r[0] === 0)) return sdErr('sdScaleError', 'One row must start at 0 so every mark gets a grade.');
+      rows.sort((a, b) => b[0] - a[0]);
+      const same = JSON.stringify(rows) === JSON.stringify(SD_SCALE_DEFAULT);
+      sdBtn('sdScaleSave', true); await setLumaPref('grade_scale', same ? null : rows); sdBtn('sdScaleSave', false, 'Save scale');
+      sdClose('sdScaleOverlay'); sdAfterSave(); flashToast('Grade scale saved', same ? 'Using the standard scale' : 'Your GPA and letters use it now', 'fa-check', '#22c55e');
+    };
+
+    // --- breaks & holidays ---
+    function sdPaintBreaks() {
+      docEl('sdBreakList').innerHTML = SD.breaks.length ? [...SD.breaks].sort((a, b) => a.start_date.localeCompare(b.start_date)).map(b => `<div class="sd-brk"><div><b>${escapeHtml(b.name)}</b><small>${sdShort(b.start_date)}${b.end_date !== b.start_date ? ' to ' + sdShort(b.end_date) : ''} · ${sdDiff(b.start_date, b.end_date) + 1} day${sdDiff(b.start_date, b.end_date) ? 's' : ''}</small></div><button type="button" class="h-del" data-brk-del="${b.id}" title="Delete" aria-label="Delete"><i class="fa-regular fa-trash-can"></i></button></div>`).join('') : '<div class="ls" style="padding:4px 2px">No breaks yet.</div>';
+    }
+    function openBreaks() { sdErr('sdBreakError', ''); docEl('sdBreakName').value = ''; docEl('sdBreakFrom').value = sdKey(); docEl('sdBreakTo').value = sdKey(); ['sdBreakFrom', 'sdBreakTo'].forEach(id => docEl(id)._luDateRefresh && docEl(id)._luDateRefresh()); sdPaintBreaks(); sdOpen('sdBreakOverlay'); }
+    docEl('sdBreakClose').onclick = () => sdClose('sdBreakOverlay');
+    docEl('sdBreakOverlay').onclick = async e => {
+      if (e.target === docEl('sdBreakOverlay')) return sdClose('sdBreakOverlay');
+      const d = e.target.closest('[data-brk-del]'); if (!d) return;
+      const { error } = await LumaStudy.breaks.remove(d.dataset.brkDel); if (error) return sdErr('sdBreakError', error.message);
+      SD.breaks = SD.breaks.filter(x => x.id !== d.dataset.brkDel); sdPaintBreaks(); sdAfterSave();
+    };
+    docEl('sdBreakAdd').onclick = async () => {
+      const name = docEl('sdBreakName').value.trim(), a = docEl('sdBreakFrom').value, b = docEl('sdBreakTo').value;
+      if (!name) return sdErr('sdBreakError', 'Give the break a name.');
+      if (!a || !b) return sdErr('sdBreakError', 'Pick both dates.');
+      if (b < a) return sdErr('sdBreakError', 'The last day must not be before the first day.');
+      sdErr('sdBreakError', ''); sdBtn('sdBreakAdd', true);
+      const { data, error } = await LumaStudy.breaks.add({ name, start_date: a, end_date: b });
+      sdBtn('sdBreakAdd', false, 'Add break');
+      if (error) return sdErr('sdBreakError', /study_breaks|schema cache|does not exist/i.test(error.message) ? 'Breaks aren\'t set up yet — run supabase/migrations/052_study_extras.sql.' : sdHint(error.message));
+      SD.breaks.push(data); docEl('sdBreakName').value = ''; sdPaintBreaks(); sdAfterSave();
+    };
+
     // ---------- calendar: classes repeat every week, assignments show on their due date ----------
     // in Personal mode the person chooses whether Study shows on the Calendar (Settings → Preferences); in Study mode it always does
     const studyVisibleOnCalendar = () => LumaPlan.hasAddon('study') && (LUMA_MODE === 'study' || prefOn('show_study_personal', false));
@@ -494,18 +608,24 @@
 
     // ---------- wiring ----------
     WIRE.study = async function (pg) {
-      pg.querySelector('#sdTabs').addEventListener('click', e => { const b = e.target.closest('[data-sdtab]'); if (b) { SD.tab = b.dataset.sdtab; sdPaint(); const r = docEl('sdRoot'); if (r) r.scrollTop = 0; } });
-      pg.querySelector('#sdAdd').addEventListener('click', () => { if (SD.tab === 'timetable') openClassModal(null); else if (SD.tab === 'subjects') openCourseModal(null); else if (SD.tab === 'semesters') openSemModal(null); else openTaskModal(null); });
+      pg.querySelector('#sdTabs').addEventListener('click', e => { const b = e.target.closest('[data-sdtab]'); if (b) { SD.tab = b.dataset.sdtab; sdPaint(); const r = docEl('sdRoot'); if (r) r.scrollTop = 0; if (SD_ONSHOW[SD.tab]) SD_ONSHOW[SD.tab](); } });
+      pg.querySelector('#sdAdd').addEventListener('click', () => { const a = SD_ADD[SD.tab]; if (a) a[1](); });
       pg.querySelector('#sdRoot').addEventListener('click', e => {
         const chk = e.target.closest('[data-check]'); if (chk) return sdToggleDone(chk.dataset.check);
         const sm = e.target.closest('[data-sem]'); if (sm) return openSemModal(sdSem(sm.dataset.sem));
         const add = e.target.closest('[data-add]'); if (add) return add.dataset.add === 'course' ? openCourseModal(null) : add.dataset.add === 'semester' ? openSemModal(null) : openClassModal(null, add.dataset.day != null ? +add.dataset.day : undefined);
         if (e.target.closest('[data-ended]')) { SD.showEnded = !SD.showEnded; return sdPaint(); }
+        if (e.target.closest('[data-scale]')) return openScale();
+        if (e.target.closest('[data-breaks]')) return openBreaks();
+        const tt = e.target.closest('[data-tt]'); if (tt) { try { localStorage.setItem('luma_tt_view', tt.dataset.tt); } catch (x) { } return sdPaint(); }
+        for (const h of SD_CLICK) if (h(e)) return;
+        if (e.target.closest('[data-archived]')) { SD.showArchived = !SD.showArchived; return sdPaint(); }
         const f = e.target.closest('[data-f]'); if (f) { SD.filter = f.dataset.f; return sdPaint(); }
         const fc = e.target.closest('[data-fc]'); if (fc) { SD.fCourse = fc.dataset.fc; return sdPaint(); }
         const cls = e.target.closest('[data-cls]'); if (cls) return openClassModal(SD.classes.find(x => x.id === cls.dataset.cls));
         const row = e.target.closest('[data-task]'); if (row) return openTaskModal(SD.tasks.find(x => x.id === row.dataset.task));
         const co = e.target.closest('[data-course]'); if (co) return openCourseModal(sdCourse(co.dataset.course));
       });
-      await sdLoad(); sdPaint();
+      if (!sdGuest()) await sdLoad(); sdPaint();
+      if (SD_VIEW[SD.tab] && SD_ONSHOW[SD.tab]) SD_ONSHOW[SD.tab]();
     };

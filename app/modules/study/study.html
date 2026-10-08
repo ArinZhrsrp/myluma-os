@@ -19,6 +19,7 @@
           <div class="pem-field"><label>Final mark % <span style="color:rgba(255,255,255,0.35);font-weight:400">(when finished)</span></label><input id="sdCourseFinal" type="text" inputmode="decimal" placeholder="e.g. 76" autocomplete="off"></div>
         </div>
         <div class="pem-field"><label>Colour</label><div class="sd-colors" id="sdCourseColors"></div></div>
+        <div class="pem-field"><label>Status</label><div class="h-tpls" id="sdCourseStatus"></div><div class="pem-hint" style="margin:6px 0 0">Archive a finished subject: it leaves your timetable, calendar and reminders, but its marks still count in your GPA.</div></div>
       </div>
       <div class="pem-actions" style="gap:10px">
         <button type="button" class="h-del" id="sdCourseDelete" title="Delete subject" aria-label="Delete subject" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
@@ -48,6 +49,10 @@
           <div id="sdClassUntilWrap" style="margin-top:8px"><input id="sdClassUntil" type="text"></div>
           <div class="pem-hint" id="sdClassRange" style="margin:8px 0 0"></div></div>
         <div class="pem-field"><label>Room <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdClassRoom" type="text" maxlength="60" placeholder="e.g. Block B, Lab 3" autocomplete="off"></div>
+        <div class="pem-field" id="sdClassSkipsField"><label>Cancelled dates <span style="color:rgba(255,255,255,0.35);font-weight:400">(skip a single week)</span></label>
+          <div class="cal-guests" id="sdClassSkips"></div>
+          <div class="sd-endrow" style="margin-top:0"><div style="flex:1"><input id="sdClassSkipDate" type="text"></div><button type="button" class="np-btn" id="sdClassSkipAdd">Cancel this date</button></div>
+        </div>
       </div>
       <div class="pem-actions" style="gap:10px">
         <button type="button" class="h-del" id="sdClassDelete" title="Delete class" aria-label="Delete class" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
@@ -107,3 +112,44 @@
       </div>
     </div>
   </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdScaleOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Grade scale</div>
+        <button class="x" id="sdScaleClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdScaleError"></div>
+      <div class="pem-body">
+        <div class="pem-hint" style="margin:0 0 10px">Set the letters and GPA points your university uses. A mark gets the first row whose minimum it reaches. The last row should start at 0.</div>
+        <div class="sd-scale-h"><span>From %</span><span>Letter</span><span>GPA points</span><span></span></div>
+        <div id="sdScaleRows"></div>
+        <button type="button" class="np-btn" id="sdScaleAdd" style="margin-top:10px"><i class="fa-solid fa-plus"></i> Add a row</button>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="np-btn" id="sdScaleReset" style="flex:none">Reset to default</button>
+        <button class="confirm-btn save" id="sdScaleSave" style="flex:1">Save scale</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdBreakOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:460px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Breaks &amp; holidays</div>
+        <button class="x" id="sdBreakClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdBreakError"></div>
+      <div class="pem-body">
+        <div class="pem-hint" style="margin:0 0 10px">No classes happen on these dates: they leave your timetable, Calendar and class reminders. Assignments are not affected.</div>
+        <div id="sdBreakList"></div>
+        <div class="pem-field" style="margin-top:14px"><label>Name <span style="color:#fca5a5">*</span></label><input id="sdBreakName" type="text" maxlength="60" placeholder="e.g. Mid-semester break" autocomplete="off"></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>From <span style="color:#fca5a5">*</span></label><input id="sdBreakFrom" type="text"></div>
+          <div class="pem-field"><label>To <span style="color:#fca5a5">*</span></label><input id="sdBreakTo" type="text"></div>
+        </div>
+      </div>
+      <div class="pem-actions"><button class="confirm-btn save" id="sdBreakAdd" style="flex:1">Add break</button></div>
+    </div>
+  </div>
+

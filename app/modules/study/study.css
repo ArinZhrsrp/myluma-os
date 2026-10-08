@@ -150,3 +150,43 @@
     .sm-gpa span { color:rgba(255,255,255,0.55); font-size:0.62rem; }
     .sm-subj { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.08); }
     .sm-subj b { margin-left:4px; font-size:0.68rem; padding:1px 6px; border-radius:6px; background:rgba(255,255,255,0.12); }
+
+    /* v3: timetable grid, toolbar, grade scale, breaks, archive */
+    .sd-tt-top { display:flex; justify-content:flex-end; margin-bottom:10px; }
+    .sd-seg button i { margin-right:6px; font-size:0.66rem; }
+    .sd-grid { border-radius:18px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); overflow:hidden; }
+    .sd-ghead, .sd-gbody { display:grid; grid-template-columns:54px repeat(7,minmax(0,1fr)); }
+    .sd-ghead { border-bottom:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); }
+    .sd-ghead > div { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 4px; color:#fff; font-weight:700; font-size:0.78rem; border-left:1px solid rgba(255,255,255,0.06); }
+    .sd-ghead > div.today { color:#34d399; }
+    .sd-ghead button { width:20px; height:20px; border-radius:7px; border:0; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.7); cursor:pointer; font-size:0.55rem; }
+    .sd-ghead button:hover { background:rgba(255,255,255,0.2); color:#fff; }
+    .sd-ghours { position:relative; }
+    .sd-ghours span { position:absolute; right:8px; transform:translateY(-50%); color:rgba(255,255,255,0.5); font-size:0.62rem; white-space:nowrap; }
+    .sd-ghours span:first-child { transform:none; }
+    .sd-gcol { position:relative; border-left:1px solid rgba(255,255,255,0.06); background-image:repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--h) - 1px), rgba(255,255,255,0.07) calc(var(--h) - 1px), rgba(255,255,255,0.07) var(--h)); }
+    .sd-gcol.today { background-color:rgba(52,211,153,0.06); }
+    .sd-gblk { --c:#34d399; position:absolute; box-sizing:border-box; display:flex; flex-direction:column; gap:1px; text-align:left; padding:5px 7px; border:0; border-left:3px solid var(--c); border-radius:9px; background:color-mix(in srgb, var(--c) 30%, rgba(20,26,44,0.9)); color:#fff; cursor:pointer; font-family:inherit; overflow:hidden; transition:filter .15s; }
+    .sd-gblk:hover { filter:brightness(1.2); z-index:2; }
+    .sd-gblk b { font-size:0.62rem; font-weight:600; color:rgba(255,255,255,0.8); }
+    .sd-gblk span { font-size:0.74rem; font-weight:700; line-height:1.15; }
+    .sd-gblk small { font-size:0.62rem; color:rgba(255,255,255,0.65); }
+    .sd-gblk.tiny { flex-direction:row; align-items:center; gap:6px; padding:2px 6px; }
+    .sd-gblk.tiny small { display:none; }
+    .sd-gblk.ended { opacity:0.45; }
+    .sd-gnow { position:absolute; left:0; right:0; height:2px; background:#f87171; z-index:3; pointer-events:none; }
+    .sd-gnow::before { content:''; position:absolute; left:-4px; top:-3px; width:8px; height:8px; border-radius:50%; background:#f87171; }
+    .sd-toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+    .sd-toolbar .np-btn i { margin-right:7px; }
+    .sd-scale-h, .sd-scale-r { display:grid; grid-template-columns:1fr 1fr 1fr 34px; gap:8px; align-items:center; }
+    .sd-scale-h { color:rgba(255,255,255,0.55); font-size:0.68rem; margin-bottom:6px; padding:0 2px; }
+    .sd-scale-r { margin-bottom:8px; }
+    .sd-scale-r input { width:100%; box-sizing:border-box; height:38px; border-radius:11px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#fff; padding:0 12px; font:inherit; font-size:0.82rem; }
+    .sd-scale-r button { width:34px; height:34px; border-radius:10px; border:0; background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.7); cursor:pointer; }
+    .sd-scale-r button:hover { background:rgba(248,113,113,0.25); color:#fecaca; }
+    .sd-brk { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.05); margin-bottom:8px; }
+    .sd-brk > div { flex:1; min-width:0; }
+    .sd-brk b { display:block; color:#fff; font-size:0.84rem; }
+    .sd-brk small { color:rgba(255,255,255,0.6); font-size:0.7rem; }
+    .sd-course.arch { opacity:0.6; }
+    .sc-arch { font-style:normal; margin-left:8px; font-size:0.58rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:2px 8px; border-radius:999px; background:rgba(255,255,255,0.12); color:rgba(255,255,255,0.75); }

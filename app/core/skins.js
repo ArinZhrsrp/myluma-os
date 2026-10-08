@@ -85,6 +85,9 @@
     skinDate(document.getElementById('sdTaskDue'));
     skinDate(document.getElementById('sdClassFrom'));
     skinDate(document.getElementById('sdSemStart'));
+    skinDate(document.getElementById('sdClassSkipDate'));
+    skinDate(document.getElementById('sdBreakFrom'));
+    skinDate(document.getElementById('sdBreakTo'));
     skinDate(document.getElementById('sdSemEnd'));
     skinNumber(document.getElementById('sdClassCount'), 1);
     skinNumber(document.getElementById('sdCourseCredits'), 1);

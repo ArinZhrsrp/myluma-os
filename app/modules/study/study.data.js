@@ -35,6 +35,31 @@
     classes: table("study_classes", CLASS_BASE, "start_time", ["start_date", "end_date"]),
     tasks: table("study_tasks", TASK, "due_date"),
     semesters: table("study_semesters", SEMESTER, "start_date"),
+    // cancelled single sessions and break weeks / holidays (migration 052)
+    skips: table("study_class_skips", "id, class_id, skip_date", "skip_date"),
+    breaks: table("study_breaks", "id, name, start_date, end_date", "start_date"),
+    // notes per subject, shareable with contacts (migration 053)
+    notes: Object.assign(table("study_notes", "id, course_id, title, body, created_at, updated_at", "updated_at"), {
+      shared: () => db().rpc("shared_study_notes"),
+      sharedWith: (id) => db().rpc("study_note_shared_with", { p_note: id }),
+      share: (id, users) => db().rpc("share_study_note", { p_note: id, p_users: users }),
+      unshare: (id, user) => db().rpc("unshare_study_note", { p_note: id, p_user: user }),
+    }),
+    // group projects (migration 054): everything goes through functions that check who is asking
+    groups: {
+      list: () => db().rpc("my_study_projects"),
+      detail: (id) => db().rpc("study_project_detail", { p_project: id }),
+      create: (title, course, due, notes) => db().rpc("create_study_project", { p_title: title, p_course: course || "", p_due: due || null, p_notes: notes || "" }),
+      update: (id, fields) => db().rpc("update_study_project", { p_project: id, p_fields: fields }),
+      remove: (id) => db().rpc("delete_study_project", { p_project: id }),
+      invite: (id, users) => db().rpc("invite_to_study_project", { p_project: id, p_users: users }),
+      respond: (id, accept) => db().rpc("respond_study_project", { p_project: id, p_accept: accept }),
+      leave: (id, user) => db().rpc("leave_study_project", { p_project: id, p_user: user }),
+      addTask: (id, title, assignee, due) => db().rpc("add_study_project_task", { p_project: id, p_title: title, p_assignee: assignee || null, p_due: due || null }),
+      updateTask: (taskId, fields) => db().rpc("update_study_project_task", { p_task: taskId, p_fields: fields }),
+      removeTask: (taskId) => db().rpc("delete_study_project_task", { p_task: taskId }),
+      nudge: (id, user, task) => db().rpc("nudge_study_project_member", { p_project: id, p_user: user, p_task: task || null }),
+    },
     // focus sessions tagged with a subject since a moment (for "study time")
     focusSince: (iso) => db().from("focus_sessions").select("minutes, course_id, started_at").gte("started_at", iso),
   };
