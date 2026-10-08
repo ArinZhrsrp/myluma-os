@@ -45,7 +45,7 @@
           <ul>${a.perks.slice(0, 3).map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('')}</ul>
           ${on ? `<button type="button" class="pbtn" data-addon="${k}" data-open style="cursor:pointer">Open ${a.name} mode</button>` : `<button type="button" class="pbtn up" data-addon-buy="${k}"><i class="fa-brands fa-whatsapp"></i> Get ${a.name}</button><button type="button" class="pbtn" data-addon="${k}" style="cursor:pointer">See what's included</button>`}
         </div>`;
-      }).join('') + '</div>';
+      }).join('') + (!LumaPlan.hasAddon('work') && !LumaPlan.hasAddon('study') ? `<div class="plan-card ad-bundle" style="--pc:#34d399"><span class="pb">${ADDON_BUNDLE.save}</span><div class="pn"><span class="pi"><i class="fa-solid fa-layer-group"></i></span>${ADDON_BUNDLE.name}</div><div class="pt">Both add-ons together</div><div class="pp">${ADDON_BUNDLE.price}</div><button type="button" class="pbtn up" data-addon-buy="both"><i class="fa-brands fa-whatsapp"></i> Get both</button></div>` : '') + '</div>';
     }
     // opens WhatsApp with the person's details and the plan they picked already typed in
     function requestUpgrade(planId) {

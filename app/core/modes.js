@@ -8,6 +8,8 @@
       study: { name: 'Study', icon: 'fa-graduation-cap', color: '#34d399', tag: 'Classes & assignments', price: 'RM7 / month', live: false,
         perks: ['Weekly timetable for your classes', 'Assignments, tests and exams with reminders', 'Group projects: invite classmates who already have LUMA', 'Study sessions tied to each subject', 'Grades and a semester planner'] },
     };
+    // both together, cheaper than buying them one by one
+    const ADDON_BUNDLE = { name: 'Work + Study', price: 'RM19 / month', save: 'Save RM3 a month', keys: ['work', 'study'] };
     const MODE_HOME = { personal: 'dashboard', work: 'work', study: 'study' };
     // what each add-on mode shows in the menu (Personal shows everything that is not mode-only); Settings, Support and Admin always show
     const MODE_MENUS = { work: ['work', 'calendar', 'reminders', 'documents', 'contacts', 'assistant'], study: ['study', 'studyarchive', 'calendar', 'reminders', 'notes', 'documents', 'assistant'] };
@@ -66,10 +68,10 @@
 
     // opens WhatsApp with the person's details and the add-on they picked already typed in (same as a plan upgrade)
     function requestAddon(key) {
-      const a = ADDONS[key]; if (!a) return;
+      const a = key === 'both' ? ADDON_BUNDLE : ADDONS[key]; if (!a) return;
       const num = String(window.LUMA_WHATSAPP || '').replace(/\D/g, '');
       if (!num) return luAlert('The WhatsApp number for requests isn\'t set up yet. Please email aeinscape@gmail.com to add this.', 'Almost there');
-      const msg = `Hi LUMA! I'd like to add an add-on.\n\nName: ${lumaFullName()}\nEmail: ${lumaEmail()}\nCurrent plan: ${LumaPlan.name()}\nAdd-on: ${a.name}\nPrice: ${a.price}`;
+      const msg = `Hi LUMA! I'd like to add an add-on.\n\nName: ${lumaFullName()}\nEmail: ${lumaEmail()}\nCurrent plan: ${LumaPlan.name()}\nAdd-on: ${a.name}${key === 'both' ? ' (bundle: Work and Study together)' : ''}\nPrice: ${a.price}`;
       window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
     }
 
@@ -87,6 +89,7 @@
       const btn = [], trial = a.live && LumaPlan.canTrial(key);
       if (trial) btn.push(`<button type="button" class="confirm-btn save" data-trial>Start 7-day free trial</button>`);
       btn.push(`<button type="button" class="confirm-btn ${trial ? 'cancel' : 'save'}" data-ask><i class="fa-brands fa-whatsapp"></i> Get ${a.name} · ${a.price}</button>`);
+      if (!LumaPlan.hasAddon('work') && !LumaPlan.hasAddon('study')) btn.push(`<button type="button" class="confirm-btn cancel ad-both" data-ask-both><span><i class="fa-brands fa-whatsapp"></i> Get both: ${ADDON_BUNDLE.name} · ${ADDON_BUNDLE.price}</span><small>${ADDON_BUNDLE.save}</small></button>`);
       docEl('addonActions').innerHTML = `<div class="ls" style="margin-bottom:4px">It works on every plan (Dawn, Glow and Zenith). We'll open WhatsApp with your details filled in, and switch it on once payment is sorted.</div>` + btn.join('');
       docEl('addonOverlay').classList.add('open');
       docEl('addonOverlay').querySelectorAll('.pem-body, .profile-edit-modal').forEach(el => { el.scrollTop = 0; });
@@ -96,6 +99,7 @@
     docEl('addonOverlay').onclick = async e => {
       if (e.target === docEl('addonOverlay')) return closeAddon();
       const a = ADDONS[addonKey]; if (!a) return;
+      if (e.target.closest('[data-ask-both]')) { closeAddon(); return requestAddon('both'); }
       if (e.target.closest('[data-ask]')) { closeAddon(); return requestAddon(addonKey); }
       const t = e.target.closest('[data-trial]'); if (!t) return;
       t.disabled = true;
