@@ -263,7 +263,7 @@ Set this up in the Supabase dashboard (one time):
    <p style="font-size:32px;font-weight:700;letter-spacing:8px">{{ .Token }}</p>
    <p>Enter it on the sign-up page. If you didn't create an account, ignore this email.</p>
    ```
-3. **Project Settings → Authentication → SMTP Settings:** switch on **Custom SMTP** with a real email provider (Resend, Brevo, Gmail SMTP, …).
+3. **Authentication → Emails → the "SMTP Settings" tab** (direct link: `https://supabase.com/dashboard/project/<your-project-ref>/auth/smtp`): switch on **Custom SMTP** with a real email provider (Resend, Brevo, Gmail SMTP, …).
    Supabase's built-in sender is limited to a handful of emails per hour and is only meant for testing, so real sign-ups will not get their codes without this.
 4. **Authentication → URL Configuration:** Site URL `https://myluma-os.vercel.app`, and add `https://myluma-os.vercel.app/**` to Redirect URLs.
 
