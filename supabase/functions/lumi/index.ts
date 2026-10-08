@@ -109,17 +109,22 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
     }
     case "get_overview": {
       const monthStart = today.slice(0, 8) + "01", weekAgo = new Date(Date.parse(today) - 6 * 864e5).toISOString().slice(0, 10), in14 = new Date(Date.parse(today) + 14 * 864e5).toISOString().slice(0, 10);
-      const [tasks, events, money, health, goals, bills] = await Promise.all([
+      const [tasks, events, money, health, goals, bills, studyTasks, studyClasses, studyCourses] = await Promise.all([
         db.from("tasks").select("title, status, priority, due_date").neq("status", "done").order("due_date").limit(25),
         db.from("events").select("title, event_date, start_time, repeats, category").gte("event_date", today).lte("event_date", in14).order("event_date").limit(25),
         db.from("money_entries").select("kind, amount, category, entry_date").gte("entry_date", monthStart).limit(500),
         db.from("health_logs").select("log_date, sleep_hours, water_ml, steps, active_minutes, mood").gte("log_date", weekAgo).order("log_date"),
         db.from("health_goals").select("sleep_hours, water_ml, steps, active_minutes").maybeSingle(),
         db.from("bills").select("name, amount, category, active").limit(30),
+        // Study add-on (empty when the person doesn't use it)
+        db.from("study_tasks").select("title, kind, due_date, due_time, weight, score, max_score, status, course_id").neq("status", "done").order("due_date").limit(30),
+        db.from("study_classes").select("course_id, weekday, start_time, end_time, room, start_date, end_date").limit(60),
+        db.from("study_courses").select("id, name, code, credit_hours, target_percent, final_percent").limit(40),
       ]);
       const spend: Record<string, number> = {}; let income = 0, spent = 0;
       (money.data || []).forEach((e: any) => { if (e.kind === "income") income += Number(e.amount); else { spent += Number(e.amount); spend[e.category] = (spend[e.category] || 0) + Number(e.amount); } });
-      return { today, open_tasks: tasks.data || [], events_next_14_days: events.data || [], money_this_month: { spent, income, by_category: spend }, health_last_7_days: health.data || [], health_goals: goals.data, bills_and_subscriptions: bills.data || [] };
+      return { today, open_tasks: tasks.data || [], events_next_14_days: events.data || [], money_this_month: { spent, income, by_category: spend }, health_last_7_days: health.data || [], health_goals: goals.data, bills_and_subscriptions: bills.data || [],
+        ...((studyCourses.data || []).length ? { study: { subjects: studyCourses.data, open_assignments_tests_exams: studyTasks.data || [], weekly_classes: studyClasses.data || [], note: "weekday 0 = Sunday; a class only runs between its start_date and end_date when they are set" } } : {}) };
     }
   }
   return fail("Unknown tool.");
@@ -153,7 +158,7 @@ async function chat(messages: unknown[], tools?: unknown[]) {
 const SYSTEM = (now: string, tz: string, name: string) => `You are Lumi, the assistant inside the LUMA personal-OS app. The user is ${name || "the user"}.
 Current date and time: ${now} (time zone ${tz}). Resolve words like "today", "tomorrow" and "Friday" from this.
 
-You ONLY help with things inside LUMA: tasks, calendar events, notes, health (sleep, water, steps, active minutes, mood), money (expenses, income, budget, bills, subscriptions) and habits, plus short questions and advice about the user's own data.
+You ONLY help with things inside LUMA: tasks, calendar events, notes, health (sleep, water, steps, active minutes, mood), money (expenses, income, budget, bills, subscriptions), habits and study (subjects, classes, assignments, tests and exams), plus short questions and advice about the user's own data.
 - Use the tools to do things. After a tool succeeds, say exactly what you saved in one short sentence. If a tool fails, say so honestly.
 - If a task has no due date, ask for it. For anything else that is missing, make a sensible guess and say what you assumed.
 - To answer questions about the user's data, call get_overview first. Never invent numbers.

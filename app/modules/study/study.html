@@ -10,7 +10,7 @@
         <div class="pem-field"><label>Subject <span style="color:#fca5a5">*</span></label><input id="sdCourseName" type="text" maxlength="80" placeholder="e.g. Database Systems" autocomplete="off"></div>
         <div class="pem-row">
           <div class="pem-field"><label>Code <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseCode" type="text" maxlength="20" placeholder="e.g. CS2101" autocomplete="off"></div>
-          <div class="pem-field"><label>Credit hours <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseCredits" type="text" inputmode="numeric" maxlength="2" placeholder="e.g. 3" autocomplete="off"></div>
+          <div class="pem-field"><label>Credit hours <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseCredits" type="number" min="0" max="30" step="1" placeholder="e.g. 3" autocomplete="off"></div>
         </div>
         <div class="pem-field"><label>Lecturer <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseLecturer" type="text" maxlength="80" placeholder="e.g. Dr. Aisyah" autocomplete="off"></div>
         <div class="pem-field"><label>Colour</label><div class="sd-colors" id="sdCourseColors"></div></div>
@@ -39,7 +39,7 @@
         <div class="pem-field"><label>Type</label><div class="h-tpls" id="sdClassKinds"></div></div>
         <div class="pem-field"><label>Starts on</label><input id="sdClassFrom" type="text"></div>
         <div class="pem-field"><label>Ends</label><div class="h-tpls" id="sdClassEndMode"></div>
-          <div class="sd-endrow" id="sdClassCountWrap"><input id="sdClassCount" type="text" inputmode="numeric" maxlength="2" autocomplete="off"><span id="sdClassCountUnit">weeks</span></div>
+          <div class="sd-endrow" id="sdClassCountWrap"><input id="sdClassCount" type="number" min="1" max="60" step="1" autocomplete="off"><span id="sdClassCountUnit">weeks</span></div>
           <div id="sdClassUntilWrap" style="margin-top:8px"><input id="sdClassUntil" type="text"></div>
           <div class="pem-hint" id="sdClassRange" style="margin:8px 0 0"></div></div>
         <div class="pem-field"><label>Room <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdClassRoom" type="text" maxlength="60" placeholder="e.g. Block B, Lab 3" autocomplete="off"></div>

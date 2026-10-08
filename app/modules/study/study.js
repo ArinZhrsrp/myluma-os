@@ -262,7 +262,7 @@
       sdChips('sdClassEndMode', SD_END_MODES.map(([k, n]) => [k, n, '']), SDF.endMode, 'em');
       const counted = SDF.endMode === 'weeks' || SDF.endMode === 'months';
       docEl('sdClassCountWrap').style.display = counted ? '' : 'none'; docEl('sdClassUntilWrap').style.display = SDF.endMode === 'date' ? '' : 'none';
-      docEl('sdClassCountUnit').textContent = SDF.endMode === 'months' ? 'months' : 'weeks';
+      docEl('sdClassCountUnit').textContent = SDF.endMode === 'months' ? 'months' : 'weeks'; docEl('sdClassCount').max = SDF.endMode === 'months' ? 24 : 60;
       sdPaintEndInfo();
     }
     docEl('sdClassCount').addEventListener('input', () => { docEl('sdClassCount').value = docEl('sdClassCount').value.replace(/\D/g, ''); sdPaintEndInfo(); });

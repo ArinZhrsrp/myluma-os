@@ -84,6 +84,8 @@
     skinDate(document.getElementById('calEvDate'));
     skinDate(document.getElementById('sdTaskDue'));
     skinDate(document.getElementById('sdClassFrom'));
+    skinNumber(document.getElementById('sdClassCount'), 1);
+    skinNumber(document.getElementById('sdCourseCredits'), 1);
     skinDate(document.getElementById('sdClassUntil'));
 
     // Themed time picker (hour / minute / AM-PM). The hidden input holds a 24-hour 'HH:MM' value and fires
