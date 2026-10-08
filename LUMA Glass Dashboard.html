@@ -757,7 +757,7 @@
     .stats-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 0.3rem;
+      gap: 0.3rem 1.6rem;
     }
 
     .stat-item {
@@ -782,9 +782,10 @@
     .stat-item.workload {
       grid-column: span 2;
       border-bottom: none;
-      padding-top: 0.2rem;
-      justify-content: flex-start;
-      gap: 0.5rem;
+      margin-top: 0.3rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      justify-content: space-between; /* label on the left, level on the right, like every other row */
     }
 
     .stat-item.workload .stat-value {
@@ -11947,7 +11948,7 @@
 
       // overview
       const load = overdue.length + dueToday.length, lvl = load <= 3 ? ['Low', '✅', '#6ee7b7'] : load <= 6 ? ['Medium', '🟡', '#fcd34d'] : ['High', '⚠️', '#fca5a5'];
-      dashSet('dashOver', `<div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Events</span><span class="stat-value">${events.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Open tasks</span><span class="stat-value">${open.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Due Today</span><span class="stat-value">${dueToday.length}</span></div><div class="stat-item budget" style="font-size:0.78rem;"><span class="stat-label">${budget ? 'Left in Budget' : 'Spent'}</span><span class="stat-value">${budget ? (left < 0 ? '−' : '') + bRM(Math.abs(left)) : bRM(spent)}</span></div><div class="stat-item workload"><span class="stat-value" style="color:${lvl[2]};font-size:0.78rem">${lvl[1]} ${lvl[0]}</span><span class="stat-label">Workload Level</span></div>`);
+      dashSet('dashOver', `<div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Events</span><span class="stat-value">${events.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Open tasks</span><span class="stat-value">${open.length}</span></div><div class="stat-item" style="font-size:0.78rem;"><span class="stat-label">Due Today</span><span class="stat-value">${dueToday.length}</span></div><div class="stat-item budget" style="font-size:0.78rem;"><span class="stat-label">${budget ? 'Left in Budget' : 'Spent'}</span><span class="stat-value">${budget ? (left < 0 ? '−' : '') + bRM(Math.abs(left)) : bRM(spent)}</span></div><div class="stat-item workload"><span class="stat-label">Workload Level</span><span class="stat-value" style="color:${lvl[2]};font-size:0.78rem">${lvl[1]} ${lvl[0]}</span></div>`);
 
       // tip: chosen at random from the ones that fit right now (see DASH_TIPS)
       dashCtx = { overdue: overdue.length, dueToday: dueToday.length, open: open.length, load, habits: HABITS.length, habitsLeft: habitsLeft.length, budget, left, spent, billsOver: billsOver.length, bills: BILLS.length, events: events.length, hasWater: log.water_ml != null, hasSleep: log.sleep_hours != null, hasMood: log.mood != null, income };
