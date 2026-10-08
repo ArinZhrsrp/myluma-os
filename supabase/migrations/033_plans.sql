@@ -61,7 +61,7 @@ insert into luma.plan_limits (plan, key, value) values
   ('dawn',   'timing', 0),           ('glow',   'timing', 1),           ('zenith', 'timing', 1),
   ('dawn',   'payroll', 0),          ('glow',   'payroll', 1),          ('zenith', 'payroll', 1),
   ('dawn',   'own_wallpaper', 0),    ('glow',   'own_wallpaper', 0),    ('zenith', 'own_wallpaper', 1),
-  ('dawn',   'wallpapers', 2),       ('glow',   'wallpapers', 11),      ('zenith', 'wallpapers', 11),
+  ('dawn',   'wallpapers', 4),       ('glow',   'wallpapers', 8),       ('zenith', 'wallpapers', 11),
   ('dawn',   'themes', 1),           ('glow',   'themes', 3),           ('zenith', 'themes', 3)
 on conflict (plan, key) do update set value = excluded.value;
 

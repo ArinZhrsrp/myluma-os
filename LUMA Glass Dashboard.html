@@ -10619,7 +10619,7 @@
           <p class="ls" style="margin-bottom:0.9rem">Choose a wallpaper, or upload your own picture (it stays with your account).</p>
           <div class="bg-grid" id="bgGrid">
             ${savedPrefs.custom_bg_path ? `<div class="bg-thumb" id="bgCustom" data-bg="storage:${savedPrefs.custom_bg_path}" title="Your uploaded picture" style="background-color:rgba(255,255,255,0.08)"></div>` : ''}
-            ${BGS.map((b, i) => `<div class="bg-thumb ${i >= (LumaPlan.get('wallpapers') ?? 99) ? 'plan-lock' : ''}" data-bg="${b.url}" style="background-image:url('${b.thumb}')" title="${b.name}${i >= (LumaPlan.get('wallpapers') ?? 99) ? ' · Glow and Zenith' : ''}"></div>`).join('')}
+            ${BGS.map((b, i) => `<div class="bg-thumb ${i >= (LumaPlan.get('wallpapers') ?? 99) ? 'plan-lock' : ''}" data-bg="${b.url}" style="background-image:url('${b.thumb}')" title="${b.name}${i >= (LumaPlan.get('wallpapers') ?? 99) ? ' · upgrade to unlock' : ''}"></div>`).join('')}
           </div>
           <input type="file" id="bgFile" accept="image/*" style="display:none">
         </div>
@@ -12423,9 +12423,9 @@
       luConfirm({ title: 'Not in your plan', message: `${feature} is available on ${need}. Want to see the plans?`, ok: 'See plans', icon: 'fa-lock', tone: 'info' }).then(ok => { if (ok) openPlans(); });
     }
     const PLANS = [
-      { id: 'dawn', name: 'Dawn', icon: 'fa-seedling', color: '#34d399', tag: 'Start here', price: 'Free forever', rank: 0, perks: ['Lumi: 3 questions a day (answers only)', '50 MB of file storage (5 MB per file)', '5 custom reminders', '5 habits, 3 goals, 5 bills', '3 contacts', 'Core calendar, tasks, notes, money and health', '2 wallpapers, 1 theme', 'Chat with contacts: up to 50 messages a day'] },
-      { id: 'glow', name: 'Glow', icon: 'fa-sun', color: '#fbbf24', tag: 'The full toolkit', price: 'RM9 / month', rank: 1, perks: ['Lumi: 10 questions a day, and it can add things for you', '3 AI insights a day in Analytics', '300 MB of file storage (20 MB per file)', '25 custom reminders', '10 habits, 5 goals, 12 bills', '12 contacts', 'Adjustable reminder times', 'Malaysian payroll calculator', 'All built-in wallpapers and themes', 'Chat with contacts: up to 50 messages a day'] },
-      { id: 'zenith', name: 'Zenith', icon: 'fa-rocket', color: '#a78bfa', tag: 'No limits', price: 'RM19 / month', rank: 2, perks: ['Lumi: 15 questions a day, and it can add things for you', '10 AI insights a day in Analytics', '1 GB of file storage (50 MB per file)', 'Unlimited reminders, habits, goals, bills and contacts', 'Everything in Glow', 'Upload your own wallpaper', 'Early access to new features', 'Chat with contacts: up to 50 messages a day'] },
+      { id: 'dawn', name: 'Dawn', icon: 'fa-seedling', color: '#34d399', tag: 'Start here', price: 'Free forever', rank: 0, perks: ['Lumi: 3 questions a day (answers only)', '50 MB of file storage (5 MB per file)', '5 custom reminders', '5 habits, 3 goals, 5 bills', '3 contacts', 'Core calendar, tasks, notes, money and health', '4 wallpapers, 1 theme', 'Chat with contacts: up to 50 messages a day'] },
+      { id: 'glow', name: 'Glow', icon: 'fa-sun', color: '#fbbf24', tag: 'The full toolkit', price: 'RM9 / month', rank: 1, perks: ['Lumi: 10 questions a day, and it can add things for you', '3 AI insights a day in Analytics', '300 MB of file storage (20 MB per file)', '25 custom reminders', '10 habits, 5 goals, 12 bills', '12 contacts', 'Adjustable reminder times', 'Malaysian payroll calculator', '8 wallpapers and all 3 themes', 'Chat with contacts: up to 50 messages a day'] },
+      { id: 'zenith', name: 'Zenith', icon: 'fa-rocket', color: '#a78bfa', tag: 'No limits', price: 'RM19 / month', rank: 2, perks: ['Lumi: 15 questions a day, and it can add things for you', '10 AI insights a day in Analytics', '1 GB of file storage (50 MB per file)', 'Unlimited reminders, habits, goals, bills and contacts', 'Everything in Glow', 'All 11 wallpapers, and upload your own', 'Early access to new features', 'Chat with contacts: up to 50 messages a day'] },
     ];
     let planFirst = false, planResolve = null; // planFirst: the welcome version shown once after the first login
     function openPlans(first) {
@@ -14118,7 +14118,7 @@
         const mark = (val) => pg.querySelectorAll('.bg-thumb').forEach(t => t.classList.toggle('active', t.dataset.bg === val));
         mark((LUMA_PROFILE && LUMA_PROFILE.background_url) || BGS[0].url);
         pg.querySelectorAll('.bg-thumb').forEach(t => t.addEventListener('click', async () => {
-          if (t.classList.contains('plan-lock')) return planLocked('More wallpapers', 'the Glow and Zenith plans');
+          if (t.classList.contains('plan-lock')) return planLocked('More wallpapers', LumaPlan.plan === 'dawn' ? 'the Glow and Zenith plans' : 'the Zenith plan');
           const url = t.dataset.bg; mark(url); if (!await applyBgValue(url)) return luAlert('Could not load that picture. Try uploading it again.');
           await saveProfile({ background_url: url });
         }));

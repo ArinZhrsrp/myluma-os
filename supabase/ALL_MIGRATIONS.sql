@@ -3334,7 +3334,7 @@ insert into luma.plan_limits (plan, key, value) values
   ('dawn',   'timing', 0),           ('glow',   'timing', 1),           ('zenith', 'timing', 1),
   ('dawn',   'payroll', 0),          ('glow',   'payroll', 1),          ('zenith', 'payroll', 1),
   ('dawn',   'own_wallpaper', 0),    ('glow',   'own_wallpaper', 0),    ('zenith', 'own_wallpaper', 1),
-  ('dawn',   'wallpapers', 2),       ('glow',   'wallpapers', 11),      ('zenith', 'wallpapers', 11),
+  ('dawn',   'wallpapers', 4),       ('glow',   'wallpapers', 8),       ('zenith', 'wallpapers', 11),
   ('dawn',   'themes', 1),           ('glow',   'themes', 3),           ('zenith', 'themes', 3)
 on conflict (plan, key) do update set value = excluded.value;
 
@@ -4048,8 +4048,10 @@ create policy "Users delete their own wallpaper"
 -- ################################################################
 
 -- ============================================================
--- LUMA — migration 043: six more built-in wallpapers (11 in total). Glow and Zenith can use all of them; Dawn keeps 2.
+-- LUMA — migration 043: six more built-in wallpapers (11 in total). Dawn can use 4, Glow 8, Zenith all 11 (and upload its own).
 -- Depends on 033. Safe to re-run. Run in Supabase Dashboard → SQL Editor.
 -- ============================================================
 
-update luma.plan_limits set value = 11 where key = 'wallpapers' and plan in ('glow', 'zenith');
+update luma.plan_limits set value = 4 where key = 'wallpapers' and plan = 'dawn';
+update luma.plan_limits set value = 8 where key = 'wallpapers' and plan = 'glow';
+update luma.plan_limits set value = 11 where key = 'wallpapers' and plan = 'zenith';
