@@ -92,7 +92,15 @@ const addDays = (d: string, n: number) => new Date(Date.parse(d) + n * 864e5).to
 const list = (v: unknown): any[] => (Array.isArray(v) ? v.filter((x) => x && typeof x === "object").slice(0, 20) : []);
 const pick = (v: unknown, list: string[], d: string) => (typeof v === "string" && list.find((x) => x.toLowerCase() === v.toLowerCase())) || d;
 
-async function runTool(name: string, a: any, db: any, today: string, uid: string): Promise<unknown> {
+// inserts a row (or rows); in Work / Study mode they are filed under that mode (migration 050), and if the database doesn't have that yet they go in as before
+async function ins(db: any, table: string, rows: any, view: string) {
+  if (view === "personal") return await db.from(table).insert(rows);
+  const tagged = Array.isArray(rows) ? rows.map((r: any) => ({ ...r, space: view })) : { ...rows, space: view };
+  const r = await db.from(table).insert(tagged);
+  return r.error && /space/i.test(r.error.message) ? await db.from(table).insert(rows) : r;
+}
+
+async function runTool(name: string, a: any, db: any, today: string, uid: string, view = "personal"): Promise<unknown> {
   const fail = (m: string) => ({ ok: false, error: m });
   const res = (r: { data?: any; error?: any }, ok: unknown) => (r.error ? fail(/row-level security|violates/i.test(r.error.message) ? "That isn't switched on for this account (for Study, the Study add-on must be active)." : r.error.message) : { ok: true, ...(ok as object) });
   // finds a subject by name, creating it when it is new (used by the study tools)
@@ -113,19 +121,19 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
       if (a.start_time && !isTime(a.start_time)) return fail("start_time must be HH:MM.");
       const timed = !!a.start_time;
       const row = { title: String(a.title).slice(0, 120), event_date: a.date, all_day: !timed, start_time: timed ? a.start_time : null, end_time: timed && isTime(a.end_time) ? a.end_time : null, category: pick(a.category, EVENT_CATS, "Other"), repeats: pick(a.repeats, ["none", "daily", "weekly", "monthly", "yearly"], "none"), note: String(a.note || "").slice(0, 1000) };
-      return res(await db.from("events").insert(row), { created: "event", ...row });
+      return res(await ins(db, "events", row, view), { created: "event", ...row });
     }
     case "create_task": {
       if (!a.title || !isDate(a.due_date)) return fail("Need a title and a due date (YYYY-MM-DD).");
       const row = { title: String(a.title).slice(0, 200), due_date: a.due_date, priority: pick(a.priority, ["low", "med", "high"], "med"), tag: pick(a.tag, ["Personal", "Work", "Study", "Errand"], "Personal") };
-      const first = await db.from("tasks").insert(a.notes ? { ...row, notes: String(a.notes).slice(0, 2000) } : row);
-      const r = first.error && /notes|schema cache/i.test(first.error.message) ? await db.from("tasks").insert(row) : first;
+      const first = await ins(db, "tasks", a.notes ? { ...row, notes: String(a.notes).slice(0, 2000) } : row, view);
+      const r = first.error && /notes|schema cache/i.test(first.error.message) ? await ins(db, "tasks", row, view) : first;
       return res(r, { created: "task", ...row });
     }
     case "add_note": {
       if (!a.title || !a.body) return fail("Need a title and the note text.");
       const row = { title: String(a.title).slice(0, 200), body: String(a.body).slice(0, 10000), tag: String(a.tag || "").slice(0, 40) };
-      return res(await db.from("notes").insert(row), { created: "note", title: row.title });
+      return res(await ins(db, "notes", row, view), { created: "note", title: row.title });
     }
     case "log_health": {
       const date = isDate(a.date) ? a.date : today;
@@ -143,13 +151,13 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
       const amount = Number(a.amount); if (!(amount > 0)) return fail("Amount must be above 0.");
       const kind = a.kind === "income" ? "income" : "expense";
       const row = { kind, amount, category: pick(a.category, kind === "income" ? INCOME_CATS : EXPENSE_CATS, kind === "income" ? "Other income" : "Other"), name: String(a.name || "").slice(0, 80), entry_date: isDate(a.date) ? a.date : today };
-      return res(await db.from("money_entries").insert(row), { logged: kind, ...row });
+      return res(await ins(db, "money_entries", row, view), { logged: kind, ...row });
     }
     case "create_reminders": {
       const items = list(a.items); if (!items.length) return fail("No reminders given.");
       const rows = items.map((x: any, i: number) => ({ title: String(x.title || "").trim().slice(0, 120), note: String(x.note || "").slice(0, 300), kind: pick(x.repeats, REMINDER_KINDS, "once"), start_date: isDate(x.date) ? x.date : addDays(today, 1 + i), remind_time: isTime(x.time) ? x.time : "09:00" })).filter((r: any) => r.title);
       if (!rows.length) return fail("Each reminder needs a title.");
-      return res(await db.from("reminders").insert(rows), { created: "reminders", count: rows.length, titles: rows.map((r: any) => r.title) });
+      return res(await ins(db, "reminders", rows, view), { created: "reminders", count: rows.length, titles: rows.map((r: any) => r.title) });
     }
     case "add_study_items": {
       const items = list(a.items); if (!items.length) return fail("Nothing to add.");
@@ -197,7 +205,7 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
       const done: string[] = [], errs: string[] = [];
       for (let i = 0; i < items.length; i++) {
         const x = items[i], fixed = one === "create_task" ? { ...x, due_date: isDate(x.due_date) ? x.due_date : addDays(today, 3 + i) } : { ...x, date: isDate(x.date) ? x.date : addDays(today, 1 + i) };
-        const out: any = await runTool(one, fixed, db, today, uid);
+        const out: any = await runTool(one, fixed, db, today, uid, view);
         if (out?.ok) done.push(String(x.title || "")); else errs.push(out?.error || "failed");
       }
       return done.length ? { ok: true, created: one === "create_task" ? "tasks" : "events", count: done.length, titles: done, ...(errs.length ? { failed: errs.length, first_error: errs[0] } : {}) } : fail(errs[0] || "Nothing was added.");
@@ -318,7 +326,7 @@ Deno.serve(async (req) => {
       msgs.push({ role: "assistant", content: m.content || "", tool_calls: m.tool_calls });
       for (const tc of m.tool_calls) {
         let args: any = {}; try { args = JSON.parse(tc.function.arguments || "{}"); } catch { /* ignore */ }
-        const out: any = await runTool(tc.function.name, args, client, today, u.user.id);
+        const out: any = await runTool(tc.function.name, args, client, today, u.user.id, view);
         if (out?.ok && tc.function.name !== "get_overview") actions.push({ tool: tc.function.name, ...out });
         msgs.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(out).slice(0, 8000) });
       }

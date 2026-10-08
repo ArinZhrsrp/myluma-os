@@ -36,12 +36,14 @@
       else if (m !== 'personal' && !MODE_MENUS[m].includes(key) && !MODE_ALWAYS.includes(key)) m = 'personal';
       if (m === LUMA_MODE) return;
       LUMA_MODE = m; try { localStorage.setItem('luma_mode', m); } catch (e) { }
+      Object.keys(rendered).forEach(k => delete rendered[k]); // every page shows the new mode's items
       setLumaPref('mode', m);
       applyModeMenus();
     }
     function switchMode(m) {
       if (m !== 'personal' && !LumaPlan.hasAddon(m)) return openAddon(m);
       LUMA_MODE = m; try { localStorage.setItem('luma_mode', m); } catch (e) { }
+      Object.keys(rendered).forEach(k => delete rendered[k]); // every page shows the new mode's items
       setLumaPref('mode', m);
       applyModeMenus();
       goTo(MODE_HOME[m]);

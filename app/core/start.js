@@ -14,6 +14,7 @@
       setAppTimezone((LUMA_PROFILE && LUMA_PROFILE.timezone) || (LUMA_USER.user_metadata && LUMA_USER.user_metadata.timezone)); // the time zone chosen at sign-up / in Edit profile
       if (error) console.info("LUMA: luma.profiles not reachable yet (run supabase/migrations/001_profiles_contacts_chat.sql and expose the schema) — using signup metadata instead.", error.message);
 
+      await LumaSpace.init(); // does the database know about Work / Study spaces yet?
       applyUserUI();
       initModes(); // back to Personal / Work / Study as the person left it
       initNotifications(session.user.id);

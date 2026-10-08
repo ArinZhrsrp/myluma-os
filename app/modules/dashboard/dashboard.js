@@ -145,14 +145,15 @@
       paintDashHabits();
     }
 
-    // Study (and later Work) are hidden from Personal until the person chooses to show them: a chip beside the others says so, with a way to switch it on
-    const dashAddonChip = () => (LumaPlan.hasAddon('study') && !prefOn('show_study_personal', false) && !prefOn('study_note_dismissed', false))
-      ? '<span class="dash-addon" title="Study classes and deadlines are hidden from Personal"><i class="fa-solid fa-graduation-cap"></i> Study is hidden here<button type="button" data-addon-show="study">Show</button><button type="button" class="x" data-addon-dismiss title="Don\'t show this again" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button></span>' : '';
+    // Work and Study keep what you create in them out of Personal until you choose to show it: a chip beside the others says so, with a way to switch it on
+    const DASH_SPACES = { work: ['Work', 'fa-briefcase'], study: ['Study', 'fa-graduation-cap'] };
+    const dashAddonChip = () => Object.keys(DASH_SPACES).filter(k => LumaPlan.hasAddon(k) && !prefOn('show_' + k + '_personal', false) && !prefOn(k + '_note_dismissed', false))
+      .map(k => `<span class="dash-addon" title="${DASH_SPACES[k][0]} items are kept out of Personal until you show them"><i class="fa-solid ${DASH_SPACES[k][1]}"></i> ${DASH_SPACES[k][0]} is hidden here<button type="button" data-addon-show="${k}">Show</button><button type="button" class="x" data-addon-dismiss="${k}" title="Don\'t show this again" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button></span>`).join('');
     document.getElementById('page-dashboard').addEventListener('click', async e => {
-      if (e.target.closest('[data-addon-dismiss]')) { await setLumaPref('study_note_dismissed', true); return paintDashboard(); }
-      if (!e.target.closest('[data-addon-show]')) return;
-      await setLumaPref('show_study_personal', true); await sdEnsureLoaded(); paintDashboard();
-      flashToast('Study is now shown in Personal', 'You can change this in Settings → Preferences', 'fa-graduation-cap', '#34d399');
+      const no = e.target.closest('[data-addon-dismiss]'); if (no) { await setLumaPref(no.dataset.addonDismiss + '_note_dismissed', true); return paintDashboard(); }
+      const yes = e.target.closest('[data-addon-show]'); if (!yes) return;
+      const k = yes.dataset.addonShow; await setLumaPref('show_' + k + '_personal', true); if (k === 'study') await sdEnsureLoaded(); await loadDashboard().catch(() => { });
+      flashToast(DASH_SPACES[k][0] + ' is now shown in Personal', 'You can change this in Settings → Preferences', DASH_SPACES[k][1], '#34d399');
     });
     async function loadDashboard() {
       const [t, ev, rm] = await Promise.all([LumaTasks.list(), LumaEvents.list(), LumaReminders.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(hKeyAdd(hToday(), -70)).then(h => { an = { ...(an || {}), health: h.error ? [] : (h.data || []) }; }), LumaHealth.getGoals().then(g => { an = { ...(an || {}), goals: g.data }; }), (LumaPlan.hasAddon('study') && prefOn('show_study_personal', false)) ? sdEnsureLoaded() : null, LumaEvents.invited().then(r => { CINV = r.error ? [] : (r.data || []); })]);

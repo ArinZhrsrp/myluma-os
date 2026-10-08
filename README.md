@@ -317,6 +317,7 @@ app/                         The main app (needs a signed-in session)
     boot.js                  Fetches the markup, puts it in place, then loads the scripts in order
     core.css, shell.html     The shared look (layout, cards, buttons, popups) + sidebar / top bar
     router.js                Menu, pages (goTo), and the MODULES / WIRE registries each module fills
+    modes.js                 Personal / Work / Study switcher and the add-on popup (shared/luma-space.js files each item under the mode)
     ui.js  time.js  dialogs.js  session.js  appearance.js  shell.js  push.js
     plans.js search.js dirtywatch.js skins.js      Plans popup, global search, themed pickers…
     start.js                 Signed-in start-up (runs last)
@@ -374,6 +375,7 @@ supabase/migrations/
   047_study_class_dates.sql    Timetable classes can run for N weeks / months / until a date
   048_event_invites.sql        Invite contacts to calendar events (accept / decline, guest list)
   049_study_v2.sql             Study v2: semesters, subject target / final marks (GPA, CGPA)
+  050_spaces.sql               Work / Study keep what you create there out of Personal (a `space` on each item)
   042_backgrounds.sql          your uploaded wallpaper is saved with your account (private storage bucket)
   041_focus_sessions.sql       Focus mode: every completed focus session is saved
   040_admin_report.sql         Admin page: monthly report of people per plan + log of every plan change
