@@ -26,7 +26,7 @@
       sw.querySelectorAll('button').forEach(b => {
         const m = b.dataset.mode;
         b.classList.toggle('on', m === LUMA_MODE);
-        b.classList.toggle('locked', m !== 'personal' && !LumaPlan.hasAddon(m));
+        b.classList.toggle('locked', m !== 'personal' && !LumaPlan.hasAddon(m) && !(m === 'study' && LumaPlan.guestStudy));
       });
     }
     // keeps the menu in step with the page being opened (a search result or a link can open any page)
@@ -41,18 +41,24 @@
       applyModeMenus();
     }
     function switchMode(m) {
-      if (m !== 'personal' && !LumaPlan.hasAddon(m)) return openAddon(m);
+      if (m !== 'personal' && !LumaPlan.hasAddon(m) && !(m === 'study' && LumaPlan.guestStudy)) return openAddon(m);
       LUMA_MODE = m; try { localStorage.setItem('luma_mode', m); } catch (e) { }
       Object.keys(rendered).forEach(k => delete rendered[k]); // every page shows the new mode's items
       setLumaPref('mode', m);
       applyModeMenus();
       goTo(MODE_HOME[m]);
     }
+    // someone invited to a group project (or already in one) may open the Groups tab of Study even without the add-on
+    async function sdCheckGuest() {
+      if (LumaPlan.hasAddon('study') || typeof LumaStudy === 'undefined') return;
+      try { const r = await LumaStudy.groups.list(); if (!r.error && (r.data || []).length) { LumaPlan.guestStudy = true; applyModeMenus(); } } catch (e) { }
+    }
     // on sign-in: go back to the mode the person was in (only if they still have its add-on)
     function initModes() {
       let m = 'personal';
       try { m = ((LUMA_PROFILE && LUMA_PROFILE.preferences && LUMA_PROFILE.preferences.mode) || localStorage.getItem('luma_mode') || 'personal'); } catch (e) { }
       if (m !== 'work' && m !== 'study' || !LumaPlan.hasAddon(m)) m = 'personal';
+      sdCheckGuest(); // a classmate invited to a group project can open Study (Groups) without the add-on
       LUMA_MODE = m; applyModeMenus();
       if (m !== 'personal' && !location.hash) goTo(MODE_HOME[m]); // a refresh keeps its page (#hash); a fresh start opens the mode's home
     }

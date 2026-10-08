@@ -227,7 +227,7 @@
     .sd-ptask .tt { flex:1; min-width:0; color:#fff; font-size:0.84rem; overflow:hidden; text-overflow:ellipsis; }
     .sd-ptask.done .tt { text-decoration:line-through; color:rgba(255,255,255,0.5); }
     .sd-ptask select, .sd-taskadd select { height:32px; max-width:150px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.06); color:#fff; font:inherit; font-size:0.74rem; padding:0 8px; }
-    .sd-ptask select option, .sd-taskadd select option { color:#111; }
+    .sd-ptask .lu-select, .sd-taskadd .lu-select { width:150px; flex:none; }
     .sd-ptask .ic { border:0; width:28px; height:28px; border-radius:9px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.65); cursor:pointer; font-size:0.7rem; }
     .sd-ptask .ic:hover { background:rgba(255,255,255,0.16); color:#fff; }
     .sd-taskadd { display:flex; gap:8px; margin-top:10px; }

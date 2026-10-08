@@ -264,7 +264,7 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
     }
     case "get_overview": {
       const monthStart = today.slice(0, 8) + "01", weekAgo = new Date(Date.parse(today) - 6 * 864e5).toISOString().slice(0, 10), in14 = new Date(Date.parse(today) + 14 * 864e5).toISOString().slice(0, 10);
-      const [tasks, events, money, health, goals, bills, studyTasks, studyClasses, studyCourses] = await Promise.all([
+      const [tasks, events, money, health, goals, bills, studyTasks, studyClasses, studyCourses, studyBreaks] = await Promise.all([
         db.from("tasks").select("title, status, priority, due_date").neq("status", "done").order("due_date").limit(25),
         db.from("events").select("title, event_date, start_time, repeats, category").gte("event_date", today).lte("event_date", in14).order("event_date").limit(25),
         db.from("money_entries").select("kind, amount, category, entry_date").gte("entry_date", monthStart).limit(500),
@@ -274,12 +274,13 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
         // Study add-on (empty when the person doesn't use it)
         db.from("study_tasks").select("title, kind, due_date, due_time, weight, score, max_score, status, course_id").neq("status", "done").order("due_date").limit(30),
         db.from("study_classes").select("course_id, weekday, start_time, end_time, room, start_date, end_date").limit(60),
-        db.from("study_courses").select("id, name, code, credit_hours, target_percent, final_percent").limit(40),
+        db.from("study_courses").select("id, name, code, credit_hours, target_percent, final_percent, archived").limit(40),
+        db.from("study_breaks").select("name, start_date, end_date").gte("end_date", today).limit(20),
       ]);
       const spend: Record<string, number> = {}; let income = 0, spent = 0;
       (money.data || []).forEach((e: any) => { if (e.kind === "income") income += Number(e.amount); else { spent += Number(e.amount); spend[e.category] = (spend[e.category] || 0) + Number(e.amount); } });
       return { today, open_tasks: tasks.data || [], events_next_14_days: events.data || [], money_this_month: { spent, income, by_category: spend }, health_last_7_days: health.data || [], health_goals: goals.data, bills_and_subscriptions: bills.data || [],
-        ...((studyCourses.data || []).length ? { study: { subjects: studyCourses.data, open_assignments_tests_exams: studyTasks.data || [], weekly_classes: studyClasses.data || [], note: "weekday 0 = Sunday; a class only runs between its start_date and end_date when they are set" } } : {}) };
+        ...((studyCourses.data || []).length ? { study: { subjects: studyCourses.data, open_assignments_tests_exams: studyTasks.data || [], weekly_classes: studyClasses.data || [], upcoming_breaks_and_holidays: studyBreaks.data || [], note: "weekday 0 = Sunday; a class only runs between its start_date and end_date when they are set" } } : {}) };
     }
   }
   return fail("Unknown tool.");
@@ -316,6 +317,7 @@ Current date and time: ${now} (time zone ${tz}). Resolve words like "today", "to
 You ONLY help with things inside LUMA: tasks, calendar events, notes, health (sleep, water, steps, active minutes, mood), money (expenses, income, budget, bills, subscriptions), habits and study (subjects, classes, assignments, tests and exams), plus short questions and advice about the user's own data.
 - Use the tools to do things. After a tool succeeds, say exactly what you saved in one short sentence. If a tool fails, say so honestly.
 - Do not ask follow-up questions about missing details. Fill them in with sensible, varied values (spread dates over the coming days or weeks, use realistic names) and say briefly what you assumed. Only ask when you cannot tell what the user wants at all.
+- If asked for a study plan, what to study, or how to prepare, call get_overview and answer with a short day-by-day plan (at most 8 lines) built around the classes, breaks and the nearest deadlines (exams and tests first, heavier weights first); then offer to add the steps as study items or reminders.
 - When the user asks for several things ("add 10 reminders", "add my timetable"), use the matching batch tool once with all items (up to 20).
 - The user is now in ${view === "study" ? "Study mode" : view === "work" ? "Work mode" : "Personal mode"}${page ? ", on the " + page + " page" : ""}. When they ask to add or create something without saying what kind, the page they are on decides first: Reminders page → reminders (create_reminders), Tasks → tasks, Calendar → events, Health → a health log, Money → an expense, Notes → a note. Otherwise use the mode: in Study mode that means study items (assignments, quizzes, tests, exams with due dates — LUMA reminds the user about them automatically, so "study reminders" or "reminders" outside the Reminders page mean these), subjects or timetable classes.
 - To answer questions about the user's data, call get_overview first. Never invent numbers.

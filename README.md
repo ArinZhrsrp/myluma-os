@@ -377,6 +377,9 @@ supabase/migrations/
   049_study_v2.sql             Study v2: semesters, subject target / final marks (GPA, CGPA)
   050_spaces.sql               Work / Study keep what you create there out of Personal (a `space` on each item)
   051_assistant_pending.sql    Lumi can delete your own items, only after a preview and a yes
+  052_study_extras.sql         Cancelled class dates, breaks and holidays, class reminders ("starts in 15 min")
+  053_study_notes.sql          Notes per subject, shareable with contacts (read-only for them)
+  054_study_groups.sql         Group projects: invite classmates, tasks, shared notes, nudges
   042_backgrounds.sql          your uploaded wallpaper is saved with your account (private storage bucket)
   041_focus_sessions.sql       Focus mode: every completed focus session is saved
   040_admin_report.sql         Admin page: monthly report of people per plan + log of every plan change

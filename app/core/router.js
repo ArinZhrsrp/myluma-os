@@ -27,7 +27,7 @@
     }
     function goTo(key) {
       if (!key || !titles[key]) return;
-      if ((key === 'work' || key === 'study') && !LumaPlan.hasAddon(key)) return openAddon(key); // the add-on isn't switched on for this account
+      if ((key === 'work' || key === 'study') && !LumaPlan.hasAddon(key) && !(key === 'study' && LumaPlan.guestStudy)) return openAddon(key); // the add-on isn't switched on for this account
       modeSync(key);
       closeContactChat(); // tear down any open chat's realtime subscription before navigating away
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
