@@ -246,3 +246,19 @@
     .tg-ev.cancelled .t { text-decoration:line-through; }
     .sd-brkcol { background-image:repeating-linear-gradient(135deg, rgba(251,191,36,0.07) 0, rgba(251,191,36,0.07) 8px, transparent 8px, transparent 16px); }
     .sd-brk-tag { position:absolute; margin-top:34px; font-size:0.54rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:1px 6px; border-radius:999px; background:rgba(251,191,36,0.2); color:#fcd34d; }
+
+    /* select mode, semester archive */
+    .sd-toolbar .lb { color:rgba(255,255,255,0.8); font-size:0.78rem; align-self:center; margin-right:4px; }
+    .sd-toolbar .np-btn[disabled] { opacity:0.4; cursor:default; }
+    .sc-pick { width:22px; height:22px; border-radius:7px; border:2px solid rgba(255,255,255,0.35); display:grid; place-items:center; color:transparent; font-size:0.6rem; flex:none; }
+    .sd-course.picked { border-color:rgba(52,211,153,0.7); background:rgba(52,211,153,0.1); }
+    .sd-course.picked .sc-pick { background:#10b981; border-color:#10b981; color:#fff; }
+    .sm-done { margin-top:12px; }
+    .sm-done .np-btn i { margin-right:7px; }
+
+    /* archive page */
+    .sd-arch .sa-go { color:rgba(255,255,255,0.5); }
+    .sd-arch .sm-subj { margin-top:12px; }
+    .sa-tabs { margin-bottom:14px; flex-wrap:wrap; }
+    .sa-tabs .sa-restore { margin-left:auto; background:rgba(52,211,153,0.15); color:#a7f3d0; }
+    #page-studyarchive .head-actions { flex-wrap:wrap; gap:10px; }

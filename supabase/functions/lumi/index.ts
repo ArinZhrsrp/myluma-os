@@ -274,13 +274,13 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
         // Study add-on (empty when the person doesn't use it)
         db.from("study_tasks").select("title, kind, due_date, due_time, weight, score, max_score, status, course_id").neq("status", "done").order("due_date").limit(30),
         db.from("study_classes").select("course_id, weekday, start_time, end_time, room, start_date, end_date").limit(60),
-        db.from("study_courses").select("id, name, code, credit_hours, target_percent, final_percent, archived").limit(40),
+        db.from("study_courses").select("id, name, code, credit_hours, target_percent, final_percent").eq("archived", false).limit(40), // archived (finished) subjects are left out
         db.from("study_breaks").select("name, start_date, end_date").gte("end_date", today).limit(20),
       ]);
       const spend: Record<string, number> = {}; let income = 0, spent = 0;
       (money.data || []).forEach((e: any) => { if (e.kind === "income") income += Number(e.amount); else { spent += Number(e.amount); spend[e.category] = (spend[e.category] || 0) + Number(e.amount); } });
       return { today, open_tasks: tasks.data || [], events_next_14_days: events.data || [], money_this_month: { spent, income, by_category: spend }, health_last_7_days: health.data || [], health_goals: goals.data, bills_and_subscriptions: bills.data || [],
-        ...((studyCourses.data || []).length ? { study: { subjects: studyCourses.data, open_assignments_tests_exams: studyTasks.data || [], weekly_classes: studyClasses.data || [], upcoming_breaks_and_holidays: studyBreaks.data || [], note: "weekday 0 = Sunday; a class only runs between its start_date and end_date when they are set" } } : {}) };
+        ...((studyCourses.data || []).length ? { study: { subjects: studyCourses.data, open_assignments_tests_exams: (studyTasks.data || []).filter((x: any) => !x.course_id || (studyCourses.data || []).some((c: any) => c.id === x.course_id)), weekly_classes: (studyClasses.data || []).filter((k: any) => (studyCourses.data || []).some((c: any) => c.id === k.course_id)), upcoming_breaks_and_holidays: studyBreaks.data || [], note: "weekday 0 = Sunday; a class only runs between its start_date and end_date when they are set" } } : {}) };
     }
   }
   return fail("Unknown tool.");

@@ -34,7 +34,7 @@
     courses: table("study_courses", COURSE_BASE, "created_at", ["semester_id", "target_percent", "final_percent"]),
     classes: table("study_classes", CLASS_BASE, "start_time", ["start_date", "end_date"]),
     tasks: table("study_tasks", TASK, "due_date"),
-    semesters: table("study_semesters", SEMESTER, "start_date"),
+    semesters: table("study_semesters", SEMESTER, "start_date", ["archived_at"]),
     // cancelled single sessions and break weeks / holidays (migration 052)
     skips: table("study_class_skips", "id, class_id, skip_date", "skip_date"),
     breaks: table("study_breaks", "id, name, start_date, end_date", "start_date"),
