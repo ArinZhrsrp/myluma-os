@@ -11784,6 +11784,14 @@
     const plT = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
     const plWin = () => { try { const w = JSON.parse(localStorage.getItem('luma_plan_window') || 'null'); if (w && w.s < w.e) return w; } catch (e) {} return { s: 540, e: 1080 }; }; // 09:00 – 18:00
     const plAcceptKey = k => `luma_plan_done_${LUMA_USER ? LUMA_USER.id : ''}_${k}`;
+    const PL_REGEN_MAX = 2; // regenerations per day
+    const plRegenKey = () => `luma_plan_regen_${LUMA_USER ? LUMA_USER.id : ''}_${mytDayKey(Date.now())}`;
+    const plRegenGet = () => { try { const v = JSON.parse(localStorage.getItem(plRegenKey()) || 'null'); return v && typeof v.n === 'number' ? v : { n: 0, strat: 0 }; } catch (e) { return { n: 0, strat: 0 }; } };
+    function plRegenPaint() {
+      const b = document.getElementById('plRegen'); if (!b) return; const left = PL_REGEN_MAX - plRegenGet().n;
+      b.disabled = left <= 0; b.title = left > 0 ? `${left} of ${PL_REGEN_MAX} regenerations left today` : 'You have used both regenerations for today. Come back tomorrow.';
+      b.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> Regenerate <span style="opacity:0.7;font-size:0.7rem">${left}/${PL_REGEN_MAX}</span>`;
+    }
     const plAccepted = k => { try { return JSON.parse(localStorage.getItem(plAcceptKey(k)) || '[]'); } catch (e) { return []; } };
 
     function buildPlan(k) {
@@ -11831,6 +11839,7 @@
       const root = document.getElementById('plRoot'); if (!root) return;
       const today = mytDayKey(Date.now()); if (!plDate) plDate = today;
       const p = plPlan = buildPlan(plDate), tasksPlanned = p.blocks.filter(b => b.type === 'task'), nEv = p.blocks.filter(b => b.type === 'event').length;
+      plRegenPaint();
       document.getElementById('plDay').textContent = plDate === today ? 'Today' : plDate === bAddDays(today, 1) ? 'Tomorrow' : plDate === bAddDays(today, -1) ? 'Yesterday' : cFmt(plDate, { weekday: 'short', day: 'numeric', month: 'short' });
       document.getElementById('plSub').textContent = `Plan for ${cFmt(plDate, { weekday: 'long', day: 'numeric', month: 'long' })} · ${PL_STRATS[plStrat][1]}`;
       const done = plAccepted(plDate), acceptBtn = document.getElementById('plAccept');
@@ -11857,10 +11866,10 @@
     }
 
     async function loadPlanner(pg) {
-      plDate = null;
+      plDate = null; plStrat = plRegenGet().strat % PL_STRATS.length; // keep the order you ended on today
       pg.querySelector('#plPrev').onclick = () => { plDate = bAddDays(plDate || mytDayKey(Date.now()), -1); paintPlanner(); };
       pg.querySelector('#plNext').onclick = () => { plDate = bAddDays(plDate || mytDayKey(Date.now()), 1); paintPlanner(); };
-      pg.querySelector('#plRegen').onclick = () => { plStrat = (plStrat + 1) % PL_STRATS.length; paintPlanner(); flashToast('Plan regenerated', PL_STRATS[plStrat][1], 'fa-arrows-rotate', '#3b82f6'); };
+      pg.querySelector('#plRegen').onclick = () => { const r = plRegenGet(); if (r.n >= PL_REGEN_MAX) return; plStrat = (plStrat + 1) % PL_STRATS.length; try { localStorage.setItem(plRegenKey(), JSON.stringify({ n: r.n + 1, strat: plStrat })); } catch (e) {} paintPlanner(); flashToast('Plan regenerated', PL_STRATS[plStrat][1], 'fa-arrows-rotate', '#3b82f6'); };
       pg.querySelector('#plAccept').onclick = async () => {
         const p = plPlan; if (!p) return; const list = p.blocks.filter(b => b.type === 'task'); if (!list.length) return;
         const ok = await luConfirm({ title: 'Add this plan to your calendar?', message: `${list.length} task block${list.length > 1 ? 's' : ''} will be added as events on ${cFmt(p.k, { weekday: 'long', day: 'numeric', month: 'short' })}.`, ok: 'Add to calendar', icon: 'fa-calendar-plus', tone: 'info' });
