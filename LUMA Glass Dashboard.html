@@ -4195,6 +4195,27 @@
     .plan-lock::after { content:'\f023'; font-family:'Font Awesome 6 Free'; font-weight:900; position:absolute; top:6px; right:8px; font-size:0.7rem; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.6); }
     .lu-select.plan-locked { opacity:0.55; pointer-events:none; }
 
+    /* Global search */
+    #searchOverlay { align-items:flex-start; padding-top:9vh; }
+    .srch-panel { width:640px; max-width:calc(100vw - 24px); max-height:78vh; display:flex; flex-direction:column; border-radius:20px; background:#141a2b; border:1px solid rgba(255,255,255,0.12); box-shadow:0 30px 80px rgba(0,0,0,0.55); overflow:hidden; }
+    .srch-bar { display:flex; align-items:center; gap:12px; padding:0 18px; height:58px; border-bottom:1px solid rgba(255,255,255,0.08); flex:none; }
+    .srch-bar i { color:rgba(255,255,255,0.55); }
+    .srch-bar input { flex:1; min-width:0; height:100%; background:none; border:none; outline:none; color:#fff; font:inherit; font-size:0.95rem; }
+    .srch-bar input::placeholder { color:rgba(255,255,255,0.4); }
+    kbd { font:600 0.62rem inherit; font-family:inherit; padding:3px 6px; border-radius:6px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.7); }
+    .srch-list { flex:1 1 auto; min-height:0; overflow-y:auto; padding:8px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    .srch-g { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.5); font-weight:700; padding:10px 10px 4px; }
+    .srch-it { display:flex; align-items:center; gap:12px; padding:9px 10px; border-radius:12px; cursor:pointer; }
+    .srch-it.hl, .srch-it:hover { background:rgba(255,255,255,0.08); }
+    .srch-it .si { width:32px; height:32px; flex:none; border-radius:10px; display:grid; place-items:center; font-size:0.8rem; color:var(--c); background:color-mix(in srgb, var(--c) 18%, transparent); }
+    .srch-it .st { min-width:0; flex:1; }
+    .srch-it .t { font-size:0.84rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .srch-it .s { font-size:0.7rem; color:rgba(255,255,255,0.55); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+    .srch-it mark { background:rgba(251,191,36,0.3); color:#fff; border-radius:3px; padding:0 1px; }
+    .srch-empty { padding:30px 10px; text-align:center; color:rgba(255,255,255,0.55); font-size:0.82rem; }
+    .srch-foot { flex:none; display:flex; gap:16px; padding:9px 16px; border-top:1px solid rgba(255,255,255,0.08); font-size:0.66rem; color:rgba(255,255,255,0.5); }
+    .srch-foot kbd { margin-right:3px; }
+
     /* page switcher */
     .page {
       display: none;
@@ -7833,7 +7854,7 @@
         <div class="topbar-actions">
           <span class="date-display"><i class="fa-regular fa-calendar"></i> <span id="topbarDate">11 Jul
               2026</span></span>
-          <span class="icon-btn"><i class="fa-solid fa-search"></i></span>
+          <span class="icon-btn" id="topSearchBtn" title="Search (Ctrl/⌘ K)" role="button" tabindex="0"><i class="fa-solid fa-search"></i></span>
           <span class="icon-btn bell-btn" id="bellBtn" title="Notifications"><i class="fa-regular fa-bell"></i><span
               class="bell-badge" id="bellBadge" style="display:none"></span></span>
           <span class="icon-btn logout-btn" id="topbarLogoutBtn" title="Log out"><i
@@ -8259,6 +8280,14 @@
       <div class="ls" id="planNote" style="margin-bottom:14px"></div>
       <div class="plan-grid" id="planGrid"></div>
       <div class="pem-actions"><button class="confirm-btn cancel" id="planDone" style="flex:1">Close</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="searchOverlay">
+    <div class="srch-panel">
+      <div class="srch-bar"><i class="fa-solid fa-search"></i><input id="srchInput" type="text" placeholder="Search tasks, events, notes, bills, habits and more…" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div>
+      <div class="srch-list" id="srchList"></div>
+      <div class="srch-foot"><span><kbd>↑</kbd><kbd>↓</kbd> to move</span><span><kbd>Enter</kbd> to open</span></div>
     </div>
   </div>
 
@@ -12077,6 +12106,93 @@
         } catch (e) { resolve(); }
       });
     }
+
+    // =====================================================
+    //  GLOBAL SEARCH — the magnifier in the header (or Ctrl/⌘ K): pages plus your tasks, events, notes, documents,
+    //  habits, goals, bills, subscriptions, reminders, contacts and money entries
+    // =====================================================
+    let SRCH = { at: 0, items: [], loading: false }, srchSel = 0, srchFlat = [];
+    const SRCH_TYPES = { page: ['Pages', 'fa-compass', '#60a5fa'], task: ['Tasks', 'fa-square-check', '#3b82f6'], event: ['Events', 'fa-calendar', '#8b5cf6'], note: ['Notes', 'fa-note-sticky', '#fbbf24'], doc: ['Documents', 'fa-file', '#38bdf8'], habit: ['Habits', 'fa-fire', '#fb923c'], goal: ['Goals', 'fa-bullseye', '#34d399'], bill: ['Bills', 'fa-file-invoice-dollar', '#f59e0b'], sub: ['Subscriptions', 'fa-repeat', '#f472b6'], reminder: ['Reminders', 'fa-bell-concierge', '#f59e0b'], contact: ['Contacts', 'fa-user', '#22c55e'], money: ['Money', 'fa-wallet', '#4ade80'] };
+    async function srchLoad() {
+      if (SRCH.loading || Date.now() - SRCH.at < 60000) return; // reuse what was fetched in the last minute
+      SRCH.loading = true;
+      const ok = async p => { try { const r = await p; return r && !r.error ? (r.data || []) : []; } catch (e) { return []; } };
+      const since = bAddMonths(bFirst(mytDayKey(Date.now())), -24);
+      const [tasks, events, notes, docs, goals, bills, rems, contacts, money] = await Promise.all([ok(LumaTasks.list()), ok(LumaEvents.list()), ok(LumaNotes.list()), ok(LumaDocuments.listDocuments()), ok(LumaGoals.list()), ok(LumaBills.list()), ok(LumaReminders.list()), ok(LumaContacts.listContacts()), ok(LumaMoney.listEntries(since))]);
+      const items = [];
+      Object.entries(titles).forEach(([k, name]) => items.push({ type: 'page', key: k, title: name, sub: 'Open page', hay: name }));
+      tasks.forEach(t => items.push({ type: 'task', raw: t, title: t.title, sub: `Task · ${t.status === 'done' ? 'done' : t.due_date ? 'due ' + cFmt(t.due_date, { day: 'numeric', month: 'short' }) : 'no due date'}${t.tag ? ' · ' + t.tag : ''}`, hay: [t.title, t.notes, t.tag].join(' ') }));
+      events.forEach(e => items.push({ type: 'event', raw: e, title: e.title, sub: `Event · ${cFmt(e.event_date, { weekday: 'short', day: 'numeric', month: 'short' })}${e.start_time ? ' · ' + fmt12(e.start_time) : ''}`, hay: [e.title, e.note, e.category].join(' ') }));
+      notes.forEach(n => items.push({ type: 'note', raw: n, title: n.title, sub: 'Note' + (n.tag ? ' · ' + n.tag : ''), hay: [n.title, n.body, n.tag].join(' ') }));
+      docs.forEach(d => items.push({ type: 'doc', raw: d, title: d.name, sub: 'Document', hay: d.name }));
+      if (typeof HABITS !== 'undefined') HABITS.forEach(h => items.push({ type: 'habit', raw: h, title: h.name, sub: 'Habit · ' + (h.period || 'daily'), hay: h.name }));
+      goals.forEach(g => items.push({ type: 'goal', raw: g, title: g.title, sub: 'Goal' + (g.category ? ' · ' + g.category : ''), hay: [g.title, g.note, g.category].join(' ') }));
+      bills.forEach(b => items.push({ type: b.category === 'Subscription' ? 'sub' : 'bill', raw: b, title: b.name, sub: `${b.category === 'Subscription' ? 'Subscription' : 'Bill'} · ${bRM(b.amount)}`, hay: [b.name, b.category].join(' ') }));
+      rems.forEach(r => items.push({ type: 'reminder', raw: r, title: r.title, sub: 'Reminder · ' + remDesc(r), hay: [r.title, r.note].join(' ') }));
+      contacts.forEach(c => { const nm = [c.other_first_name, c.other_last_name].filter(Boolean).join(' ') || c.other_email || ''; if (nm) items.push({ type: 'contact', raw: c, title: nm, sub: 'Contact' + (c.other_email ? ' · ' + c.other_email : ''), hay: [nm, c.other_email].join(' ') }); });
+      money.forEach(m => items.push({ type: 'money', raw: m, title: m.name || m.category, sub: `${m.kind === 'income' ? 'Income' : 'Expense'} · ${bRM(m.amount)} · ${cFmt(m.entry_date, { day: 'numeric', month: 'short', year: 'numeric' })}`, hay: [m.name, m.category].join(' ') }));
+      SRCH = { at: Date.now(), items, loading: false };
+      if (docEl('searchOverlay').classList.contains('open')) srchRender();
+    }
+    function srchRender() {
+      const q = docEl('srchInput').value.trim().toLowerCase(), box = docEl('srchList');
+      let pool = SRCH.items;
+      if (!q) pool = pool.filter(i => i.type === 'page'); // nothing typed: show the pages
+      else {
+        const words = q.split(/\s+/);
+        pool = pool.map(i => { const h = (i.hay || '').toLowerCase(), t = i.title.toLowerCase(); if (!words.every(w => h.includes(w))) return null; return { i, r: t.startsWith(q) ? 0 : t.includes(q) ? 1 : 2 }; }).filter(Boolean).sort((a, b) => a.r - b.r).map(x => x.i);
+      }
+      const groups = {}; pool.forEach(i => (groups[i.type] = groups[i.type] || []).push(i));
+      srchFlat = [];
+      const mark = t => { const e = escapeHtml(t); if (!q) return e; try { return e.replace(new RegExp('(' + q.split(/\s+/).filter(Boolean).map(w => escapeHtml(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'ig'), '<mark>$1</mark>'); } catch (x) { return e; } };
+      let html = '';
+      Object.keys(SRCH_TYPES).forEach(type => {
+        const list = (groups[type] || []).slice(0, q ? 5 : 30); if (!list.length) return;
+        const [label, icon, col] = SRCH_TYPES[type];
+        html += `<div class="srch-g">${label}${groups[type].length > list.length ? ` · ${groups[type].length}` : ''}</div>` + list.map(i => { const idx = srchFlat.push(i) - 1; return `<div class="srch-it" data-i="${idx}" style="--c:${col}"><div class="si"><i class="fa-solid ${icon}"></i></div><div class="st"><div class="t">${mark(i.title)}</div><div class="s">${escapeHtml(i.sub)}</div></div></div>`; }).join('');
+      });
+      box.innerHTML = html || `<div class="srch-empty">${SRCH.loading || !SRCH.at ? 'Searching…' : q ? `Nothing found for “${escapeHtml(docEl('srchInput').value.trim())}”.` : 'Start typing to search.'}</div>`;
+      srchSel = 0; srchMark();
+    }
+    function srchMark() { const els = [...docEl('srchList').querySelectorAll('.srch-it')]; els.forEach((el, i) => el.classList.toggle('hl', i === srchSel)); if (els[srchSel]) els[srchSel].scrollIntoView({ block: 'nearest' }); }
+    function openSearch() {
+      docEl('searchOverlay').classList.add('open'); docEl('srchInput').value = ''; srchRender();
+      setTimeout(() => docEl('srchInput').focus(), 30);
+      srchLoad();
+    }
+    const closeSearch = () => docEl('searchOverlay').classList.remove('open');
+    function srchGo(i) {
+      if (!i) return; closeSearch();
+      const r = i.raw;
+      switch (i.type) {
+        case 'page': return goTo(i.key);
+        case 'task': return openTaskModal(r);
+        case 'event': return calOpenItem('event', r.id, r.event_date);
+        case 'note': return goTo('notes');
+        case 'doc': return goTo('documents');
+        case 'habit': return goTo('habits');
+        case 'goal': return goTo('goals');
+        case 'bill': return goTo('bills');
+        case 'sub': return goTo('subscriptions');
+        case 'reminder': return openRemModal(r);
+        case 'contact': return goTo('contacts');
+        case 'money': return openEntryModal(r);
+      }
+    }
+    docEl('topSearchBtn').onclick = openSearch;
+    docEl('topSearchBtn').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSearch(); } };
+    docEl('srchInput').addEventListener('input', srchRender);
+    docEl('srchInput').addEventListener('keydown', e => {
+      const n = docEl('srchList').querySelectorAll('.srch-it').length;
+      if (e.key === 'ArrowDown') { e.preventDefault(); srchSel = Math.min(n - 1, srchSel + 1); srchMark(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); srchSel = Math.max(0, srchSel - 1); srchMark(); }
+      else if (e.key === 'Enter') { e.preventDefault(); srchGo(srchFlat[srchSel]); }
+      else if (e.key === 'Escape') { e.preventDefault(); closeSearch(); }
+    });
+    docEl('searchOverlay').onclick = e => { if (e.target === docEl('searchOverlay')) return closeSearch(); const it = e.target.closest('.srch-it'); if (it) srchGo(srchFlat[+it.dataset.i]); };
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); docEl('searchOverlay').classList.contains('open') ? closeSearch() : openSearch(); }
+    });
 
     function paintHabits() { paintHabitsPage(); paintDashHabits(); if (document.getElementById('dashChips') && dashTasks) paintDashboard(); }
 
