@@ -284,3 +284,5 @@
     .sa-remark p { margin:4px 0 0; color:rgba(255,255,255,0.8); font-size:0.82rem; line-height:1.5; white-space:pre-wrap; }
     .sa-tabs .sa-delete { background:rgba(248,113,113,0.12); color:#fca5a5; }
     .sa-tabs .sa-delete:hover { background:rgba(248,113,113,0.25); color:#fecaca; }
+    .sd-ttwrap .tg-scroll { margin-right:0; }
+    .sd-ttwrap .tg-top { padding-right:var(--sbw, 0px); }

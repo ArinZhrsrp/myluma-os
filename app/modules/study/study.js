@@ -151,6 +151,7 @@
       const prevScroll = root.querySelector('.tg-scroll'), keepTop = prevScroll && SD.tab === 'timetable' ? prevScroll.scrollTop : null;
       root.innerHTML = (SD_VIEW[SD.tab] || { timetable: sdTimetable, assignments: sdAssignments, subjects: sdSubjects, semesters: sdSemesters }[SD.tab] || sdOverview)();
       if (!sdGuest() && SD.loadedAt && !SD.err && !sdActiveSem() && SD.tab !== 'semesters' && SD.tab !== 'groups') root.insertAdjacentHTML('afterbegin', `<div class="sd-nosem"><i class="fa-solid fa-circle-info"></i><div><b>No active semester</b><span>Everything new you add in Study goes into your active semester. Create one, or activate an existing one, to start adding.</span></div><button type="button" class="confirm-btn save" data-goto-sem>Open Semesters</button></div>`);
+      const ttw = root.querySelector('.sd-ttwrap'); if (ttw) { const bar = ttw.querySelector('.tg-scroll'); ttw.style.setProperty('--sbw', (bar.offsetWidth - bar.clientWidth) + 'px'); } // the day names get the scrollbar's width on their right, so their columns line up with the hours below
       const sc = root.querySelector('.tg-scroll'); if (sc) sc.scrollTop = keepTop != null ? keepTop : (SD.ttTop || 7 * SD_H); // the timetable keeps its place when you change week
     }
 
