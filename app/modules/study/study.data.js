@@ -33,13 +33,19 @@
   window.LumaStudy = {
     courses: table("study_courses", COURSE_BASE, "created_at", ["semester_id", "target_percent", "final_percent"]),
     classes: table("study_classes", CLASS_BASE, "start_time", ["start_date", "end_date"]),
-    tasks: table("study_tasks", TASK, "due_date"),
-    semesters: table("study_semesters", SEMESTER, "start_date", ["archived_at"]),
+    tasks: table("study_tasks", TASK, "due_date", ["semester_id"]),
+    semesters: Object.assign(table("study_semesters", SEMESTER, "start_date", ["archived_at", "is_active", "remark"]), {
+      // one semester is active at a time; these functions (migration 056) are the only way to change that
+      activate: (id) => db().rpc("activate_study_semester", { p_id: id }),
+      archive: (id, remark) => db().rpc("archive_study_semester", { p_id: id, p_remark: remark || "" }),
+      restore: (id) => db().rpc("restore_study_semester", { p_id: id }),
+      destroy: (id) => db().rpc("delete_study_semester", { p_id: id }), // deletes an archived semester and everything in it (migration 057)
+    }),
     // cancelled single sessions and break weeks / holidays (migration 052)
     skips: table("study_class_skips", "id, class_id, skip_date", "skip_date"),
     breaks: table("study_breaks", "id, name, start_date, end_date", "start_date"),
     // notes per subject, shareable with contacts (migration 053)
-    notes: Object.assign(table("study_notes", "id, course_id, title, body, created_at, updated_at", "updated_at"), {
+    notes: Object.assign(table("study_notes", "id, course_id, title, body, created_at, updated_at", "updated_at", ["semester_id"]), {
       shared: () => db().rpc("shared_study_notes"),
       sharedWith: (id) => db().rpc("study_note_shared_with", { p_note: id }),
       share: (id, users) => db().rpc("share_study_note", { p_note: id, p_users: users }),

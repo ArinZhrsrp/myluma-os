@@ -55,10 +55,16 @@
     const sdLetter = p => { const sc = sdScale(); return sc.find(x => p >= x[0]) || sc[sc.length - 1]; };
     // a subject's mark: the final mark you entered, otherwise worked out from the scores you have so far
     const sdMark = c => c.final_percent != null ? Number(c.final_percent) : sdGrade(c.id);
-    // the semester we are in now (or the next one coming, or the latest that ended)
-    function sdCurrentSem() {
-      const t = sdKey(), s = SD.semesters.filter(x => !x.archived_at);
-      return s.find(x => x.start_date <= t && t <= x.end_date) || s.filter(x => x.start_date > t).sort((a, b) => a.start_date.localeCompare(b.start_date))[0] || s.slice().sort((a, b) => b.end_date.localeCompare(a.end_date))[0] || null;
+    // only one semester is active at a time; new Study items go into it (the database does that), and without one nothing new can be added
+    const sdActiveSem = () => SD.semesters.find(x => x.is_active && !x.archived_at) || null;
+    const sdCurrentSem = sdActiveSem;
+    // what belongs to an archived semester or an archived subject stays in the archive, out of the live views
+    const sdLiveTask = t => { const c = sdCourse(t.course_id), sem = sdSem(t.semester_id || (c && c.semester_id)); return !(c && c.archived) && !(sem && sem.archived_at); };
+    const sdLiveTasks = () => SD.tasks.filter(sdLiveTask);
+    async function sdNeedSem() { // true (after offering to open Semesters) when there is no active semester
+      if (sdActiveSem()) return false;
+      if (await luConfirm({ title: 'No active semester', message: 'Everything you add in Study goes into your active semester. Create one, or activate an existing one, first.', ok: 'Open Semesters', icon: 'fa-calendar-days', tone: 'info' })) { SD.tab = 'semesters'; goTo('study'); sdPaint(); }
+      return true;
     }
     // GPA over a list of subjects: credit-hour weighted; subjects without a mark are left out
     function sdGpa(list) {
@@ -118,6 +124,7 @@
         SD.err = bad ? bad.message : null;
         if (!bad) { SD.courses = c.data || []; SD.classes = k.data || []; SD.tasks = t.data || []; SD.focus = f.error ? [] : (f.data || []); SD.semesters = sm.error ? [] : (sm.data || []); SD.skips = sk.error ? [] : (sk.data || []); SD.breaks = br.error ? [] : (br.data || []); } // semesters need migration 049: without it the rest still works
       } catch (e) { SD.err = e.message || 'Could not load'; }
+      if (typeof LumaSpace !== 'undefined') LumaSpace.setArchived(SD.semesters.filter(x => x.archived_at).map(x => x.id));
       SD.loadedAt = Date.now();
     }
     // other pages (the calendar, Focus Mode) borrow the data: reuse it for a minute
@@ -133,9 +140,9 @@
         root.innerHTML = card(`<div class="ls">Could not load your study data: ${escapeHtml(SD.err)}. ${/study_|schema cache|does not exist/i.test(SD.err) ? 'Has <b>supabase/migrations/045_study.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
         return;
       }
-      const open = SD.tasks.filter(t => t.status !== 'done');
+      const open = sdLiveTasks().filter(t => t.status !== 'done');
       sub.textContent = SD.courses.length ? `${SD.courses.length} subject${SD.courses.length === 1 ? '' : 's'} · ${open.length} to do` : 'Classes, assignments and exams in one place';
-      if (!SD_VIEW[SD.tab] && !SD.courses.length && !SD.tasks.length && !SD.semesters.length && SD.tab !== 'semesters') {
+      if (!SD_VIEW[SD.tab] && !SD.courses.length && !sdLiveTasks().length && !SD.semesters.length && SD.tab !== 'semesters') {
         root.innerHTML = card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-graduation-cap"></i></div><div class="h-empty-t">Set up your semester</div>
           <div class="h-empty-s">Start with your subjects, then add your weekly classes and the assignments, tests and exams that are coming. LUMA reminds you before each one is due.</div>
           <div class="h-empty-chips"><button type="button" class="h-chip" data-add="course"><i class="fa-solid fa-plus" style="color:#34d399"></i>Add your first subject</button></div></div>`);
@@ -143,6 +150,7 @@
       }
       const prevScroll = root.querySelector('.tg-scroll'), keepTop = prevScroll && SD.tab === 'timetable' ? prevScroll.scrollTop : null;
       root.innerHTML = (SD_VIEW[SD.tab] || { timetable: sdTimetable, assignments: sdAssignments, subjects: sdSubjects, semesters: sdSemesters }[SD.tab] || sdOverview)();
+      if (!sdGuest() && SD.loadedAt && !SD.err && !sdActiveSem() && SD.tab !== 'semesters' && SD.tab !== 'groups') root.insertAdjacentHTML('afterbegin', `<div class="sd-nosem"><i class="fa-solid fa-circle-info"></i><div><b>No active semester</b><span>Everything new you add in Study goes into your active semester. Create one, or activate an existing one, to start adding.</span></div><button type="button" class="confirm-btn save" data-goto-sem>Open Semesters</button></div>`);
       const sc = root.querySelector('.tg-scroll'); if (sc) sc.scrollTop = keepTop != null ? keepTop : (SD.ttTop || 7 * SD_H); // the timetable keeps its place when you change week
     }
 
@@ -161,7 +169,7 @@
 
     function sdOverview() {
       const today = sdKey(), dow = sdDow(today), nowM = sdNowMin();
-      const open = SD.tasks.filter(t => t.status !== 'done');
+      const open = sdLiveTasks().filter(t => t.status !== 'done');
       const overdue = open.filter(t => t.due_date && t.due_date < today), week = open.filter(t => t.due_date && t.due_date >= today && sdDiff(today, t.due_date) <= 7);
       const todays = SD.classes.filter(c => sdClassOn(c, today)).sort((a, b) => sdHM(a.start_time).localeCompare(sdHM(b.start_time)));
       const mins = SD.focus.reduce((s, r) => s + r.minutes, 0);
@@ -253,8 +261,8 @@
       const today = sdKey();
       const chips = `<div class="sd-filters"><div class="sd-seg">${[['open', 'To do'], ['done', 'Done'], ['all', 'All']].map(([k, n]) => `<button type="button" data-f="${k}" class="${SD.filter === k ? 'on' : ''}">${n}</button>`).join('')}</div>
         <div class="sd-subj"><button type="button" data-fc="" class="${SD.fCourse === '' ? 'on' : ''}">All subjects</button>${SD.courses.map(c => `<button type="button" data-fc="${c.id}" class="${SD.fCourse === c.id ? 'on' : ''}" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}</button>`).join('')}</div></div>`;
-      let list = SD.tasks.filter(t => (!SD.fCourse || t.course_id === SD.fCourse) && (SD.filter === 'all' || (SD.filter === 'done') === (t.status === 'done')));
-      if (!list.length) return chips + card(`<div class="ls" style="padding:10px 2px">${SD.tasks.length ? 'Nothing here with these filters.' : 'No assignments yet. Tap <b>Add assignment</b> to track your first one.'}</div>`);
+      let list = sdLiveTasks().filter(t => (!SD.fCourse || t.course_id === SD.fCourse) && (SD.filter === 'all' || (SD.filter === 'done') === (t.status === 'done')));
+      if (!list.length) return chips + card(`<div class="ls" style="padding:10px 2px">${sdLiveTasks().length ? 'Nothing here with these filters.' : 'No assignments yet. Tap <b>Add assignment</b> to track your first one.'}</div>`);
       const byDue = (a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999') || sdHM(a.due_time).localeCompare(sdHM(b.due_time));
       if (SD.filter !== 'open') return chips + card(list.sort((a, b) => byDue(b, a)).map(sdRow).join(''));
       const groups = [['Overdue', t => t.due_date && t.due_date < today], ['Next 7 days', t => t.due_date && t.due_date >= today && sdDiff(today, t.due_date) <= 7], ['Later', t => t.due_date && sdDiff(today, t.due_date) > 7], ['No due date', t => !t.due_date]];
@@ -294,6 +302,7 @@
         <div class="h-empty-s">Add a semester with its first and last day. LUMA shows which week you are in, fills in the end date of your timetable classes, and works out your GPA when you put your subjects in it.</div>
         <div class="h-empty-chips"><button type="button" class="h-chip" data-add="semester"><i class="fa-solid fa-plus" style="color:#34d399"></i>Add a semester</button></div></div>`);
       const cur = sdCurrentSem(), all = sdGpa(SD.courses), t = sdKey();
+      const explain = `<div class="sd-nosem info"><i class="fa-solid fa-circle-info"></i><div><b>${cur ? 'Active: ' + escapeHtml(cur.name) : 'No active semester'}</b><span>Only one semester is active at a time. New subjects, notes, group projects, classes and reminders go into the active one. To work in another, archive the active semester first (Done with this semester).</span></div></div>`;
       const archivedSems = SD.semesters.filter(x => x.archived_at), order = SD.semesters.filter(x => !x.archived_at).sort((a, b) => b.start_date.localeCompare(a.start_date));
       const head = `<div class="sd-tiles" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="sd-tile" style="--c:#34d399"><i class="fa-solid fa-award"></i><div><b>${all ? all.gpa.toFixed(2) : '—'}</b><span>CGPA (all semesters)</span></div></div>
         <div class="sd-tile" style="--c:#60a5fa"><i class="fa-solid fa-book"></i><div><b>${SD.courses.length}</b><span>Subjects</span></div></div>
@@ -301,12 +310,12 @@
       const cards = order.map(sem => {
         const list = SD.courses.filter(c => c.semester_id === sem.id), g = sdGpa(list), total = Math.ceil((sdDiff(sem.start_date, sem.end_date) + 1) / 7);
         const state = t > sem.end_date ? 'Ended' : t < sem.start_date ? `Starts in ${sdDiff(t, sem.start_date)} days` : `Week ${Math.min(total, Math.floor(sdDiff(sem.start_date, t) / 7) + 1)} of ${total}`;
-        return `<div class="card sd-sem ${sem === cur ? 'cur' : ''}" data-sem="${sem.id}"><div class="sm-top"><div class="sm-main"><div class="sm-t">${escapeHtml(sem.name)}${sem === cur ? '<em>Current</em>' : ''}</div><div class="sm-s">${sdShort(sem.start_date)} to ${sdShort(sem.end_date)} · ${total} weeks · ${state}</div></div><div class="sm-gpa"><b>${g ? g.gpa.toFixed(2) : '—'}</b><span>GPA</span></div><button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
-          <div class="sm-done"><button type="button" class="np-btn" data-finish-sem="${sem.id}"><i class="fa-solid fa-box-archive"></i> Done with this semester</button></div>
+        return `<div class="card sd-sem ${sem.is_active ? 'cur' : ''}" data-sem="${sem.id}"><div class="sm-top"><div class="sm-main"><div class="sm-t">${escapeHtml(sem.name)}${sem.is_active ? '<em>Active</em>' : '<em class="off">Inactive</em>'}</div><div class="sm-s">${sdShort(sem.start_date)} to ${sdShort(sem.end_date)} · ${total} weeks · ${state}</div></div><div class="sm-gpa"><b>${g ? g.gpa.toFixed(2) : '—'}</b><span>GPA</span></div><button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
+          <div class="sm-done">${sem.is_active ? `<button type="button" class="np-btn" data-finish-sem="${sem.id}"><i class="fa-solid fa-box-archive"></i> Done with this semester</button>` : cur ? `<button type="button" class="np-btn" disabled title="Archive ${escapeHtml(cur.name)} first: only one semester can be active"><i class="fa-solid fa-lock"></i> Activate (archive ${escapeHtml(cur.name)} first)</button>` : `<button type="button" class="np-btn act" data-activate-sem="${sem.id}"><i class="fa-solid fa-bolt"></i> Make this the active semester</button>`}</div>
           <div class="sm-subj">${list.length ? list.map(c => { const m = sdMark(c); return `<span class="sd-cc" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}${m != null ? ` <b>${sdLetter(m)[1]}</b>` : ''}</span>`; }).join('') : '<span class="ls">No subjects in this semester yet. Pick it when you add or edit a subject.</span>'}</div></div>`;
       }).join('');
       const tail = archivedSems.length ? `<div class="sd-endednote"><button type="button" data-open-archive>Archived semesters (${archivedSems.length}) · open the archive</button></div>` : '';
-      return head + (cards || card('<div class="ls" style="padding:6px 2px">All your semesters are archived. Add a new one to plan the next.</div>')) + tail;
+      return explain + head + (cards || card('<div class="ls" style="padding:6px 2px">All your semesters are archived. Add a new one to plan the next.</div>')) + tail;
     }
 
     // ---------- the three popups ----------
@@ -328,11 +337,12 @@
     function sdPaintColors() { docEl('sdCourseColors').innerHTML = SD_COLORS.map(c => `<button type="button" class="sd-sw ${c === SDF.color ? 'on' : ''}" data-color="${c}" style="--c:${c}" aria-label="Colour ${c}"></button>`).join(''); }
     function sdPaintCourseStatus() { sdChips('sdCourseStatus', [['active', 'Active', 'fa-circle-check'], ['archived', 'Archived', 'fa-box-archive']], SDF.archived ? 'archived' : 'active', 'cs'); }
     function openCourseModal(c) {
+      if (!c && !sdActiveSem()) { sdNeedSem(); return; }
       SDF.courseId = c ? c.id : null; SDF.color = c ? c.color : SD_COLORS[SD.courses.length % SD_COLORS.length]; SDF.archived = !!(c && c.archived);
       docEl('sdCourseTitle').textContent = c ? 'Edit subject' : 'New subject';
       docEl('sdCourseName').value = c ? c.name : ''; docEl('sdCourseCode').value = c ? c.code || '' : ''; docEl('sdCourseLecturer').value = c ? c.lecturer || '' : ''; docEl('sdCourseCredits').value = c && c.credit_hours != null ? c.credit_hours : '';
-      const sem = docEl('sdCourseSem'); sem.innerHTML = '<option value="">No semester</option>' + [...SD.semesters].filter(x => !x.archived_at || (c && c.semester_id === x.id)).sort((a, b) => b.start_date.localeCompare(a.start_date)).map(x => `<option value="${x.id}">${escapeHtml(x.name)}${x.archived_at ? ' (archived)' : ''}</option>`).join('');
-      sem.value = c ? (c.semester_id && sdSem(c.semester_id) ? c.semester_id : '') : ((sdCurrentSem() || {}).id || ''); skinSelect(sem);
+      const own = c && c.semester_id ? sdSem(c.semester_id) : null, semTxt = c ? (own ? own.name + (own.archived_at ? ' (archived)' : '') : 'No semester') : ((sdActiveSem() || {}).name || 'No active semester');
+      docEl('sdCourseSemTxt').textContent = semTxt + (c ? '' : ' (new subjects go into the active semester)');
       docEl('sdCourseTarget').value = c && c.target_percent != null ? +c.target_percent : ''; docEl('sdCourseFinal').value = c && c.final_percent != null ? +c.final_percent : '';
       docEl('sdCourseDelete').style.display = c ? '' : 'none'; sdErr('sdCourseError', ''); sdPaintColors(); sdPaintCourseStatus();
       sdOpen('sdCourseOverlay'); setTimeout(() => docEl('sdCourseName').focus(), 50);
@@ -348,7 +358,7 @@
       if (cr !== '' && +cr > 30) return sdErr('sdCourseError', 'Credit hours should be between 0 and 30.');
       const target = sdNum(docEl('sdCourseTarget').value), fin = sdNum(docEl('sdCourseFinal').value);
       if (Number.isNaN(target) || (target != null && (target < 0 || target > 100)) || Number.isNaN(fin) || (fin != null && (fin < 0 || fin > 100))) return sdErr('sdCourseError', 'Marks are percentages between 0 and 100.');
-      const fields = { name, code: docEl('sdCourseCode').value.trim(), lecturer: docEl('sdCourseLecturer').value.trim(), credit_hours: cr === '' ? null : +cr, color: SDF.color, semester_id: docEl('sdCourseSem').value || null, target_percent: target, final_percent: fin, archived: SDF.archived };
+      const fields = { name, code: docEl('sdCourseCode').value.trim(), lecturer: docEl('sdCourseLecturer').value.trim(), credit_hours: cr === '' ? null : +cr, color: SDF.color, target_percent: target, final_percent: fin, archived: SDF.archived };
       sdErr('sdCourseError', ''); sdBtn('sdCourseSave', true);
       const { data, error } = SDF.courseId ? await LumaStudy.courses.update(SDF.courseId, fields) : await LumaStudy.courses.add(fields);
       sdBtn('sdCourseSave', false, 'Save subject');
@@ -371,14 +381,21 @@
       const a = docEl('sdSemStart').value, b = docEl('sdSemEnd').value;
       docEl('sdSemHint').textContent = a && b && b > a ? `${Math.ceil((sdDiff(a, b) + 1) / 7)} weeks · ${sdShort(a)} to ${sdShort(b)}` : '';
     }
+    function sdPaintSemActive() {
+      const other = sdActiveSem();
+      sdChips('sdSemActive', [['yes', 'Yes, make it active', 'fa-bolt'], ['no', 'Not yet', 'fa-clock']], SDF.semActive ? 'yes' : 'no', 'sa');
+      docEl('sdSemActiveHint').textContent = other ? `“${other.name}” is the active semester now. Archive it first, then you can activate another.` : 'The active semester receives everything you add in Study.';
+      docEl('sdSemActive').querySelectorAll('button').forEach(b => { if (other && b.dataset.sa === 'yes') { b.disabled = true; b.style.opacity = 0.45; } });
+    }
     function openSemModal(m) {
       SDF.semId = m ? m.id : null; docEl('sdSemTitle').textContent = m ? 'Edit semester' : 'New semester';
       docEl('sdSemName').value = m ? m.name : ''; docEl('sdSemStart').value = m ? m.start_date : sdKey(); docEl('sdSemEnd').value = m ? m.end_date : sdAdd(sdKey(), 14 * 7 - 1);
       ['sdSemStart', 'sdSemEnd'].forEach(id => docEl(id)._luDateRefresh && docEl(id)._luDateRefresh());
+      SDF.semActive = !m && !sdActiveSem(); docEl('sdSemActiveField').style.display = m ? 'none' : ''; sdPaintSemActive();
       docEl('sdSemDelete').style.display = m ? '' : 'none'; sdErr('sdSemError', ''); sdSemHint(); sdOpen('sdSemOverlay'); setTimeout(() => docEl('sdSemName').focus(), 50);
     }
     docEl('sdSemClose').onclick = () => sdClose('sdSemOverlay');
-    docEl('sdSemOverlay').onclick = e => { if (e.target === docEl('sdSemOverlay')) sdClose('sdSemOverlay'); };
+    docEl('sdSemOverlay').onclick = e => { if (e.target === docEl('sdSemOverlay')) sdClose('sdSemOverlay'); const a = e.target.closest('[data-sa]'); if (a && !a.disabled) { SDF.semActive = a.dataset.sa === 'yes'; sdPaintSemActive(); } };
     ['sdSemStart', 'sdSemEnd'].forEach(id => docEl(id).addEventListener('change', sdSemHint));
     docEl('sdSemName').addEventListener('keydown', e => { if (e.key === 'Enter') docEl('sdSemSave').click(); });
     docEl('sdSemSave').onclick = async () => {
@@ -392,6 +409,7 @@
       sdBtn('sdSemSave', false, 'Save semester');
       if (error) return sdErr('sdSemError', /study_semesters|schema cache|does not exist/i.test(error.message) ? 'Semesters aren\'t set up yet — run supabase/migrations/049_study_v2.sql in the SQL Editor.' : sdHint(error.message));
       const i = SD.semesters.findIndex(x => x.id === data.id); if (i >= 0) SD.semesters[i] = data; else SD.semesters.push(data);
+      if (!SDF.semId && SDF.semActive) { const a = await LumaStudy.semesters.activate(data.id); if (a.error) { sdClose('sdSemOverlay'); sdAfterSave(); return luAlert('The semester was created, but it could not be activated: ' + a.error.message); } await sdLoad(); }
       sdClose('sdSemOverlay'); sdAfterSave();
     };
     docEl('sdSemDelete').onclick = async () => {
@@ -406,6 +424,7 @@
     // --- class ---
     function sdPaintDays() { docEl('sdClassDays').innerHTML = SD_DAYS.map(([d, n]) => `<button type="button" class="h-chip sm ${SDF.days.has(d) ? 'on' : ''}" data-day="${d}">${n}</button>`).join(''); }
     function openClassModal(c, day, startTime) {
+      if (!c && !sdActiveSem()) { sdNeedSem(); return; }
       if (!SD.courses.length) { openCourseModal(null); return flashToast('Add a subject first', 'Then you can put its classes on the timetable', 'fa-book', '#34d399'); }
       SDF.classId = c ? c.id : null; SDF.days = new Set(c ? [c.weekday] : [day != null ? day : (sdDow(sdKey()) || 1)]); SDF.classKind = c ? c.kind : 'lecture';
       docEl('sdClassTitle').textContent = c ? 'Edit class' : 'New class'; docEl('sdClassDaysLbl').textContent = c ? 'Day' : 'Days (pick every day it happens)';
@@ -511,6 +530,7 @@
 
     // --- assignment / test / exam ---
     function openTaskModal(t, pre) {
+      if (!t && !sdActiveSem()) { sdNeedSem(); return; }
       const src = t || pre || {};
       SDF.taskId = t ? t.id : null; SDF.taskKind = src.kind || 'assignment'; SDF.taskStatus = t ? t.status : 'todo';
       docEl('sdTaskTitleHd').textContent = t ? 'Edit ' + sdKind(t.kind)[1].toLowerCase() : 'New assignment';
@@ -615,24 +635,35 @@
       const bad = rs.find(r => r.error); if (bad) return bad.error.message;
       rs.forEach(r => { const i = SD.courses.findIndex(x => x.id === r.data.id); if (i >= 0) SD.courses[i] = r.data; }); return '';
     }
-    const sdSemNeedsMigration = 'Archiving a semester isn\'t set up yet — run supabase/migrations/055_study_semester_archive.sql in the SQL Editor.';
-    async function sdFinishSemester(id) {
+    const sdSemNeedsMigration = 'Semesters aren\'t set up for this yet — run supabase/migrations/055 and 056 in the SQL Editor.';
+    const sdRpcHint = m => /could not find the function|schema cache/i.test(m) ? sdSemNeedsMigration : m;
+    async function sdActivateSemester(id) {
       const sem = sdSem(id); if (!sem) return;
-      const cs = SD.courses.filter(c => c.semester_id === id), ids = cs.map(c => c.id), tk = SD.tasks.filter(t => ids.includes(t.course_id)), open = tk.filter(t => t.status !== 'done').length, cl = SD.classes.filter(c => ids.includes(c.course_id)).length;
-      if (!await luConfirm({ title: `Archive “${sem.name}”?`, message: `${cs.length} subject${cs.length === 1 ? '' : 's'}, ${cl} class${cl === 1 ? '' : 'es'} and ${tk.length} assignment${tk.length === 1 ? '' : 's'}${open ? ` (${open} still open)` : ''} move to the Archive. They leave your timetable, Calendar and reminders, and your GPA keeps them. You can restore the semester any time.`, ok: 'Archive semester', icon: 'fa-box-archive', tone: 'info' })) return;
-      const r = await LumaStudy.semesters.update(id, { archived_at: new Date().toISOString() });
-      if (r.error) return luAlert('Could not archive the semester: ' + r.error.message);
-      if (!r.data.archived_at) return luAlert(sdSemNeedsMigration);
-      const err = await sdSetCoursesArchived(ids, true); const i = SD.semesters.findIndex(x => x.id === id); if (i >= 0) SD.semesters[i] = r.data;
-      sdAfterSave(); if (err) return luAlert('The semester was archived, but some subjects could not be: ' + err);
-      flashToast('Semester archived', sem.name + ' is now in Study → Archive', 'fa-box-archive', '#34d399');
+      const r = await LumaStudy.semesters.activate(id); if (r.error) return luAlert('Could not activate it: ' + sdRpcHint(r.error.message));
+      await sdLoad(); sdAfterSave(); flashToast('Semester activated', sem.name + ' now receives everything you add in Study', 'fa-bolt', '#34d399');
     }
+    // "Done with this semester": a summary and an optional remark, then everything in it moves to the archive
+    let sdArchId = null;
+    function sdFinishSemester(id) {
+      const sem = sdSem(id); if (!sem) return; sdArchId = id;
+      const cs = SD.courses.filter(c => c.semester_id === id), ids = cs.map(c => c.id), tk = SD.tasks.filter(t => ids.includes(t.course_id) || t.semester_id === id), open = tk.filter(t => t.status !== 'done').length, cl = SD.classes.filter(c => ids.includes(c.course_id)).length;
+      docEl('sdArchTitle').textContent = 'Archive “' + sem.name + '”';
+      docEl('sdArchSummary').innerHTML = `${cs.length} subject${cs.length === 1 ? '' : 's'}, ${cl} class${cl === 1 ? '' : 'es'} and ${tk.length} assignment${tk.length === 1 ? '' : 's'}${open ? ` (<b>${open} still open</b>)` : ''}, plus the notes, group projects, reminders and other items you added in it, move to <b>Study → Archive</b>. They leave your timetable, Calendar and reminders, and your GPA keeps them. You can restore the semester any time.`;
+      docEl('sdArchRemark').value = sem.remark || ''; sdErr('sdArchError', ''); sdOpen('sdArchOverlay'); setTimeout(() => docEl('sdArchRemark').focus(), 50);
+    }
+    docEl('sdArchClose').onclick = () => sdClose('sdArchOverlay');
+    docEl('sdArchOverlay').onclick = e => { if (e.target === docEl('sdArchOverlay')) sdClose('sdArchOverlay'); };
+    docEl('sdArchSave').onclick = async () => {
+      const sem = sdSem(sdArchId); if (!sem) return; sdErr('sdArchError', ''); sdBtn('sdArchSave', true);
+      const r = await LumaStudy.semesters.archive(sem.id, docEl('sdArchRemark').value.trim()); sdBtn('sdArchSave', false, 'Archive semester');
+      if (r.error) return sdErr('sdArchError', sdRpcHint(r.error.message));
+      sdClose('sdArchOverlay'); await sdLoad(); sdAfterSave(); flashToast('Semester archived', sem.name + ' is now in Study → Archive', 'fa-box-archive', '#34d399');
+    };
     async function sdRestoreSemester(id) {
       const sem = sdSem(id); if (!sem) return;
-      const r = await LumaStudy.semesters.update(id, { archived_at: null }); if (r.error) return luAlert('Could not restore the semester: ' + r.error.message);
-      const err = await sdSetCoursesArchived(SD.courses.filter(c => c.semester_id === id).map(c => c.id), false); const i = SD.semesters.findIndex(x => x.id === id); if (i >= 0) SD.semesters[i] = r.data;
-      sdAfterSave(); if (err) return luAlert('The semester was restored, but some subjects could not be: ' + err);
-      flashToast('Semester restored', sem.name + ' is back', 'fa-rotate-left', '#34d399');
+      const r = await LumaStudy.semesters.restore(id); if (r.error) return luAlert('Could not restore the semester: ' + sdRpcHint(r.error.message));
+      await sdLoad(); sdAfterSave();
+      flashToast('Semester restored', r.data === 'active' ? sem.name + ' is the active semester again' : sem.name + ' is back, inactive: another semester is active', 'fa-rotate-left', '#34d399');
     }
     // several subjects at once (Subjects → Select)
     async function sdArchiveSelected(on) {
@@ -672,7 +703,7 @@
       const [notes, projects] = await Promise.all([ok(LumaStudy.notes.list()), ok(LumaStudy.groups.list())]);
       const out = [];
       SD.courses.forEach(c => out.push({ type: 'study', raw: { kind: 'course', id: c.id }, title: c.name, sub: 'Study subject' + (c.code ? ' · ' + c.code : '') + (c.archived ? ' · archived' : ''), hay: [c.name, c.code, c.lecturer].join(' ') }));
-      SD.tasks.forEach(t => out.push({ type: 'study', raw: { kind: 'task', id: t.id }, title: t.title, sub: `${sdKind(t.kind)[1]} · ${t.status === 'done' ? 'done' : t.due_date ? 'due ' + sdShort(t.due_date) : 'no due date'}${sdCourse(t.course_id) ? ' · ' + sdCourse(t.course_id).name : ''}`, hay: [t.title, t.notes, (sdCourse(t.course_id) || {}).name].join(' ') }));
+      sdLiveTasks().forEach(t => out.push({ type: 'study', raw: { kind: 'task', id: t.id }, title: t.title, sub: `${sdKind(t.kind)[1]} · ${t.status === 'done' ? 'done' : t.due_date ? 'due ' + sdShort(t.due_date) : 'no due date'}${sdCourse(t.course_id) ? ' · ' + sdCourse(t.course_id).name : ''}`, hay: [t.title, t.notes, (sdCourse(t.course_id) || {}).name].join(' ') }));
       notes.forEach(n => out.push({ type: 'study', raw: { kind: 'note', id: n.id }, title: n.title, sub: 'Study note' + (sdCourse(n.course_id) ? ' · ' + sdCourse(n.course_id).name : ''), hay: [n.title, n.body].join(' ') }));
       projects.forEach(p => out.push({ type: 'study', raw: { kind: 'group', id: p.id }, title: p.title, sub: 'Group project' + (p.course_name ? ' · ' + p.course_name : ''), hay: [p.title, p.course_name].join(' ') }));
       return out;
@@ -698,7 +729,7 @@
       if (!studyVisibleOnCalendar()) return [];
       const out = [];
       if (!cHidden.has('Classes')) SD.classes.filter(c => sdClassOn(c, k)).forEach(c => { const co = sdCourse(c.course_id); out.push({ type: 'sdclass', id: c.id, title: co ? co.name : 'Class', time: sdHM(c.start_time), end: sdHM(c.end_time), color: co ? co.color : '#34d399', cat: 'Classes', label: 'Class' }); });
-      if (!cHidden.has('Study')) SD.tasks.filter(t => t.due_date === k && t.status !== 'done').forEach(t => { const co = sdCourse(t.course_id); out.push({ type: 'sdtask', id: t.id, title: t.title, color: co ? co.color : '#a78bfa', cat: 'Study', label: sdKind(t.kind)[1] + ' due' }); });
+      if (!cHidden.has('Study')) sdLiveTasks().filter(t => t.due_date === k && t.status !== 'done').forEach(t => { const co = sdCourse(t.course_id); out.push({ type: 'sdtask', id: t.id, title: t.title, color: co ? co.color : '#a78bfa', cat: 'Study', label: sdKind(t.kind)[1] + ' due' }); });
       return out;
     }
     function sdOpenFromCal(type, id) {
@@ -712,6 +743,8 @@
       pg.querySelector('#sdAdd').addEventListener('click', () => { const a = SD_ADD[SD.tab]; if (a) a[1](); });
       pg.querySelector('#sdRoot').addEventListener('click', e => {
         const chk = e.target.closest('[data-check]'); if (chk) return sdToggleDone(chk.dataset.check);
+        if (e.target.closest('[data-goto-sem]')) { SD.tab = 'semesters'; return sdPaint(); }
+        const act = e.target.closest('[data-activate-sem]'); if (act) return sdActivateSemester(act.dataset.activateSem);
         const fin = e.target.closest('[data-finish-sem]'); if (fin) return sdFinishSemester(fin.dataset.finishSem);
         if (e.target.closest('[data-open-archive]')) return goTo('studyarchive');
         if (e.target.closest('[data-sel-start]')) { SD.sel = new Set(); return sdPaint(); }

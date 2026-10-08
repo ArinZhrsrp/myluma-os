@@ -12,7 +12,7 @@
     function sdGroupsView() {
       if (!SDG.loaded) return '<div class="ls" style="padding:10px 2px">Loading…</div>';
       if (SDG.err) return card(`<div class="ls">Could not load your group projects: ${escapeHtml(SDG.err)}. ${/study_project|schema cache|does not exist|my_study_projects/i.test(SDG.err) ? 'Has <b>supabase/migrations/054_study_groups.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
-      const invites = SDG.list.filter(p => p.my_status === 'pending'), mine = SDG.list.filter(p => p.my_status === 'accepted');
+      const invites = SDG.list.filter(p => p.my_status === 'pending'), mine = SDG.list.filter(p => p.my_status === 'accepted' && !(p.semester_id && sdSem(p.semester_id) && sdSem(p.semester_id).archived_at));
       const inv = invites.map(p => `<div class="card sd-invite"><i class="fa-solid fa-people-group"></i><div class="bd"><b>${escapeHtml(p.owner_name)} invited you to “${escapeHtml(p.title)}”</b><small>${p.course_name ? escapeHtml(p.course_name) + ' · ' : ''}${p.due_date ? 'due ' + sdShort(p.due_date) : 'no due date'}</small></div><button type="button" class="confirm-btn cancel" data-gp-no="${p.id}">Decline</button><button type="button" class="confirm-btn save" data-gp-yes="${p.id}">Join</button></div>`).join('');
       const cards = mine.length ? `<div class="grid-2">${mine.map(p => { const pct = p.tasks_total ? Math.round(p.tasks_done / p.tasks_total * 100) : 0, d = p.due_date ? sdDiff(sdKey(), p.due_date) : null;
         return `<div class="card sd-proj" data-proj="${p.id}"><div class="sp-h"><b>${escapeHtml(p.title)}</b>${p.course_name ? `<span class="sd-cc"><i></i>${escapeHtml(p.course_name)}</span>` : ''}</div>
@@ -38,6 +38,7 @@
       docEl('sdProjNewGuests').innerHTML = [...SDG.guests].map(([id, nm]) => `<span class="cal-gchip new"><i class="fa-solid fa-paper-plane"></i>${escapeHtml(nm)}<button type="button" data-un="${id}" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></span>`).join('');
     }
     function openProjNew() {
+      if (!sdGuest() && !sdActiveSem()) { sdNeedSem(); return; }
       if (sdGuest()) return luAlert('Creating a group project needs the Study add-on. You can still join projects you are invited to.', 'Study add-on needed');
       SDG.guests = new Map(); docEl('sdProjNewTitle').value = ''; docEl('sdProjNewCourse').value = ''; docEl('sdProjNewDue').value = ''; docEl('sdProjNewDue')._luDateRefresh && docEl('sdProjNewDue')._luDateRefresh();
       docEl('sdProjCourses').innerHTML = SD.courses.filter(c => !c.archived).map(c => `<option value="${escapeHtml(c.name)}">`).join('');

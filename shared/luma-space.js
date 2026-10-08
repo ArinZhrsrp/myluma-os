@@ -15,6 +15,9 @@
 
   const Space = (window.LumaSpace = {
     ready: false,
+    semReady: false, // does the database know about semesters on these tables? (migration 056)
+    archivedSems: [], // semesters you archived: what belongs to them is hidden everywhere except the Study archive
+    bypass: false, // the archive page switches this on while it reads archived items
     SCOPED,
     // the mode the person is in right now
     mode() {
@@ -32,11 +35,17 @@
     },
     // is a row (already loaded) visible right now?
     visible(row) { return !this.ready || !row || !row.space || this.allowed().indexOf(row.space) !== -1; },
+    setArchived(ids) { this.archivedSems = ids.slice(); },
     // finds out whether the database has the "space" column; call once after sign-in, before data is loaded
     async init() {
       try {
         const { error } = await original("luma").from("tasks").select("space").limit(1);
         this.ready = !error;
+        if (this.ready) {
+          const sem = await original("luma").from("tasks").select("semester_id").limit(1);
+          this.semReady = !sem.error;
+          if (this.semReady) { const a = await original("luma").from("study_semesters").select("id").not("archived_at", "is", null); this.archivedSems = a.error ? [] : (a.data || []).map((x) => x.id); }
+        }
       } catch (e) { this.ready = false; }
       return this.ready;
     },
@@ -48,7 +57,11 @@
   };
   const scoped = (builder) => new Proxy(builder, {
     get(target, prop) {
-      if (prop === "select") return (...a) => target.select(...a).in("space", Space.allowed()); // a read (an insert/update's .select() is not on this object)
+      if (prop === "select") return (...a) => { // a read (an insert/update's .select() is not on this object)
+        let q = target.select(...a).in("space", Space.allowed());
+        if (Space.semReady && !Space.bypass && Space.archivedSems.length) q = q.or("semester_id.is.null,semester_id.not.in.(" + Space.archivedSems.join(",") + ")"); // items of an archived semester stay in the archive
+        return q;
+      }
       if (prop === "insert") return (rows, opts) => target.insert(stamp(rows), opts);
       const v = target[prop];
       return typeof v === "function" ? v.bind(target) : v;

@@ -13,7 +13,7 @@
           <div class="pem-field"><label>Credit hours <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseCredits" type="number" min="0" max="30" step="1" placeholder="e.g. 3" autocomplete="off"></div>
         </div>
         <div class="pem-field"><label>Lecturer <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseLecturer" type="text" maxlength="80" placeholder="e.g. Dr. Aisyah" autocomplete="off"></div>
-        <div class="pem-field"><label>Semester <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><select id="sdCourseSem"></select></div>
+        <div class="pem-field"><label>Semester</label><div class="ls" id="sdCourseSemTxt" style="padding:2px 0 0"></div></div>
         <div class="pem-row">
           <div class="pem-field"><label>Target mark % <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><input id="sdCourseTarget" type="text" inputmode="decimal" placeholder="e.g. 80" autocomplete="off"></div>
           <div class="pem-field"><label>Final mark % <span style="color:rgba(255,255,255,0.35);font-weight:400">(when finished)</span></label><input id="sdCourseFinal" type="text" inputmode="decimal" placeholder="e.g. 76" autocomplete="off"></div>
@@ -105,6 +105,7 @@
           <div class="pem-field"><label>Last day <span style="color:#fca5a5">*</span></label><input id="sdSemEnd" type="text"></div>
         </div>
         <div class="pem-hint" id="sdSemHint" style="margin:2px 0 0"></div>
+        <div class="pem-field" id="sdSemActiveField" style="margin-top:12px"><label>Make it the active semester?</label><div class="h-tpls" id="sdSemActive"></div><div class="pem-hint" id="sdSemActiveHint" style="margin:6px 0 0"></div></div>
       </div>
       <div class="pem-actions" style="gap:10px">
         <button type="button" class="h-del" id="sdSemDelete" title="Delete semester" aria-label="Delete semester" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
@@ -245,6 +246,21 @@
         <button type="button" class="confirm-btn danger" id="sdProjLeave" style="display:none;flex:none">Leave project</button>
         <button class="confirm-btn save" id="sdProjSave" style="flex:1">Save</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="sdArchOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdArchTitle">Archive semester</div>
+        <button class="x" id="sdArchClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdArchError"></div>
+      <div class="pem-body">
+        <div class="ls" id="sdArchSummary" style="margin-bottom:12px;line-height:1.5"></div>
+        <div class="pem-field"><label>Remark <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional, kept with the archive)</span></label><textarea id="sdArchRemark" maxlength="1000" style="min-height:110px" placeholder="e.g. Finished with a 3.6 GPA. Struggled with Calculus, take it easier next time."></textarea></div>
+      </div>
+      <div class="pem-actions"><button class="confirm-btn save" id="sdArchSave" style="flex:1">Archive semester</button></div>
     </div>
   </div>
 

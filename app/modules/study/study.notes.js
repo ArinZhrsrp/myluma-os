@@ -16,7 +16,7 @@
       if (!SDN.loaded) return '<div class="ls" style="padding:10px 2px">Loading…</div>';
       if (SDN.err) return card(`<div class="ls">Could not load your notes: ${escapeHtml(SDN.err)}. ${/study_notes|schema cache|does not exist/i.test(SDN.err) ? 'Has <b>supabase/migrations/053_study_notes.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
       const chips = SD.courses.length ? `<div class="sd-filters"><div class="sd-subj"><button type="button" data-ncourse="" class="${SDN.course === '' ? 'on' : ''}">All subjects</button>${SD.courses.filter(c => !c.archived).map(c => `<button type="button" data-ncourse="${c.id}" class="${SDN.course === c.id ? 'on' : ''}" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}</button>`).join('')}</div></div>` : '';
-      const list = SDN.notes.filter(n => !SDN.course || n.course_id === SDN.course);
+      const list = SDN.notes.filter(n => (!SDN.course || n.course_id === SDN.course) && !(n.semester_id && sdSem(n.semester_id) && sdSem(n.semester_id).archived_at));
       const mine = list.length ? `<div class="grid-2">${list.map(n => { const c = sdCourse(n.course_id); return `<div class="card sd-note" data-note="${n.id}"><div class="sn-h"><b>${escapeHtml(n.title)}</b>${sdCC(c)}</div><p>${escapeHtml(sdSnippet(n.body)) || '<span class="ls">Empty note</span>'}</p><small>Updated ${sdShort(mytDayKey(n.updated_at))}</small></div>`; }).join('')}</div>`
         : card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-note-sticky"></i></div><div class="h-empty-t">${SDN.notes.length ? 'No notes for this subject' : 'Keep your study notes here'}</div><div class="h-empty-s">Write notes per subject, and share them with classmates from your contacts.</div><div class="h-empty-chips"><button type="button" class="h-chip" data-note-new><i class="fa-solid fa-plus" style="color:#34d399"></i>New note</button></div></div>`);
       const shared = SDN.shared.length ? `<div class="sd-gh" style="margin-top:18px"><b>Shared with me</b><span>${SDN.shared.length}</span></div><div class="grid-2">${SDN.shared.map(n => `<div class="card sd-note shared" data-shared="${n.id}"><div class="sn-h"><b>${escapeHtml(n.title)}</b>${n.course_name ? `<span class="sd-cc"><i></i>${escapeHtml(n.course_name)}</span>` : ''}</div><p>${escapeHtml(sdSnippet(n.body))}</p><small><i class="fa-solid fa-user-group"></i> From ${escapeHtml(n.owner_name)}</small></div>`).join('')}</div>` : '';
@@ -37,6 +37,7 @@
         + [...SDN.add].map(([id, nm]) => `<span class="cal-gchip new"><i class="fa-solid fa-paper-plane"></i>${escapeHtml(nm)}<button type="button" data-un="${id}" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></span>`).join('');
     }
     function openNoteModal(n) {
+      if (!n && !sdActiveSem()) { sdNeedSem(); return; }
       SDN.editId = n ? n.id : null; SDN.shares = []; SDN.add = new Map(); SDN.remove = new Set();
       docEl('sdNoteHead').textContent = n ? 'Edit note' : 'New note';
       docEl('sdNoteTitle').value = n ? n.title : ''; docEl('sdNoteBody').value = n ? n.body || '' : '';
