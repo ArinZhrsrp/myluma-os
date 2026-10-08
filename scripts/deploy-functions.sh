@@ -6,11 +6,11 @@
 #   https://<REFERENCE>.supabase.co
 set -euo pipefail
 
-STAGING_REF="rbrpgjcwiptuvuluqrxs"
+STAGING_REF="yzinmyjmhmacnyjsgyfu"
 PROD_REF=""   # <- paste your production project's reference here
 
 case "${1:-}" in
-  staging) REF="dknrujlwixgtgdomukqy" ;;
+  staging) REF="yzinmyjmhmacnyjsgyfu" ;;
   prod|production) REF="$PROD_REF" ;;
   *) echo "Usage: $0 staging|prod"; exit 1 ;;
 esac
