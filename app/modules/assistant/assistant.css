@@ -134,3 +134,5 @@
         bottom: 88px;
       }
     }
+    .lumi-note { display:flex; align-items:flex-start; gap:6px; margin:0 4px 8px; font-size:0.66rem; line-height:1.4; color:rgba(255,255,255,0.5); }
+    .lumi-note i { margin-top:2px; font-size:0.62rem; }
