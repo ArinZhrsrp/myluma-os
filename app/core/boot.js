@@ -18,7 +18,7 @@
     if (window.LumaLoader) window.LumaLoader.hold("boot-failed"); // keeps the loading cover up; its 3-minute message explains what to do
   }
 
-  Promise.all(FRAGMENTS.map((f) => fetch(f).then((r) => { if (!r.ok) throw new Error(f + " " + r.status); return r.text(); }).then(parts)))
+  Promise.all(FRAGMENTS.map((f) => fetch(f, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(f + " " + r.status); return r.text(); }).then(parts)))
     .then((all) => {
       const byFile = {}; FRAGMENTS.forEach((f, i) => { byFile[f] = all[i]; });
       document.body.insertAdjacentHTML("afterbegin", byFile["core/shell.html"].shell);
