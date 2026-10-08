@@ -148,10 +148,10 @@ grant execute on function luma.seed_document_categories(uuid) to postgres;
 revoke execute on function luma.seed_document_categories(uuid) from public, anon, authenticated;
 
 -- ---------- Storage ----------
--- Private bucket, 25 MB per file. Objects live under "<user_id>/…" and
+-- Private bucket, 50 MB per file at most (each plan sets its own smaller limit, see 033_plans.sql). Objects live under "<user_id>/…" and
 -- policies only let a user touch their own folder.
 insert into storage.buckets (id, name, public, file_size_limit)
-values ('luma-documents', 'luma-documents', false, 26214400)
+values ('luma-documents', 'luma-documents', false, 52428800)
 on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit;
 
 drop policy if exists "Users read their own document files" on storage.objects;
