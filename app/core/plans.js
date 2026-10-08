@@ -21,7 +21,6 @@
       const cur = PLANS.find(p => p.id === LumaPlan.plan) || PLANS[0];
       docEl('planTitle').textContent = planFirst ? 'Welcome to LUMA! Pick your plan' : 'Plans';
       docEl('planNote').innerHTML = planFirst ? 'You start on <b>Dawn</b>, free forever. Want more? Tap a plan to upgrade. We\'ll open WhatsApp with your details filled in. Not now? You can always upgrade later from Settings.' : 'To upgrade, tap a plan. We\'ll open WhatsApp with your name, email, plan and price filled in.';
-      docEl('planDone').textContent = planFirst ? 'Maybe later' : 'Close';
       docEl('planGrid').innerHTML = PLANS.map(p => `<div class="plan-card ${p.id === cur.id ? 'cur' : ''}" style="--pc:${p.color}">
         ${p.id === cur.id ? '<span class="pb">Your plan</span>' : ''}
         <div class="pn"><span class="pi"><i class="fa-solid ${p.icon}"></i></span>${p.name}</div><div class="pt">${p.tag}</div><div class="pp">${p.price}</div>
@@ -58,7 +57,7 @@
       closePlans();
     }
     const closePlans = () => { docEl('planOverlay').classList.remove('open'); if (planResolve) { const r = planResolve; planResolve = null; r(); } };
-    docEl('planClose').onclick = docEl('planDone').onclick = closePlans;
+    docEl('planClose').onclick = closePlans;
     docEl('planOverlay').onclick = e => {
       if (e.target === docEl('planOverlay')) return closePlans();
       const up = e.target.closest('[data-up]'); if (up) return requestUpgrade(up.dataset.up);
