@@ -4256,6 +4256,9 @@
     .adm-meta { color:rgba(255,255,255,0.65); font-size:0.72rem; line-height:1.5; }
     .adm-plan .lu-select, .adm-plan .lu-sel-btn { width:100%; }
 
+    /* Dashboard: the top bar stays put; only the widgets scroll */
+    .main-content.fit #page-dashboard .dashboard-grid { flex:1 1 auto; min-height:0; overflow-y:auto; align-content:start; grid-auto-rows:max-content; padding:2px 6px 24px 0; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+
     /* Support: the FAQ card is as tall as the message card; its questions scroll inside */
     .supp-faq { position:relative; padding:0 !important; }
     .supp-faq-in { position:absolute; inset:0; padding:1.2rem 1.3rem; display:flex; flex-direction:column; min-width:0; }
@@ -7892,7 +7895,7 @@
   </div>
 
   <!-- ===== MAIN CONTENT ===== -->
-  <div class="main-content">
+  <div class="main-content fit">
     <div class="content-wrapper">
 
       <!-- Top Bar -->
@@ -10157,7 +10160,7 @@
       analytics: 'Analytics', settings: 'Settings', support: 'Support', notifications: 'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin', 'dashboard']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
     const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin']);
@@ -10174,6 +10177,7 @@
       const mc = document.querySelector('.main-content');
       mc.classList.toggle('fit', FIT_PAGES.has(key));
       if (key === 'calendar') calOnShow();
+      if (key === 'dashboard') { const dg = pg.querySelector('.dashboard-grid'); if (dg) dg.scrollTop = 0; }
       if (key === 'dashboard' && typeof LumaLoader !== 'undefined') LumaLoader.page(pg, key, loadDashboard().catch(() => { }));
       mc.scrollTop = 0;
       // remember the page in the URL so a browser refresh lands back here
