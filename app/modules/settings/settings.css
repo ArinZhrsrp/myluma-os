@@ -124,3 +124,8 @@
     .pc-end.soon { color:#fca5a5; font-weight:600; }
     .pc-end.off { color:rgba(255,255,255,0.5); }
     .pc-row .np-btn i { margin-right:6px; }
+
+    /* an add-on pill under the plan pill */
+    .pill-addon { display:flex; width:fit-content; align-items:center; gap:6px; margin-top:6px; border:0; cursor:pointer; font-family:inherit; color:#fff; background:color-mix(in srgb, var(--ac, #34d399) 28%, transparent); }
+    .pill-addon:hover { background:color-mix(in srgb, var(--ac, #34d399) 40%, transparent); }
+    .pill-addon i { color:var(--ac, #34d399); }
