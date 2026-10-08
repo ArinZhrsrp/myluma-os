@@ -278,6 +278,29 @@ logged in `luma.plan_changes` and the person gets a notification. Only accounts 
 **Fresh start:** `supabase/reset/00_RESET_EVERYTHING.sql` erases every account and all data (it refuses to run until you delete its safety guard).
 Empty the `luma-documents` Storage bucket by hand afterwards.
 
+## Staging and production
+
+Two Supabase projects, two websites, one codebase:
+
+| | **Staging** (sandbox) | **Production** (real users) |
+|---|---|---|
+| Git branch | `staging` | `main` |
+| Website | the `staging` branch's Vercel link (also localhost and any preview link) | `myluma-os.vercel.app` (list your own domain in `PROD_HOSTS`) |
+| Supabase project | the first project (test accounts and test data) | a clean second project |
+| Marked with | a yellow **STAGING** tag in the corner | nothing |
+
+`assets/supabase-config.js` picks the project from the address the site is opened on, so the same code runs in both.
+
+**How a new feature goes live**
+1. Work on the `staging` branch (`git checkout staging`). Push it. Vercel builds the staging link.
+2. If it needs database changes, add a new numbered file in `supabase/migrations/` and run it in the **staging** SQL Editor. If it changes an Edge Function, `./scripts/deploy-functions.sh staging`.
+3. Try it on the staging site with test accounts.
+4. When happy: run the same migration in the **production** SQL Editor, `./scripts/deploy-functions.sh prod`, then merge into main (`git checkout main && git merge staging && git push`). Vercel publishes production.
+5. Run `python3 scripts/build-all-migrations.py` to refresh `supabase/ALL_MIGRATIONS.sql` (used to set up a brand-new project).
+
+Each Supabase project has its own settings that you set once: Authentication (confirm email, email template, SMTP, URL Configuration with that environment's website address),
+the `luma` schema exposed in the API settings, the Edge Function secrets, and the database webhook for push.
+
 ## File structure
 
 ```
