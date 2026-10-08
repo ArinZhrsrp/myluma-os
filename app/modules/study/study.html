@@ -236,9 +236,14 @@
           <div class="pem-field"><label>Due date</label><input id="sdProjDue" type="text"></div>
           <div class="pem-field"><label>Team</label><div class="sd-team" id="sdProjTeam"></div><button type="button" class="np-btn" id="sdProjInvite" style="margin-top:8px"><i class="fa-solid fa-user-plus"></i> Invite from contacts</button></div>
           <div class="pem-field"><label>Tasks</label><div id="sdProjTasks"></div>
-            <div class="sd-taskadd"><input id="sdProjTaskTitle" type="text" maxlength="140" placeholder="Add a task and press Enter" autocomplete="off"><select id="sdProjTaskWho"></select><button type="button" class="np-btn" id="sdProjTaskAdd"><i class="fa-solid fa-plus"></i></button></div>
+            <div class="sd-taskadd"><input id="sdProjTaskTitle" type="text" maxlength="140" placeholder="Add a task and press Enter" autocomplete="off"><input id="sdProjTaskDue" type="text"><select id="sdProjTaskWho"></select><button type="button" class="np-btn" id="sdProjTaskAdd"><i class="fa-solid fa-plus"></i></button></div>
           </div>
           <div class="pem-field"><label>Shared notes <span style="color:rgba(255,255,255,0.35);font-weight:400">(everyone on the team can edit)</span></label><textarea id="sdProjNotes" maxlength="5000" style="min-height:120px" placeholder="Links, decisions, who does what…"></textarea></div>
+          <div class="pem-field"><label>Files <span style="color:rgba(255,255,255,0.35);font-weight:400">(everyone on the team can open them)</span></label><div id="sdProjFiles"></div>
+            <button type="button" class="np-btn" id="sdProjAttach" style="margin-top:8px"><i class="fa-solid fa-paperclip"></i> Attach a file</button><input type="file" id="sdProjFile" style="display:none"></div>
+          <div class="pem-field"><label>Discussion</label>
+            <div class="sd-cmt-add"><textarea id="sdProjCmtText" maxlength="1000" placeholder="Write a comment…"></textarea><button type="button" class="np-btn" id="sdProjCmtSend"><i class="fa-solid fa-paper-plane"></i></button></div>
+            <div id="sdProjComments"></div></div>
         </div>
       </div>
       <div class="pem-actions" style="gap:10px">

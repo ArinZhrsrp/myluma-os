@@ -296,3 +296,29 @@
     .sd-semchip small { flex-basis:100%; color:rgba(255,255,255,0.55); font-size:0.7rem; }
     .sd-semchip.none { background:rgba(251,191,36,0.1); border-color:rgba(251,191,36,0.35); }
     .sd-semchip.none > i { color:#fcd34d; }
+
+    /* group projects: task dates, files, discussion */
+    .sd-ptask .due { display:flex; align-items:center; gap:4px; flex:none; }
+    .sd-ptask .due .lu-date { width:132px; }
+    .sd-ptask .due .lu-date-btn { height:32px; font-size:0.7rem; padding:0 8px; }
+    .sd-ptask .due.over .lu-date-btn { color:#fca5a5; }
+    .sd-taskadd .lu-date { width:140px; flex:none; }
+    .sd-taskadd .lu-date-btn { height:38px; font-size:0.72rem; }
+    @media (max-width:640px) { .sd-ptask { flex-wrap:wrap; } .sd-taskadd { flex-wrap:wrap; } }
+    .sd-file { display:flex; align-items:center; gap:10px; padding:7px 4px; border-bottom:1px solid rgba(255,255,255,0.07); }
+    .sd-file > i { color:#93c5fd; }
+    .sd-file .nm { flex:1; min-width:0; text-align:left; border:0; background:transparent; color:#fff; font:inherit; font-size:0.82rem; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sd-file .nm:hover { text-decoration:underline; }
+    .sd-file small { color:rgba(255,255,255,0.55); font-size:0.68rem; flex:none; }
+    .sd-file .ic { border:0; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.65); cursor:pointer; font-size:0.65rem; }
+    .sd-cmt-add { display:flex; gap:8px; margin-bottom:10px; }
+    .sd-cmt-add textarea { flex:1; min-height:44px; max-height:120px; }
+    .sd-cmt { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .sd-cmt .av { width:28px; height:28px; border-radius:50%; flex:none; display:grid; place-items:center; background:linear-gradient(135deg,#059669,#34d399); color:#fff; font-weight:700; font-size:0.74rem; }
+    .sd-cmt .bd { flex:1; min-width:0; }
+    .sd-cmt .h { display:flex; align-items:center; gap:8px; }
+    .sd-cmt .h b { color:#fff; font-size:0.78rem; }
+    .sd-cmt .h small { color:rgba(255,255,255,0.5); font-size:0.66rem; }
+    .sd-cmt .h button { margin-left:auto; border:0; width:22px; height:22px; border-radius:50%; background:transparent; color:rgba(255,255,255,0.45); cursor:pointer; font-size:0.6rem; }
+    .sd-cmt .h button:hover { background:rgba(255,255,255,0.14); color:#fff; }
+    .sd-cmt p { margin:2px 0 0; color:rgba(255,255,255,0.85); font-size:0.82rem; line-height:1.45; white-space:pre-wrap; word-break:break-word; }

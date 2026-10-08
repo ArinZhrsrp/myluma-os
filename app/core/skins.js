@@ -87,6 +87,7 @@
     skinDate(document.getElementById('sdSemStart'));
     skinDate(document.getElementById('sdProjNewDue'));
     skinDate(document.getElementById('sdProjDue'));
+    skinDate(document.getElementById('sdProjTaskDue'));
     skinDate(document.getElementById('sdClassSkipDate'));
     skinDate(document.getElementById('sdBreakFrom'));
     skinDate(document.getElementById('sdBreakTo'));

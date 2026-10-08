@@ -135,7 +135,7 @@
     function sdPaint() {
       const root = docEl('sdRoot'), sub = docEl('sdSub'); if (!root) return;
       document.querySelectorAll('#sdTabs button').forEach(b => b.classList.toggle('on', b.dataset.sdtab === SD.tab));
-      const add = SD_ADD[SD.tab]; docEl('sdAdd').style.display = add && !sdGuest() ? '' : 'none'; if (add) docEl('sdAddT').textContent = add[0];
+      const add = SD_ADD[SD.tab]; docEl('sdAdd').style.display = add && (!sdGuest() || SD.tab === 'groups') ? '' : 'none'; if (add) docEl('sdAddT').textContent = add[0];
       if (SD.err && !SD_VIEW[SD.tab]) {
         sub.textContent = 'Could not load';
         root.innerHTML = card(`<div class="ls">Could not load your study data: ${escapeHtml(SD.err)}. ${/study_|schema cache|does not exist/i.test(SD.err) ? 'Has <b>supabase/migrations/045_study.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
