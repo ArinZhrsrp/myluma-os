@@ -4270,6 +4270,10 @@ create table if not exists luma.study_tasks (
 create index if not exists study_tasks_user on luma.study_tasks (user_id, due_date);
 
 -- ---------- security: your own rows only; changes need the Study add-on ----------
+alter table luma.study_courses enable row level security;
+alter table luma.study_classes enable row level security;
+alter table luma.study_tasks enable row level security;
+
 do $$
 declare t text;
 begin
