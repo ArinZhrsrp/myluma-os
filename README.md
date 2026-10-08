@@ -290,6 +290,7 @@ supabase/migrations/
   029_assistant.sql            Lumi assistant daily question limit (15 per user per day)
   030_more_reminders.sql       event / task / bill / goal reminders + budget alerts (inbox + push)
   031_reminder_prefs.sql       Settings → Reminders: on/off + timing per reminder type
+  032_reminders.sql            Reminders page: your own reminders (e.g. last weekday of the month), inbox + push
 ```
 
 `assets/luma-auth.js` exposes a global `LumaAuth` object used by every page:
