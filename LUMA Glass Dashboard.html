@@ -4137,6 +4137,20 @@
     /* disabled buttons look disabled (e.g. Mark all as read when everything is read) */
     .create-btn:disabled, .np-btn:disabled { opacity:0.4; cursor:not-allowed; filter:grayscale(0.4); pointer-events:none; }
 
+    /* Calendar → Day agenda */
+    .cd-list { display:flex; flex-direction:column; gap:10px; padding:4px 2px 18px; }
+    .cd-row { display:flex; gap:16px; align-items:stretch; }
+    .cd-time { width:104px; flex:none; padding-top:16px; font-size:0.74rem; color:rgba(255,255,255,0.6); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .cd-card { flex:1; min-width:0; display:flex; align-items:center; gap:14px; padding:13px 16px; border-radius:16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); border-left:3px solid var(--ic); cursor:pointer; transition:0.15s; }
+    .cd-card:hover { background:rgba(255,255,255,0.09); border-color:rgba(255,255,255,0.18); border-left-color:var(--ic); }
+    .cd-card.done { opacity:0.55; }
+    .cd-card.done .cd-t { text-decoration:line-through; }
+    .cd-ico { width:36px; height:36px; flex:none; border-radius:10px; display:grid; place-items:center; font-size:0.95rem; color:var(--ic); background:color-mix(in srgb, var(--ic) 18%, transparent); }
+    .cd-main { min-width:0; }
+    .cd-t { font-size:0.9rem; font-weight:500; color:#fff; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cd-s { margin-top:2px; font-size:0.74rem; color:rgba(255,255,255,0.6); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    @media (max-width:560px){ .cd-row { flex-direction:column; gap:4px; } .cd-time { width:auto; padding-top:0; } }
+
     /* page switcher */
     .page {
       display: none;
@@ -10363,13 +10377,25 @@
       return { html, wkTop: cols.some(c => c.loose.length) ? 0 : 7 * hourH }; // with all-day items the list opens at the top (where they are); otherwise around 7 am
     }
 
+    // Day view: an agenda — time on the left, a card per item (coloured edge, icon tile, title, detail)
+    const C_ICON = { Work: 'fa-briefcase', Meeting: 'fa-users', Personal: 'fa-user', Health: 'fa-heart-pulse', Social: 'fa-champagne-glasses', Other: 'fa-calendar-day', Tasks: 'fa-square-check', Bills: 'fa-file-invoice-dollar' };
+    function cDayAgenda(k) {
+      const items = cItemsOn(k);
+      if (!items.length) return `<div class="cal-empty" data-d="${k}">Nothing planned for this day.<br><button type="button" class="create-btn" id="calEmptyAdd" style="margin-top:12px"><i class="fa-solid fa-plus"></i> Add an event</button></div>`;
+      return `<div class="cd-list" data-d="${k}">` + items.map(it => {
+        const when = it.type === 'event' ? (it.time ? it.time + (it.end ? ' – ' + it.end : '') : 'All day') : it.type === 'task' ? 'Due today' : 'Bill';
+        const detail = it.type === 'event' ? ((it.e.note || '').split('\n')[0] || it.cat) : it.label;
+        return `<div class="cd-row"><div class="cd-time">${when}</div><div class="cd-card ${it.done ? 'done' : ''}" style="--ic:${it.color}" data-type="${it.type}" data-id="${it.id}" data-d="${k}"><div class="cd-ico"><i class="fa-solid ${C_ICON[it.cat] || 'fa-calendar-day'}"></i></div><div class="cd-main"><div class="cd-t">${escapeHtml(it.title)}</div><div class="cd-s">${escapeHtml(detail)}</div></div></div></div>`;
+      }).join('') + '</div>';
+    }
+
     function paintCalendar() {
       const body = docEl('calBody'); if (!body) return;
       const today = mytDayKey(Date.now()); if (!cDate) cDate = today;
       document.querySelectorAll('#calViews span').forEach(sp => sp.classList.toggle('active', sp.dataset.v === cView));
       docEl('calWd').style.display = cView === 'month' ? '' : 'none'; body.classList.remove('cal-nosc', 'cal-wk');
       if (CERR) { docEl('calTitle').textContent = 'Calendar'; body.innerHTML = '<div class="cal-empty">Could not load events — has <b>supabase/migrations/027_events.sql</b> been run in the Supabase SQL Editor?</div>'; paintCalSide(); return; }
-      const keepScroll = body.dataset.v === cView && (cView === 'week' || cView === 'day') ? (body.querySelector('.tg-scroll') || {}).scrollTop : null; // stay where you were when changing week / day
+      const keepScroll = body.dataset.v === cView && cView === 'week' ? (body.querySelector('.tg-scroll') || {}).scrollTop : null; // stay where you were when changing week / day
       let title = '', html = '', wkTop = 7 * C_HOUR_H;
       if (cView === 'month') {
         const first = bFirst(cDate), lead = cDow(first), n = cLast(first), weeks = Math.ceil((lead + n) / 7), start = bAddDays(first, -lead);
@@ -10387,7 +10413,7 @@
         ({ html, wkTop } = cTimeGrid(ds, today)); body.classList.add('cal-wk');
       } else if (cView === 'day') {
         title = cFmt(cDate, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-        ({ html, wkTop } = cTimeGrid([cDate], today)); body.classList.add('cal-wk');
+        html = cDayAgenda(cDate);
       } else {
         const y = +cDate.slice(0, 4); title = String(y);
         html = '<div class="cal-year">' + Array.from({ length: 12 }, (_, m) => {
