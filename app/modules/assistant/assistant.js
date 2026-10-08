@@ -22,6 +22,7 @@
       const now = new Intl.DateTimeFormat('en-GB', { timeZone: MYT, dateStyle: 'full', timeStyle: 'short' }).format(new Date());
       try {
         const { data, error } = await LumaAuth.client.functions.invoke('lumi', { body: { ...body, tz: MYT, today: hToday(), now } });
+        if (error && error.context && error.context.status === 404) return { error: "Lumi isn't deployed on this environment yet. Run ./scripts/deploy-functions.sh (see the README, Lumi assistant)." };
         if (error) { try { return await error.context.json(); } catch (e) { return { error: /not found|404/i.test(error.message || '') ? "Lumi isn't deployed yet — see the README (Lumi assistant)." : 'Lumi could not be reached. Please try again.' }; } }
         return data || { error: 'No answer came back.' };
       } catch (e) { return { error: 'Lumi could not be reached. Please check your connection.' }; }
