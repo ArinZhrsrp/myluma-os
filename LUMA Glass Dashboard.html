@@ -4243,6 +4243,12 @@
     .adm-stat { padding:14px 16px; border-radius:16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); }
     .adm-stat .l { font-size:0.64rem; text-transform:uppercase; letter-spacing:0.07em; color:rgba(255,255,255,0.55); }
     .adm-stat .v { margin-top:4px; font-size:1.4rem; font-weight:700; color:#fff; }
+    .adm-tbl-wrap { overflow-x:auto; }
+    .adm-tbl { width:100%; border-collapse:collapse; font-size:0.78rem; font-variant-numeric:tabular-nums; }
+    .adm-tbl th { text-align:right; padding:8px 10px; font-size:0.62rem; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.55); font-weight:600; border-bottom:1px solid rgba(255,255,255,0.1); white-space:nowrap; }
+    .adm-tbl td { text-align:right; padding:9px 10px; color:#fff; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .adm-tbl th:first-child, .adm-tbl td:first-child { text-align:left; }
+    .adm-tbl tbody tr:first-child td { font-weight:700; background:rgba(255,255,255,0.03); }
     .adm-search { display:flex; align-items:center; gap:10px; height:44px; padding:0 14px; border-radius:14px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); margin-bottom:12px; }
     .adm-search i { color:rgba(255,255,255,0.5); }
     .adm-search input { flex:1; background:none; border:none; outline:none; color:#fff; font:inherit; font-size:0.85rem; }
@@ -12353,7 +12359,7 @@
       const root = pg.querySelector('#admRoot'), sub = pg.querySelector('#admSub');
       if (!LumaPlan.admin) { sub.textContent = 'Not allowed'; root.innerHTML = card('<div class="ls">This page is only for administrators.</div>'); return; }
       const db = () => LumaAuth.client.schema('luma'), ago = iso => { if (!iso) return 'never'; const d = Math.floor((Date.now() - Date.parse(iso)) / 864e5); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; };
-      root.innerHTML = '<div class="adm-stats" id="admStats"></div><div class="adm-search"><i class="fa-solid fa-search"></i><input id="admSearch" type="text" placeholder="Search by name or email…" autocomplete="off"></div><div id="admList"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+      root.innerHTML = '<div class="adm-stats" id="admStats"></div><div id="admReport"></div><div class="adm-search"><i class="fa-solid fa-search"></i><input id="admSearch" type="text" placeholder="Search by name or email…" autocomplete="off"></div><div id="admList"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
       const stats = async () => { const { data } = await db().rpc('admin_stats'); if (!data) return; sub.textContent = `${data.total} account${data.total === 1 ? '' : 's'} · ${data.new_7d} new this week`; document.getElementById('admStats').innerHTML = [['Accounts', data.total], ['Dawn', data.dawn], ['Glow', data.glow], ['Zenith', data.zenith], ['New in 7 days', data.new_7d]].map(([l, v]) => `<div class="adm-stat"><div class="l">${l}</div><div class="v">${v}</div></div>`).join(''); };
       const list = async () => {
         const box = document.getElementById('admList'), q = document.getElementById('admSearch').value.trim();
@@ -12375,11 +12381,24 @@
         if (!await luConfirm({ title: 'Change plan?', message: `${who}: ${LumaPlan.NAMES[old]} → ${LumaPlan.NAMES[next]}`, ok: 'Change plan', icon: 'fa-user-shield', tone: 'info' })) return revert();
         const { error } = await db().rpc('admin_set_plan', { p_user: id, p_plan: next });
         if (error) { revert(); return luAlert('Could not change the plan: ' + error.message); }
-        sel.dataset.cur = next; flashToast('Plan changed', `${who} is now on ${LumaPlan.NAMES[next]}`, 'fa-check', '#22c55e'); stats();
+        sel.dataset.cur = next; flashToast('Plan changed', `${who} is now on ${LumaPlan.NAMES[next]}`, 'fa-check', '#22c55e'); stats(); report();
         if (LUMA_USER && id === LUMA_USER.id) { await LumaPlan.load(); Object.keys(rendered).forEach(k => { if (k !== 'admin') delete rendered[k]; }); flashToast('Your own plan changed', 'Other pages now use the new limits', 'fa-user-shield', '#3b82f6'); } // you changed your own plan: the app follows
       });
       let t = null; document.getElementById('admSearch').addEventListener('input', () => { clearTimeout(t); t = setTimeout(list, 300); });
-      await Promise.all([stats(), list()]);
+      // monthly report: how many people were on each plan at the end of every month
+      const report = async () => {
+        const box = document.getElementById('admReport'), { data, error } = await db().rpc('admin_monthly_stats', { p_months: 12 });
+        if (error) { box.innerHTML = card(`<div class="section-title"><i class="fa-solid fa-chart-column"></i> Monthly report</div><div class="ls">Could not load: ${escapeHtml(error.message)}. Has <b>supabase/migrations/040_admin_report.sql</b> been run?</div>`); return; }
+        const rows = data || [], lbl = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+        box.innerHTML = card(`<div class="section-title"><i class="fa-solid fa-chart-column"></i> Monthly report <button type="button" class="create-btn" id="admCsv" style="margin-left:auto;padding:6px 12px;font-size:0.7rem;background:rgba(255,255,255,0.08);box-shadow:none"><i class="fa-solid fa-download"></i> Download CSV</button></div>
+          <div class="ls" style="margin:-4px 0 10px">People on each plan at the end of each month (this month: right now). Months run midnight to midnight UTC.</div>
+          <div class="adm-tbl-wrap"><table class="adm-tbl"><thead><tr><th>Month</th><th>Accounts</th><th>New sign-ups</th><th>Dawn</th><th>Glow</th><th>Zenith</th><th>Upgrades</th><th>Downgrades</th></tr></thead><tbody>${rows.map(r => `<tr><td>${lbl(r.period)}</td><td>${r.total_accounts}</td><td>${r.new_signups}</td><td>${r.on_dawn}</td><td>${r.on_glow}</td><td>${r.on_zenith}</td><td>${r.upgrades}</td><td>${r.downgrades}</td></tr>`).join('')}</tbody></table></div>`);
+        document.getElementById('admCsv').onclick = () => {
+          const csv = ['Month,Accounts,New sign-ups,Dawn,Glow,Zenith,Upgrades,Downgrades', ...rows.map(r => [r.period.slice(0, 7), r.total_accounts, r.new_signups, r.on_dawn, r.on_glow, r.on_zenith, r.upgrades, r.downgrades].join(','))].join('\n');
+          const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), a = document.createElement('a'); a.href = url; a.download = `luma-plan-report-${hToday()}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+        };
+      };
+      await Promise.all([stats(), report(), list()]);
     }
 
     function paintHabits() { paintHabitsPage(); paintDashHabits(); if (document.getElementById('dashChips') && dashTasks) paintDashboard(); }
