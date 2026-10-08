@@ -4118,6 +4118,22 @@
       opacity: 0.25;
     }
 
+    /* Money → All transactions popup */
+    .mall-bar { display:flex; gap:10px; align-items:center; margin-bottom:12px; }
+    .mall-nav { flex:1; min-width:0; height:46px; display:flex; align-items:center; justify-content:space-between; padding:0 6px; border-radius:14px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); }
+    .mall-nav span { font-size:0.92rem; font-weight:600; color:#fff; white-space:nowrap; }
+    .mall-nav button { width:34px; height:34px; border:none; border-radius:10px; background:transparent; color:rgba(255,255,255,0.85); cursor:pointer; display:grid; place-items:center; transition:0.15s; }
+    .mall-nav button:hover:not(:disabled) { background:rgba(255,255,255,0.12); color:#fff; }
+    .mall-nav button:disabled { opacity:0.25; cursor:default; }
+    .mall-day { flex:none; width:150px; }
+    .mall-day .lu-select, .mall-day .lu-sel-btn { width:100%; }
+    .mall-day .lu-sel-btn { height:46px; border-radius:14px; }
+    .mall-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:10px; }
+    .mall-stat { padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); min-width:0; }
+    .mall-stat .l { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.06em; color:rgba(255,255,255,0.55); }
+    .mall-stat .v { margin-top:3px; font-size:0.9rem; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums; }
+    @media (max-width:480px){ .mall-bar { flex-direction:column; align-items:stretch; } .mall-day { width:100%; } }
+
     /* page switcher */
     .page {
       display: none;
@@ -8159,11 +8175,11 @@
         <div class="pem-title">All transactions</div>
         <button class="x" id="mAllClose"><i class="fa-solid fa-xmark"></i></button>
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-        <div class="h-mnav"><button type="button" id="mAllPrev" title="Previous month"><i class="fa-solid fa-chevron-left"></i></button><span id="mAllMonth"></span><button type="button" id="mAllNext" title="Next month"><i class="fa-solid fa-chevron-right"></i></button></div>
-        <select id="mAllDay" title="Day"></select>
+      <div class="mall-bar">
+        <div class="mall-nav"><button type="button" id="mAllPrev" title="Previous month"><i class="fa-solid fa-chevron-left"></i></button><span id="mAllMonth"></span><button type="button" id="mAllNext" title="Next month"><i class="fa-solid fa-chevron-right"></i></button></div>
+        <div class="mall-day"><select id="mAllDay" title="Day"></select></div>
       </div>
-      <div class="ls" id="mAllSum" style="margin-bottom:8px"></div>
+      <div class="mall-stats" id="mAllSum"></div>
       <div id="mAllList"></div>
       <div class="pem-actions"><button class="confirm-btn cancel" id="mAllDone" style="flex:1">Close</button></div>
     </div>
@@ -10739,7 +10755,8 @@
       docEl('mAllMonth').textContent = bMonthLabel(first);
       const rows = mAllDay ? txns.filter(t => t.date === mAllDay) : txns;
       const out = rows.filter(t => t.kind === 'expense').reduce((a, t) => a + t.amount, 0), inc = rows.filter(t => t.kind === 'income').reduce((a, t) => a + t.amount, 0);
-      docEl('mAllSum').textContent = rows.length ? `${rows.length} transaction${rows.length === 1 ? '' : 's'} · spent ${bRM(out)}${inc ? ' · income ' + bRM(inc) : ''}` : '';
+      const m2 = v => 'RM' + Number(v).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      docEl('mAllSum').innerHTML = `<div class="mall-stat"><div class="l">Transactions</div><div class="v">${rows.length}</div></div><div class="mall-stat"><div class="l">Spent</div><div class="v" style="color:#fca5a5">${m2(out)}</div></div><div class="mall-stat"><div class="l">Income</div><div class="v" style="color:#6ee7b7">${m2(inc)}</div></div>`;
       docEl('mAllList').innerHTML = rows.length ? rows.map(mTxRow).join('') : `<div class="ls" style="padding:18px 2px">${mAllDay ? 'Nothing on this day.' : 'Nothing this month.'}</div>`;
       const thisFirst = bFirst(mytDayKey(Date.now()));
       docEl('mAllPrev').disabled = first <= bAddMonths(thisFirst, -24); docEl('mAllNext').disabled = first >= bAddMonths(thisFirst, 12);
