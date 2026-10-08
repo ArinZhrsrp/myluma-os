@@ -252,7 +252,8 @@
           <div class="pem-field"><label>Files <span style="color:rgba(255,255,255,0.35);font-weight:400">(everyone on the team can open them)</span></label><div id="sdProjFiles"></div>
             <button type="button" class="np-btn" id="sdProjAttach" style="margin-top:8px"><i class="fa-solid fa-paperclip"></i> Attach a file</button><input type="file" id="sdProjFile" style="display:none"></div>
           <div class="pem-field"><label>Discussion</label>
-            <div class="sd-cmt-add"><textarea id="sdProjCmtText" maxlength="1000" placeholder="Write a comment…"></textarea><button type="button" class="np-btn" id="sdProjCmtSend"><i class="fa-solid fa-paper-plane"></i></button></div>
+            <div class="sd-cmt-add"><textarea id="sdProjCmtText" maxlength="1000" placeholder="Write a comment…"></textarea><button type="button" class="np-btn" id="sdProjCmtSend" title="Send the comment" aria-label="Send the comment"><i class="fa-solid fa-paper-plane"></i></button></div>
+            <div class="pem-msg error" id="sdProjCmtErr" style="margin:0 0 8px"></div>
             <div id="sdProjComments"></div></div>
         </div>
       </div>

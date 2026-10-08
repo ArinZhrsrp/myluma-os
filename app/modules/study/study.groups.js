@@ -92,7 +92,7 @@
     async function sdLoadComments() {
       const r = await LumaStudy.groups.comments(SDG.id); if (r.error) return;
       const owner = SDG.d && SDG.d.project.owner_id === sdMe();
-      docEl('sdProjComments').innerHTML = (r.data || []).length ? r.data.map(c => `<div class="sd-cmt"><span class="av">${escapeHtml((c.name[0] || '?').toUpperCase())}</span><div class="bd"><div class="h"><b>${escapeHtml(c.name)}${c.user_id === sdMe() ? ' <small>(you)</small>' : ''}</b><small>${sdAgo(c.created_at)}</small>${c.user_id === sdMe() || owner ? `<button type="button" data-cmt-del="${c.id}" title="Delete" aria-label="Delete"><i class="fa-solid fa-xmark"></i></button>` : ''}</div><p>${escapeHtml(c.body)}</p></div></div>`).join('') : '<div class="ls" style="padding:4px 0">No comments yet.</div>';
+      docEl('sdProjComments').innerHTML = (r.data || []).length ? r.data.map(c => `<div class="sd-cmt"><span class="av">${escapeHtml((c.name[0] || '?').toUpperCase())}</span><div class="bd"><div class="h"><b>${escapeHtml(c.name)}${c.user_id === sdMe() ? ' <small>(you)</small>' : ''}</b><small>${sdAgo(c.created_at)}</small>${c.user_id === sdMe() || owner ? `<button type="button" data-cmt-del="${c.id}" title="Delete" aria-label="Delete"><i class="fa-solid fa-xmark"></i></button>` : ''}</div><p>${escapeHtml(c.body)}</p></div></div>`).join('') : '<div class="ls" style="padding:2px 0;font-size:0.78rem">No comments yet. Be the first to write one.</div>';
     }
     async function sdLoadFiles() {
       const r = await LumaStudy.groups.files(SDG.id); if (r.error) return;
@@ -110,10 +110,14 @@
       b.disabled = false; b.innerHTML = '<i class="fa-solid fa-paperclip"></i> Attach a file'; sdLoadFiles();
     };
     docEl('sdProjCmtSend').onclick = async () => {
-      const t = docEl('sdProjCmtText').value.trim(); if (!t) return; sdErr('sdProjError', '');
-      const r = await LumaStudy.groups.addComment(SDG.id, t); if (r.error) return sdErr('sdProjError', r.error.message);
-      docEl('sdProjCmtText').value = ''; sdLoadComments();
+      const t = docEl('sdProjCmtText').value.trim(); sdErr('sdProjCmtErr', '');
+      if (!t) { sdErr('sdProjCmtErr', 'Write your comment first, then press send.'); docEl('sdProjCmtText').focus(); return; }
+      const b = docEl('sdProjCmtSend'); b.disabled = true;
+      const r = await LumaStudy.groups.addComment(SDG.id, t); b.disabled = false;
+      if (r.error) return sdErr('sdProjCmtErr', /add_project_comment|schema cache|does not exist|could not find the function/i.test(r.error.message) ? 'Comments aren\'t set up yet — run supabase/migrations/058_study_groups_extras.sql.' : r.error.message);
+      docEl('sdProjCmtText').value = ''; sdLoadComments(); flashToast('Comment sent', 'Your teammates are notified', 'fa-paper-plane', '#22c55e');
     };
+    docEl('sdProjCmtText').addEventListener('input', () => sdErr('sdProjCmtErr', ''));
     docEl('sdProjCmtText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); docEl('sdProjCmtSend').click(); } });
     async function sdReloadProject() { const r = await LumaStudy.groups.detail(SDG.id); if (!r.error) { SDG.d = r.data; paintProj(false); } else sdErr('sdProjError', r.error.message); sdGroupsLoad(); }
     docEl('sdProjClose').onclick = () => sdClose('sdProjOverlay');
