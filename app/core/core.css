@@ -3401,3 +3401,24 @@
         padding: 16px;
       }
     }
+    /* Modes: Personal / Work / Study switcher + add-on popup */
+    .mode-switch { display:flex; gap:4px; padding:4px; border-radius:16px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.07); margin:-14px 0 16px; flex-shrink:0; }
+    .mode-switch button { flex:1; min-width:0; position:relative; display:flex; align-items:center; justify-content:center; gap:5px; padding:8px 4px; border:0; border-radius:12px; background:transparent; color:rgba(255,255,255,0.55); font:600 0.7rem inherit; font-family:inherit; cursor:pointer; transition:.2s; }
+    .mode-switch button:hover { color:#fff; background:rgba(255,255,255,0.07); }
+    .mode-switch button i { font-size:0.68rem; }
+    .mode-switch button .lk { display:none; font-size:0.55rem; opacity:0.7; }
+    .mode-switch button.locked .lk { display:inline; }
+    .mode-switch button.on { color:#fff; background:linear-gradient(135deg,#2563eb,#3b82f6); box-shadow:0 6px 18px rgba(37,99,235,0.3); }
+    .mode-switch[data-mode="work"] button.on { background:linear-gradient(135deg,#4f46e5,#60a5fa); box-shadow:0 6px 18px rgba(79,70,229,0.3); }
+    .mode-switch[data-mode="study"] button.on { background:linear-gradient(135deg,#059669,#34d399); box-shadow:0 6px 18px rgba(5,150,105,0.3); }
+    .menu.mode-off { display:none; }
+    .ad-hero { --ac:#60a5fa; display:flex; align-items:center; gap:14px; margin-bottom:14px; position:relative; }
+    .ad-hero .ai { width:46px; height:46px; border-radius:15px; display:grid; place-items:center; font-size:1.1rem; color:var(--ac); background:color-mix(in srgb, var(--ac) 20%, transparent); flex:none; }
+    .ad-hero .an { color:#fff; font-weight:700; font-size:1rem; }
+    .ad-hero .at { color:rgba(255,255,255,0.7); font-size:0.78rem; margin-top:2px; }
+    .ad-hero .soon { margin-left:auto; font-size:0.62rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:4px 10px; border-radius:999px; background:rgba(251,191,36,0.2); color:#fcd34d; }
+    .ad-perks { --ac:#60a5fa; list-style:none; padding:0; margin:0 0 14px; display:flex; flex-direction:column; gap:9px; }
+    .ad-perks li { display:flex; gap:9px; font-size:0.8rem; color:rgba(255,255,255,0.88); line-height:1.4; }
+    .ad-perks li i { color:var(--ac); font-size:0.72rem; margin-top:4px; flex:none; }
+    .ad-actions { display:flex; flex-direction:column; gap:8px; }
+    .ad-actions .confirm-btn { width:100%; }

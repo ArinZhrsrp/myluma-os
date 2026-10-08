@@ -16,4 +16,8 @@
     .adm-name .u { margin-left:6px; font-size:0.58rem; font-weight:700; padding:2px 7px; border-radius:999px; background:rgba(239,68,68,0.18); color:#fca5a5; letter-spacing:0.05em; text-transform:uppercase; }
     .adm-sub { color:rgba(255,255,255,0.6); font-size:0.72rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
     .adm-meta { color:rgba(255,255,255,0.65); font-size:0.72rem; line-height:1.5; }
-    .adm-plan .lu-select, .adm-plan .lu-sel-btn { width:100%; }
+    .adm-plan .lu-select, .adm-plan .lu-sel-btn { width:100%; }    .adm-addons { display:flex; gap:6px; margin-top:6px; }
+    .adm-addons button { flex:1; height:26px; border-radius:9px; border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.55); font:600 0.68rem inherit; font-family:inherit; cursor:pointer; transition:.2s; }
+    .adm-addons button:hover { color:#fff; background:rgba(255,255,255,0.1); }
+    .adm-addons button.on { color:#fff; border-color:transparent; background:linear-gradient(135deg,#2563eb,#60a5fa); }
+    .adm-addons button[data-addon="study"].on { background:linear-gradient(135deg,#059669,#34d399); }

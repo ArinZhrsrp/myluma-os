@@ -6,19 +6,19 @@
     // ---------- Nav item click: set active + switch page ----------
     const pageTitle = document.getElementById('pageTitle');
     const titles = {
-      dashboard: 'Dashboard', calendar: 'Calendar', reminders: 'Reminders', admin: 'Admin', adminreport: 'Plan report', tasks: 'Tasks & Work', money: 'Money',
+      dashboard: 'Dashboard', calendar: 'Calendar', reminders: 'Reminders', work: 'Work', study: 'Study', admin: 'Admin', adminreport: 'Plan report', tasks: 'Tasks & Work', money: 'Money',
       subscriptions: 'Subscriptions', bills: 'Bills', goals: 'Goals', habits: 'Habits', health: 'Health',
       notes: 'Notes & Docs', documents: 'Documents', contacts: 'Contacts', assistant: 'Lumi',
       analytics: 'Analytics', settings: 'Settings', support: 'Support', notifications: 'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin', 'adminreport', 'dashboard', 'settings', 'health', 'contacts', 'assistant', 'support']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin', 'adminreport', 'dashboard', 'settings', 'health', 'contacts', 'assistant', 'support', 'work', 'study']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
     const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin', 'adminreport']);
 
     // pages whose markup is "heading + content": the content goes into one scrolling box so the heading stays put
-    const FIT_WRAP = new Set(['health', 'contacts', 'assistant', 'support']);
+    const FIT_WRAP = new Set(['health', 'contacts', 'assistant', 'support', 'work', 'study']);
     function fitWrap(pg, key) {
       if (!FIT_WRAP.has(key) || pg.querySelector(':scope > .fit-root')) return;
       const head = pg.querySelector(':scope > .page-head'), box = document.createElement('div'); box.className = 'fit-root';
@@ -27,6 +27,8 @@
     }
     function goTo(key) {
       if (!key || !titles[key]) return;
+      if ((key === 'work' || key === 'study') && !LumaPlan.hasAddon(key)) return openAddon(key); // the add-on isn't switched on for this account
+      modeSync(key);
       closeContactChat(); // tear down any open chat's realtime subscription before navigating away
       document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
       const pg = document.getElementById('page-' + key);

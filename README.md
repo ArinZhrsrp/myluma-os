@@ -325,7 +325,7 @@ app/                         The main app (needs a signed-in session)
     <name>.css               its styles
     <name>.js                its code (renderer, wiring, popups)
     <name>.data.js           its Supabase helpers (when it has a table)
-    dashboard  calendar  tasks  reminders  money  bills  subscriptions  goals  habits  health
+    dashboard  calendar  work  study  tasks  reminders  money  bills  subscriptions  goals  habits  health
     notes  documents  contacts  assistant (Lumi)  analytics  settings  support  notifications
     focus  admin  adminreport
 shared/                      Used by every page: supabase-config.js, luma-auth.js, luma-loader.js,

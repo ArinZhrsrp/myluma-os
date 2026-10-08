@@ -12,7 +12,21 @@
       </div>
     </div>
 
+    <div class="mode-switch" id="modeSwitch" data-mode="personal">
+      <button type="button" class="on" data-mode="personal"><i class="fa-solid fa-user"></i>Personal</button>
+      <button type="button" data-mode="work"><i class="fa-solid fa-briefcase"></i>Work<i class="fa-solid fa-lock lk"></i></button>
+      <button type="button" data-mode="study"><i class="fa-solid fa-graduation-cap"></i>Study<i class="fa-solid fa-lock lk"></i></button>
+    </div>
+
     <nav>
+      <a class="menu" data-page="work" data-only="work">
+        <i class="fa-solid fa-briefcase"></i>
+        Work
+      </a>
+      <a class="menu" data-page="study" data-only="study">
+        <i class="fa-solid fa-graduation-cap"></i>
+        Study
+      </a>
       <a class="menu active" data-page="dashboard">
         <i class="fa-solid fa-table-columns"></i>
         Dashboard

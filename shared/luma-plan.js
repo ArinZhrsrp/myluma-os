@@ -17,11 +17,18 @@
   window.LumaPlan = {
     plan: cached ? cached.plan : "dawn",
     lim: cached ? cached.lim : {},
+    addons: cached && cached.addons ? cached.addons : [], // active add-ons: "work", "study" (migration 044)
+    addonInfo: cached && cached.addonInfo ? cached.addonInfo : {}, // { work: { source: "trial"|"admin", expires_at } }
+    trialsUsed: cached && cached.trialsUsed ? cached.trialsUsed : [],
     ready: !!cached,
     admin: false, // true for super-admin accounts (see supabase/migrations/036_admin.sql)
     // resolves once the plan has been fetched (or given up on) — pages that depend on it wait for this
     loaded: new Promise((r) => { resolveLoaded = r; }),
     NAMES: { dawn: "Dawn", glow: "Glow", zenith: "Zenith" },
+    ADDON_NAMES: { work: "Work", study: "Study" },
+    // true while the add-on is active (bought, granted, or a running trial)
+    hasAddon(k) { return this.addons.indexOf(k) !== -1; },
+    canTrial(k) { return !this.hasAddon(k) && this.trialsUsed.indexOf(k) === -1; },
     name() { return this.NAMES[this.plan] || "Dawn"; },
     // a numeric limit, or null when there is none (unlimited, or plans are not set up yet)
     get(key) {
@@ -40,7 +47,8 @@
           const { data, error } = await client.schema("luma").rpc("my_limits");
           if (!error && data && data.plan) {
             this.plan = data.plan; this.lim = data.limits || {}; this.ready = true;
-            try { localStorage.setItem(CACHE, JSON.stringify({ plan: this.plan, lim: this.lim })); } catch (e) {}
+            this.addons = Array.isArray(data.addons) ? data.addons : []; this.addonInfo = data.addon_info || {}; this.trialsUsed = Array.isArray(data.trials_used) ? data.trials_used : [];
+            try { localStorage.setItem(CACHE, JSON.stringify({ plan: this.plan, lim: this.lim, addons: this.addons, addonInfo: this.addonInfo, trialsUsed: this.trialsUsed })); } catch (e) {}
             break;
           }
           // plans were never set up in this database (migration 033 not run): behave as before, with no limits

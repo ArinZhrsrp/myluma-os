@@ -15,6 +15,7 @@
       if (error) console.info("LUMA: luma.profiles not reachable yet (run supabase/migrations/001_profiles_contacts_chat.sql and expose the schema) — using signup metadata instead.", error.message);
 
       applyUserUI();
+      initModes(); // back to Personal / Work / Study as the person left it
       initNotifications(session.user.id);
       initReminders();
       loadDashboard().catch(e => console.error('LUMA: dashboard failed to load', e)).then(() => LumaLoader.release('app'));

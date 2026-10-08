@@ -22,10 +22,19 @@
           return `<div class="adm-row" data-id="${u.id}"><div class="adm-av">${escapeHtml((nm[0] || '?').toUpperCase())}</div>
             <div style="min-width:0"><div class="adm-name">${escapeHtml(nm)}${u.is_admin ? '<span class="b">Admin</span>' : ''}${me ? '<span class="b" style="background:rgba(59,130,246,0.2);color:#93c5fd">You</span>' : ''}${u.email_confirmed_at ? '' : '<span class="u">Unverified</span>'}</div><div class="adm-sub">${escapeHtml(u.email)}${u.country ? ' · ' + escapeHtml(u.country) : ''}</div></div>
             <div class="adm-meta">Joined ${ago(u.created_at)}<br>Last seen ${ago(u.last_sign_in_at)}</div>
-            <div class="adm-plan"><select data-cur="${u.plan}">${['dawn', 'glow', 'zenith'].map(p => `<option value="${p}" ${p === u.plan ? 'selected' : ''}>${LumaPlan.NAMES[p]}</option>`).join('')}</select></div></div>`;
+            <div class="adm-plan"><select data-cur="${u.plan}">${['dawn', 'glow', 'zenith'].map(p => `<option value="${p}" ${p === u.plan ? 'selected' : ''}>${LumaPlan.NAMES[p]}</option>`).join('')}</select><div class="adm-addons">${['work', 'study'].map(k => `<button type="button" data-addon="${k}" class="${(u.addons || []).includes(k) ? 'on' : ''}" title="${LumaPlan.ADDON_NAMES[k]} add-on">${LumaPlan.ADDON_NAMES[k]}</button>`).join('')}</div></div></div>`;
         }).join('') : '<div class="ls" style="padding:14px 2px">No accounts match.</div>';
         box.querySelectorAll('.adm-plan select').forEach(skinSelect);
       };
+      document.getElementById('admList').addEventListener('click', async e => {
+        const btn = e.target.closest('.adm-addons button'); if (!btn) return;
+        const row = btn.closest('.adm-row'), id = row.dataset.id, k = btn.dataset.addon, on = !btn.classList.contains('on'), who = row.querySelector('.adm-name').firstChild.textContent, nm = LumaPlan.ADDON_NAMES[k];
+        if (!await luConfirm({ title: on ? `Turn on ${nm}?` : `Turn off ${nm}?`, message: `${who}: ${nm} add-on ${on ? 'on, with no end date' : 'off'}`, ok: on ? 'Turn on' : 'Turn off', icon: 'fa-user-shield', tone: 'info' })) return;
+        const { error } = await db().rpc('admin_set_addon', { p_user: id, p_addon: k, p_on: on, p_days: null });
+        if (error) return luAlert(`Could not change the ${nm} add-on: ` + error.message + (/could not find the function/i.test(error.message) ? ' Has supabase/migrations/044_addons.sql been run?' : ''));
+        btn.classList.toggle('on', on); flashToast(`${nm} add-on ${on ? 'on' : 'off'}`, who, 'fa-check', '#22c55e');
+        if (LUMA_USER && id === LUMA_USER.id) { await LumaPlan.load(); if (!LumaPlan.hasAddon(LUMA_MODE)) { LUMA_MODE = 'personal'; } applyModeMenus(); } // you changed your own add-ons: the menu follows
+      });
       document.getElementById('admList').addEventListener('change', async e => {
         const sel = e.target.closest('select'); if (!sel) return;
         const row = sel.closest('.adm-row'), id = row.dataset.id, old = sel.dataset.cur, next = sel.value, who = row.querySelector('.adm-name').firstChild.textContent;
