@@ -79,7 +79,7 @@
       const subjectId = () => { const row = document.getElementById('fmSubjectRow'); return row && row.style.display !== 'none' ? document.getElementById('fmSubject').value : ''; };
       async function paintSubjects() {
         const row = document.getElementById('fmSubjectRow'), sel = document.getElementById('fmSubject'); if (!row) return;
-        if (!LumaPlan.hasAddon('study') || typeof sdEnsureLoaded !== 'function') { row.style.display = 'none'; return; }
+        if (!LumaPlan.hasAddon('study') || LUMA_MODE !== 'study' || typeof sdEnsureLoaded !== 'function') { row.style.display = 'none'; return; }
         await sdEnsureLoaded();
         if (!SD.courses.length) { row.style.display = 'none'; return; }
         const keep = sel.value; sel.innerHTML = '<option value="">No subject</option>' + SD.courses.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
