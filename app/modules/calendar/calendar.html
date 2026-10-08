@@ -78,12 +78,13 @@
   </div>
 
   <div class="modal-overlay confirm-overlay" id="calEventOverlay">
-    <div class="profile-edit-modal" style="width:500px;max-width:100%">
+    <div class="profile-edit-modal fixed-modal" style="width:500px;max-width:100%">
       <div class="pem-head">
         <div class="pem-title" id="calModalTitle">New event</div>
         <button class="x" id="calClose"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="pem-msg error" id="calError"></div>
+      <div class="pem-body">
       <div class="pem-field"><label>Event <span style="color:#fca5a5">*</span></label><input id="calEvTitle" type="text"
           maxlength="120" placeholder="e.g. Team standup" autocomplete="off"></div>
       <div class="pem-field"><label>Category</label>
@@ -106,13 +107,30 @@
         <div class="pem-hint" id="calEvRepeatHint" style="margin:6px 0 0;display:none">Editing a repeating event changes
           every occurrence.</div>
       </div>
+      <div class="pem-field" id="calInviteField"><label>Invite people <span
+            style="color:rgba(255,255,255,0.35);font-weight:400">(optional · from your contacts)</span></label>
+        <div class="cal-guests" id="calGuests"></div><input type="hidden" id="calGuestSig">
+        <button type="button" class="np-btn" id="calInviteBtn"><i class="fa-solid fa-user-plus"></i> Add from contacts</button>
+      </div>
       <div class="pem-field"><label>Note <span
             style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><textarea id="calEvNote"
           maxlength="1000" placeholder="Location, link, who's coming…" style="min-height:90px"></textarea></div>
+      </div>
       <div class="pem-actions" style="gap:10px">
         <button type="button" class="h-del" id="calEvDelete" title="Delete event" aria-label="Delete event"
           style="display:none"><i class="fa-regular fa-trash-can"></i></button>
         <button class="confirm-btn save" id="calEvSave" style="flex:1">Save event</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="calInviteOverlay" style="z-index:210">
+    <div class="profile-edit-modal fixed-modal" style="width:420px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Invite from contacts</div>
+        <button class="x" id="calInvClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-body"><div id="calInvList"></div></div>
+      <div class="pem-actions"><button class="confirm-btn save" id="calInvDone" style="flex:1">Done</button></div>
     </div>
   </div>

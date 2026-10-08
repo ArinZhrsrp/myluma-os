@@ -155,7 +155,7 @@
       flashToast('Study is now shown in Personal', 'You can change this in Settings → Preferences', 'fa-graduation-cap', '#34d399');
     });
     async function loadDashboard() {
-      const [t, ev, rm] = await Promise.all([LumaTasks.list(), LumaEvents.list(), LumaReminders.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(hKeyAdd(hToday(), -70)).then(h => { an = { ...(an || {}), health: h.error ? [] : (h.data || []) }; }), LumaHealth.getGoals().then(g => { an = { ...(an || {}), goals: g.data }; }), (LumaPlan.hasAddon('study') && prefOn('show_study_personal', false)) ? sdEnsureLoaded() : null]);
+      const [t, ev, rm] = await Promise.all([LumaTasks.list(), LumaEvents.list(), LumaReminders.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(hKeyAdd(hToday(), -70)).then(h => { an = { ...(an || {}), health: h.error ? [] : (h.data || []) }; }), LumaHealth.getGoals().then(g => { an = { ...(an || {}), goals: g.data }; }), (LumaPlan.hasAddon('study') && prefOn('show_study_personal', false)) ? sdEnsureLoaded() : null, LumaEvents.invited().then(r => { CINV = r.error ? [] : (r.data || []); })]);
       if (!rm.error) REMS = rm.data || [];
       dashTasks = t.error ? [] : t.data; CTASKS = dashTasks; if (!ev.error) CEV = ev.data || [];
       an = { ...(an || {}), tasks: dashTasks };

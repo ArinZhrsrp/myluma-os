@@ -24,5 +24,11 @@
     async remove(id) {
       return db().from("events").delete().eq("id", id);
     },
+    // ---- invitations (migration 048): invite your contacts, accept / decline, see who is on an event ----
+    invited: () => db().rpc("my_invited_events"),
+    invite: (eventId, userIds) => db().rpc("invite_to_event", { p_event: eventId, p_users: userIds }),
+    respond: (eventId, accept) => db().rpc("respond_event_invite", { p_event: eventId, p_accept: accept }),
+    uninvite: (eventId, userId) => db().rpc("uninvite_from_event", { p_event: eventId, p_user: userId }),
+    attendees: (eventId) => db().rpc("event_attendees", { p_event: eventId }),
   };
 })();

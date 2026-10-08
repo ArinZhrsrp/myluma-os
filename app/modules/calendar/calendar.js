@@ -6,9 +6,9 @@
     const C_HOUR_H = 52; // pixels per hour in the week view
     const C_UP_DAYS = 14; // the upcoming list only looks 2 weeks ahead
     const C_REPEAT = [['none', 'Never'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
-    let CEV = [], CTASKS = [], CERR = null, cView = 'month', cDate = null, cBound = false, cAllUp = false;
+    let CEV = [], CINV = [], CTASKS = [], CERR = null, cView = 'month', cDate = null, cBound = false, cAllUp = false;
     const cHidden = new Set();
-    const cForm = { id: null, category: 'Work', allDay: false, repeats: 'none' };
+    const cForm = { id: null, category: 'Work', allDay: false, repeats: 'none', guests: [], invite: new Map(), remove: new Set() };
     const cColor = n => ([...C_CATS, ...C_EXTRA].find(c => c[0] === n) || C_CATS[C_CATS.length - 1])[1];
     const cDow = k => new Date(k + 'T00:00:00Z').getUTCDay();
     const cLast = k => new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7), 0)).getUTCDate();
@@ -25,6 +25,7 @@
     }
     function cItemsOn(k) {
       const out = [];
+      CINV.forEach(e => { if (e.my_status !== 'declined' && !cHidden.has(e.category) && cOccurs(e, k)) out.push({ type: 'event', e, id: e.id, title: e.title, time: e.all_day ? null : e.start_time, end: e.all_day ? null : e.end_time, color: cColor(e.category), cat: e.category, invited: true, pending: e.my_status === 'pending' }); }); // events other people invited me to
       CEV.forEach(e => { if (!cHidden.has(e.category) && cOccurs(e, k)) out.push({ type: 'event', e, id: e.id, title: e.title, time: e.all_day ? null : e.start_time, end: e.all_day ? null : e.end_time, color: cColor(e.category), cat: e.category }); });
       if (!cHidden.has('Tasks')) CTASKS.forEach(t => { if (t.due_date === k && t.status !== 'done') out.push({ type: 'task', id: t.id, title: t.title, color: cColor('Tasks'), cat: 'Tasks', label: 'Task due' }); });
       if (!cHidden.has('Bills')) BILLS.filter(b => b.active !== false).forEach(b => { if (bCycles(b, bFirst(k)).includes(k)) out.push({ type: 'bill', id: b.id, title: `${b.name} · ${bRM(b.amount)}`, color: cColor('Bills'), cat: 'Bills', label: bPaidAmt(b, k) != null ? 'Bill · paid' : 'Bill due', done: bPaidAmt(b, k) != null }); });
@@ -33,7 +34,7 @@
     }
     const cTimeLabel = it => it.type === 'sdclass' ? fmt12(it.time) + ' – ' + fmt12(it.end) : it.type === 'event' ? (it.time ? fmt12(it.time) + (it.end ? ' – ' + fmt12(it.end) : '') : 'All day') : it.label;
     const t12 = t => { const [h, m] = t.split(':').map(Number); return `${String(((h + 11) % 12) + 1).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`; }; // 03:00 pm
-    const cChip = (it, k) => `<div class="cchip ${it.done ? 'done' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}"><span class="dot" style="background:${it.color}"></span>${it.time ? `<span class="tm">${t12(it.time)}</span>` : ''}${it.done ? '<i class="fa-solid fa-check ck"></i>' : ''}<span class="tt">${escapeHtml(it.title)}</span></div>`;
+    const cChip = (it, k) => `<div class="cchip ${it.done ? 'done' : ''} ${it.pending ? 'pend' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}"><span class="dot" style="background:${it.color}"></span>${it.invited ? '<i class="fa-solid fa-user-group inv"></i>' : ''}${it.time ? `<span class="tm">${t12(it.time)}</span>` : ''}${it.done ? '<i class="fa-solid fa-check ck"></i>' : ''}<span class="tt">${escapeHtml(it.title)}</span></div>`;
     const cRow = (it, k) => `<div class="cal-it ${it.done ? 'done' : ''}" style="--ic:${it.color}" data-type="${it.type}" data-id="${it.id}" data-d="${k}"><div><div class="t">${escapeHtml(it.title)}</div><div class="m">${cTimeLabel(it)}${it.type === 'event' ? ' · ' + it.cat : ''}</div></div></div>`;
 
     // Week (7 columns) and Day (1 wide column) share one time grid: hours down the left, each timed item placed at its time
@@ -55,7 +56,7 @@
       const adCells = cols.map(c => `<div class="tg-ad" data-d="${c.k}">${c.loose.map(it => cChip(it, c.k)).join('')}</div>`).join('');
       const dayCols = cols.map(c => `<div class="tg-col" data-d="${c.k}">${c.laid.map(ev => {
         const top = ev.s / 60 * hourH, h = Math.max(20, (ev.e - ev.s) / 60 * hourH - 2), w = 100 / ev.lanes, it = ev.it;
-        return `<div class="tg-ev ${h < 36 ? 'tiny' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${c.k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}" style="top:${top}px;height:${h}px;left:calc(${ev.lane * w}% + 2px);width:calc(${w}% - 4px);--ic:${it.color}"><div class="t">${escapeHtml(it.title)}</div><div class="m">${t12(it.time)}${it.end ? ' – ' + t12(it.end) : ''}${single ? ' · ' + it.cat : ''}</div></div>`;
+        return `<div class="tg-ev ${h < 36 ? 'tiny' : ''} ${it.pending ? 'pend' : ''}" data-type="${it.type}" data-id="${it.id}" data-d="${c.k}" title="${escapeHtml(it.title)} · ${cTimeLabel(it)}" style="top:${top}px;height:${h}px;left:calc(${ev.lane * w}% + 2px);width:calc(${w}% - 4px);--ic:${it.color}"><div class="t">${escapeHtml(it.title)}</div><div class="m">${t12(it.time)}${it.end ? ' – ' + t12(it.end) : ''}${single ? ' · ' + it.cat : ''}</div></div>`;
       }).join('')}${c.k === today ? `<div class="tg-now" style="top:${nowMin / 60 * hourH}px"></div>` : ''}</div>`).join('');
       const labels = Array.from({ length: 24 }, (_, h) => `<div class="tg-hl" style="top:${h * hourH}px">${hr12(h)}</div>`).join('');
       const html = `<div class="cal-tg" style="--n:${ds.length}"><div class="tg-top"><div class="tg-row"><div class="tg-corner"><b>GMT</b><span>${tzOffsetLabel().replace('GMT', '')}</span></div>${headCells}</div></div>`
@@ -163,8 +164,35 @@
       docEl('calEvStart').value = e && e.start_time ? e.start_time : !e && startTime ? startTime : ''; docEl('calEvStart')._luTimeRefresh();
       docEl('calEvEnd').value = e && e.end_time ? e.end_time : ''; docEl('calEvEnd')._luTimeRefresh();
       docEl('calEvDelete').style.display = e ? '' : 'none'; docEl('calEvRepeatHint').style.display = e && e.repeats !== 'none' ? '' : 'none';
-      cErr(''); paintCalForm(); docEl('calEventOverlay').classList.add('open'); setTimeout(() => docEl('calEvTitle').focus(), 50);
+      cForm.guests = []; cForm.invite = new Map(); cForm.remove = new Set(); paintCalGuests();
+      if (e) LumaEvents.attendees(e.id).then(r => { if (!r.error && r.data && cForm.id === e.id) { cForm.guests = r.data.filter(a => !a.is_owner); paintCalGuests(); } });
+      cErr(''); paintCalForm(); docEl('calEventOverlay').classList.add('open'); docEl('calEventOverlay').querySelectorAll('.pem-body').forEach(el => { el.scrollTop = 0; }); setTimeout(() => docEl('calEvTitle').focus(), 50);
     }
+    // guests on the event being edited, plus the people about to be invited
+    function paintCalGuests() {
+      const dot = s => s === 'accepted' ? '#22c55e' : s === 'pending' ? '#fbbf24' : '#f87171';
+      docEl('calGuestSig').value = JSON.stringify([[...cForm.invite.keys()], [...cForm.remove]]); docEl('calGuestSig').dispatchEvent(new Event('input', { bubbles: true })); // so the Save button notices a changed guest list
+      docEl('calGuests').innerHTML = cForm.guests.filter(g => !cForm.remove.has(g.user_id)).map(g => `<span class="cal-gchip" title="${g.status === 'accepted' ? 'Going' : g.status === 'pending' ? 'Invited, no reply yet' : 'Declined'}"><i class="dot" style="background:${dot(g.status)}"></i>${escapeHtml(g.name)}<button type="button" data-rm="${g.user_id}" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></span>`).join('')
+        + [...cForm.invite].map(([id, n]) => `<span class="cal-gchip new"><i class="fa-solid fa-paper-plane"></i>${escapeHtml(n)}<button type="button" data-un="${id}" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></span>`).join('');
+    }
+    docEl('calGuests').onclick = e => {
+      const rm = e.target.closest('[data-rm]'); if (rm) { cForm.remove.add(rm.dataset.rm); return paintCalGuests(); }
+      const un = e.target.closest('[data-un]'); if (un) { cForm.invite.delete(un.dataset.un); paintCalGuests(); }
+    };
+    // pick contacts to invite
+    let CAL_CONTACTS = null;
+    async function openInvitePicker() {
+      const box = docEl('calInvList'); box.innerHTML = '<div class="ls" style="padding:8px 2px">Loading…</div>'; docEl('calInviteOverlay').classList.add('open');
+      if (!CAL_CONTACTS) { const r = await LumaContacts.listContacts(); CAL_CONTACTS = r.error ? null : (r.data || []).filter(c => c.status === 'accepted'); if (r.error) { box.innerHTML = `<div class="ls" style="padding:8px 2px">Could not load your contacts: ${escapeHtml(r.error.message)}</div>`; return; } }
+      const already = new Set(cForm.guests.filter(g => !cForm.remove.has(g.user_id)).map(g => g.user_id));
+      box.innerHTML = CAL_CONTACTS.length ? CAL_CONTACTS.map(c => { const nm = [c.other_first_name, c.other_last_name].filter(Boolean).join(' ') || c.other_email; return `<label class="cal-pick ${already.has(c.other_id) ? 'dis' : ''}"><input type="checkbox" data-id="${c.other_id}" data-name="${escapeHtml(nm)}" ${already.has(c.other_id) || cForm.invite.has(c.other_id) ? 'checked' : ''} ${already.has(c.other_id) ? 'disabled' : ''}><span class="av">${escapeHtml((nm[0] || '?').toUpperCase())}</span><span class="nm">${escapeHtml(nm)}<small>${already.has(c.other_id) ? 'Already invited' : escapeHtml(c.other_email || '')}</small></span></label>`; }).join('') : '<div class="ls" style="padding:8px 2px">You have no contacts yet. Add people on the Contacts page first, then invite them here.</div>';
+    }
+    docEl('calInviteBtn').onclick = openInvitePicker;
+    docEl('calInvClose').onclick = () => docEl('calInviteOverlay').classList.remove('open');
+    docEl('calInvDone').onclick = () => {
+      cForm.invite = new Map([...docEl('calInvList').querySelectorAll('input[type=checkbox]:checked:not(:disabled)')].map(i => [i.dataset.id, i.dataset.name]));
+      docEl('calInviteOverlay').classList.remove('open'); paintCalGuests();
+    };
     const closeCalModal = () => docEl('calEventOverlay').classList.remove('open');
     docEl('calClose').onclick = closeCalModal;
     docEl('calEventOverlay').onclick = e => { if (e.target === docEl('calEventOverlay')) closeCalModal(); };
@@ -184,7 +212,12 @@
       btn.disabled = false; btn.textContent = 'Save event';
       if (error) return cErr(/events|schema cache|does not exist/i.test(error.message) ? 'The calendar isn\'t set up yet — run supabase/migrations/027_events.sql in the SQL Editor.' : error.message);
       const i = CEV.findIndex(x => x.id === data.id); if (i >= 0) CEV[i] = data; else CEV.push(data);
+      // guests: remove the ones taken off, invite the new ones (the event is already saved either way)
+      let inviteErr = '';
+      for (const uid of cForm.remove) { const r = await LumaEvents.uninvite(data.id, uid); if (r.error) inviteErr = r.error.message; }
+      if (cForm.invite.size) { const r = await LumaEvents.invite(data.id, [...cForm.invite.keys()]); if (r.error) inviteErr = /could not find the function|does not exist/i.test(r.error.message) ? 'Invitations aren\'t set up yet — run supabase/migrations/048_event_invites.sql.' : r.error.message; else flashToast('Invitations sent', [...cForm.invite.values()].join(', '), 'fa-paper-plane', '#22c55e'); }
       closeCalModal(); cDate = data.event_date; paintCalendar();
+      if (inviteErr) luAlert('The event was saved, but the invitations could not be updated: ' + inviteErr);
     };
     docEl('calEvDelete').onclick = async () => {
       const e = CEV.find(x => x.id === cForm.id); if (!e) return;
@@ -221,11 +254,13 @@
     function calShowDetail(type, id, k) {
       let title = '', sub = '', rows = [], actions = '';
       if (type === 'event') {
-        const e = CEV.find(x => x.id === id); if (!e) return;
-        title = e.title; sub = cPill(e.category, cColor(e.category));
+        const own = CEV.find(x => x.id === id), e = own || CINV.find(x => x.id === id); if (!e) return;
+        title = e.title; sub = cPill(e.category, cColor(e.category)) + (own ? '' : ' <span class="cal-tagpill"><i class="fa-solid fa-user-group" style="color:#a78bfa"></i>Invitation</span>');
         rows = [['Date', cFmt(k || e.event_date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })], ['Time', e.all_day ? 'All day' : t12(e.start_time) + (e.end_time ? ' – ' + t12(e.end_time) : '')], ['Repeats', e.repeats === 'none' ? 'Does not repeat' : C_REP[e.repeats].replace('Repeats ', '')]];
+        if (!own) rows.push(['Organiser', escapeHtml(e.owner_name || 'Someone')], ['Your reply', e.my_status === 'pending' ? 'Waiting for you' : 'Going']);
         if (e.note) rows.push(['Note', escapeHtml(e.note)]);
-        actions = '<button type="button" class="h-del" data-a="del" title="Delete event" aria-label="Delete event"><i class="fa-regular fa-trash-can"></i></button><button type="button" class="confirm-btn save" data-a="edit" style="flex:1">Edit event</button>';
+        if (!own) actions = e.my_status === 'pending' ? '<button type="button" class="confirm-btn cancel" data-a="decline" style="flex:1">Decline</button><button type="button" class="confirm-btn save" data-a="accept" style="flex:1">Accept</button>' : '<button type="button" class="confirm-btn danger" data-a="decline" style="flex:1">Leave event</button>';
+        else actions = '<button type="button" class="h-del" data-a="del" title="Delete event" aria-label="Delete event"><i class="fa-regular fa-trash-can"></i></button><button type="button" class="confirm-btn save" data-a="edit" style="flex:1">Edit event</button>';
       } else if (type === 'task') {
         const t = CTASKS.find(x => x.id === id); if (!t) return;
         const st = taskStatusInfo(t.status), over = t.status !== 'done' && t.due_date < mytDayKey(Date.now());
@@ -245,6 +280,15 @@
       docEl('calDetBody').innerHTML = `<div class="cal-det">${rows.map(([key, v]) => `<div class="r"><div class="k">${key}</div><div class="v">${v}</div></div>`).join('')}</div>`;
       docEl('calDetActions').innerHTML = actions; docEl('calDetActions').dataset.type = type; docEl('calDetActions').dataset.id = id; docEl('calDetActions').dataset.d = k || '';
       docEl('calDetailOverlay').classList.add('open');
+      if (type === 'event') calLoadGuests(id, !!CEV.find(x => x.id === id));
+    }
+    // who is on an event (the organiser and the guests), added under the details once it arrives
+    async function calLoadGuests(id, own) {
+      const r = await LumaEvents.attendees(id); if (r.error || !r.data || docEl('calDetActions').dataset.id !== id) return;
+      if (own && r.data.length < 2) return;
+      const ico = s => s === 'accepted' ? '<i class="fa-solid fa-circle-check" style="color:#22c55e"></i>' : s === 'pending' ? '<i class="fa-solid fa-clock" style="color:#fbbf24"></i>' : '<i class="fa-solid fa-circle-xmark" style="color:#f87171"></i>';
+      const html = r.data.map(a => `<div class="cal-guest">${ico(a.status)} ${escapeHtml(a.name)}${a.is_owner ? ' <span class="ls">organiser</span>' : a.status === 'pending' ? ' <span class="ls">invited</span>' : a.status === 'declined' ? ' <span class="ls">declined</span>' : ''}${LUMA_USER && a.user_id === LUMA_USER.id ? ' <span class="ls">(you)</span>' : ''}</div>`).join('');
+      const det = docEl('calDetBody').querySelector('.cal-det'); if (det) det.insertAdjacentHTML('beforeend', `<div class="r"><div class="k">Guests</div><div class="v">${html}</div></div>`);
     }
     const closeCalDetail = () => docEl('calDetailOverlay').classList.remove('open');
     docEl('calDetClose').onclick = closeCalDetail;
@@ -259,6 +303,13 @@
         if (!await luConfirm({ title: `Delete “${ev.title}”?`, message: ev.repeats !== 'none' ? 'Every occurrence of this repeating event is removed.' : 'This event is removed. This can\'t be undone.' })) return;
         const { error } = await LumaEvents.remove(ev.id); if (error) return luAlert('Could not delete: ' + error.message);
         CEV = CEV.filter(x => x !== ev); closeCalDetail(); return paintCalendar();
+      }
+      if (b.dataset.a === 'accept' || b.dataset.a === 'decline') {
+        const ev = CINV.find(x => x.id === id); if (!ev) return; const accept = b.dataset.a === 'accept';
+        if (!accept && ev.my_status === 'accepted' && !await luConfirm({ title: `Leave “${ev.title}”?`, message: 'It is removed from your calendar. The organiser is told.', ok: 'Leave event', icon: 'fa-user-group', tone: 'info' })) return;
+        const { error } = await LumaEvents.respond(id, accept); if (error) return luAlert('Could not send your reply: ' + error.message);
+        if (accept) ev.my_status = 'accepted'; else CINV = CINV.filter(x => x !== ev);
+        closeCalDetail(); paintCalendar(); return flashToast(accept ? 'You are going' : 'Invitation declined', ev.title, accept ? 'fa-check' : 'fa-xmark', accept ? '#22c55e' : '#94a3b8');
       }
       if (b.dataset.a === 'gotask') { closeCalDetail(); closeCalList(); return goTo('tasks'); }
       if (b.dataset.a === 'gobill') { closeCalDetail(); closeCalList(); return goTo('bills'); }
@@ -314,6 +365,7 @@
       calBind(); if (!cDate) cDate = mytDayKey(Date.now());
       paintCalendar();
       const [ev, tk] = await Promise.all([LumaEvents.list(), LumaTasks.list(), loadBillsData(), LumaPlan.hasAddon('study') ? sdEnsureLoaded() : null]);
+      LumaEvents.invited().then(r => { CINV = r.error ? [] : (r.data || []); paintCalendar(); }); // invitations (migration 048); shown as soon as they arrive
       CERR = ev.error || null; if (!ev.error) CEV = ev.data || []; if (!tk.error) CTASKS = tk.data || [];
       paintCalendar();
     }
