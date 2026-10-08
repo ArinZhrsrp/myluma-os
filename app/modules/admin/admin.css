@@ -30,3 +30,6 @@
     .adm-addons button small { margin-left:5px; font-size:0.58rem; opacity:0.85; }
     .adm-addons button { height:auto; min-height:26px; padding:3px 8px; }
     .adm-prev { margin-top:6px; padding:10px 14px; border-radius:12px; background:rgba(52,211,153,0.1); border:1px solid rgba(52,211,153,0.3); color:#a7f3d0; font-size:0.8rem; line-height:1.45; }
+    /* the add-on chip: the name on top, its end date below on ONE line */
+    .adm-addons button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; line-height:1.2; }
+    .adm-addons button small { margin:0; white-space:nowrap; font-size:0.6rem; opacity:0.9; }
