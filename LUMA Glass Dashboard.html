@@ -63,7 +63,7 @@
 
     :root {
       --app-bg: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1920&q=80');
-      --theme-tint: rgba(15, 23, 42, 0.35);
+      --theme-tint: rgba(15, 23, 42, 0.50);
     }
 
     /* ===== BACKGROUND IMAGE (swappable via Settings) ===== */
@@ -9732,9 +9732,9 @@
 
     // ---------- Theme ----------
     const THEMES = {
-      midnight: 'rgba(15,23,42,0.35)',
-      slate: 'rgba(30,41,59,0.42)',
-      obsidian: 'rgba(6,7,15,0.62)',
+      slate: 'rgba(100,116,139,0.28)',   // lightest: a soft grey-blue haze over the wallpaper
+      midnight: 'rgba(15,23,42,0.50)',   // the default: deep navy
+      obsidian: 'rgba(0,0,0,0.80)',      // darkest: near black
     };
     function applyTheme(t) { if (THEMES[t]) document.documentElement.style.setProperty('--theme-tint', THEMES[t]); }
 
@@ -10604,7 +10604,7 @@
           ${card(`<div class="section-title"><i class="fa-solid fa-user"></i> Profile</div><div style="display:flex;align-items:center;gap:16px"><div id="profAvatar" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#3b82f6);display:grid;place-items:center;color:#fff;font-size:1.4rem;font-weight:600">${lumaInitial()}</div><div style="flex:1">
             <div id="profNameView" style="font-size:1rem;font-weight:600;color:#fff">${lumaFullName()}</div>
             <div class="ls" id="profEmailView">${lumaEmail()}</div><button type="button" class="pill pill-violet" id="planPill" title="See the plans" style="margin-top:8px;border:none;cursor:pointer;font-family:inherit"><i class="fa-solid fa-sun" style="font-size:0.6rem"></i> ${LumaPlan.name()} plan <i class="fa-solid fa-chevron-right" style="font-size:0.5rem"></i></button></div><div style="display:flex;flex-direction:column;gap:8px"><button id="profEditBtn" class="create-btn" style="background:rgba(255,255,255,0.06);box-shadow:none;justify-content:center">Edit</button><button id="logoutBtn" class="create-btn" style="background:rgba(239,68,68,0.12);color:#fca5a5;box-shadow:none;justify-content:center">Log out</button></div></div>`)}
-          ${card(`<div class="section-title"><i class="fa-solid fa-palette"></i> Theme</div><div style="display:flex;gap:12px" id="themeGrid">${[['Midnight Navy', '#0f172a', 'midnight'], ['Slate', '#1e293b', 'slate'], ['Obsidian', '#0a0a0f', 'obsidian']].map((t, ti) => `<div class="theme-opt ${ti >= (LumaPlan.get('themes') ?? 99) ? 'plan-lock' : ''}" data-theme="${t[2]}" data-swatch="${t[1]}" style="flex:1;padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);text-align:center;cursor:pointer"><div style="height:44px;border-radius:10px;background:${t[1]};border:1px solid rgba(255,255,255,0.08);margin-bottom:9px"></div><span style="font-size:0.7rem;color:#fff">${t[0]}</span></div>`).join('')}</div>`)}
+          ${card(`<div class="section-title"><i class="fa-solid fa-palette"></i> Theme</div><div style="display:flex;gap:12px" id="themeGrid">${[['Slate', '#64748b', 'slate'], ['Midnight Navy', '#0f172a', 'midnight'], ['Obsidian', '#030408', 'obsidian']].map(t => `<div class="theme-opt ${['midnight', 'slate', 'obsidian'].indexOf(t[2]) >= (LumaPlan.get('themes') ?? 99) ? 'plan-lock' : ''}" data-theme="${t[2]}" data-swatch="${t[1]}" style="flex:1;padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);text-align:center;cursor:pointer"><div style="height:44px;border-radius:10px;background:${t[1]};border:1px solid rgba(255,255,255,0.08);margin-bottom:9px"></div><span style="font-size:0.7rem;color:#fff">${t[0]}</span></div>`).join('')}</div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-sliders"></i> Preferences</div><div class="pem-msg error" id="setPushError"></div>${prefs.map(p => `<div class="setting-row"><div class="sr-main"><div class="sr-t">${p[1]}</div><div class="sr-s" ${p[0] === 'notif' ? 'id="setNotifSub"' : ''}>${p[2]}</div></div><button class="switch ${p[0] === 'notif' ? '' : (savedPrefs[p[0]] ?? p[3]) ? 'on' : ''}" ${p[0] === 'notif' ? 'id="setNotifSwitch" data-push="1"' : `data-key="${p[0]}"`}><span class="knob"></span></button></div>`).join('')}`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-shield-halved"></i> Account &amp; data</div><div class="pem-msg error" id="acctError"></div><div class="pem-msg ok" id="acctOk"></div>
             <div class="setting-row"><div class="sr-main"><div class="sr-t">Change password</div><div class="sr-s">We'll email you a link to set a new one</div></div><button type="button" class="np-btn" id="acctPw">Send link</button></div>
