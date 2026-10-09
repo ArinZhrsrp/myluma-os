@@ -1,0 +1,46 @@
+const { boot } = require('./pg_boot.js');
+const U1='00000000-0000-0000-0000-000000000001',U2='00000000-0000-0000-0000-000000000002',U3='00000000-0000-0000-0000-000000000003',U4='00000000-0000-0000-0000-000000000004';
+let pass=0,fail=0; const ok=(n,c,x)=>{ if(c)pass++; else {fail++; console.log('  ✗',n,x||'');} };
+(async()=>{
+  const {db,problems}=await boot({verbose:false}); ok('migrations apply',problems.length===0,JSON.stringify(problems).slice(0,300));
+  const sup=async(q,p)=>{await db.exec("select set_config('request.jwt.claim.role','service_role',false), set_config('request.jwt.claim.sub','',false)");return db.query(q,p)};
+  const as=async(u,q,p)=>{await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${u}',false), set_config('request.jwt.claim.role','authenticated',false)`);try{return await db.query(q,p)}finally{await db.exec('reset role')}};
+  const err=async(u,q,p)=>{try{await as(u,q,p);return null}catch(e){return e.message}};
+  for(const [i,e] of [[U1,'a'],[U2,'b'],[U3,'c'],[U4,'d']]) await sup('insert into auth.users (id,email) values ($1,$2)',[i,e+'@x.com']);
+  await sup(`update luma.profiles set plan='zenith' where id=$1`,[U1]); await sup(`update luma.profiles set plan='glow' where id=$1`,[U2]);
+  await sup(`insert into luma.contacts (requester_id,addressee_id,status) values ($1,$2,'accepted'),($1,$3,'accepted'),($2,$4,'accepted')`,[U1,U2,U3,U4]);
+  const mem=(...a)=>JSON.stringify(a.map(([u,s])=>({user_id:u,share:s})));
+  const save=(u,id,paidBy,members,total=90)=>as(u,`select luma.save_split($1,'Dinner',$2,$3,current_date,'',$4,$5::jsonb) as id`,[id,total,paidBy,'equal',members]);
+  let e=await err(U2,`select luma.save_split(null,'x',20,$1,current_date,'','equal',$2::jsonb)`,[U2,mem([U2,10],[U4,10])]); ok('Glow cannot create a split',!!e&&/Zenith/.test(e),e);
+  e=await err(U1,`select luma.save_split(null,'x',20,$1,current_date,'','equal',$2::jsonb)`,[U1,mem([U1,10],[U4,10])]); ok('only contacts can be added',!!e&&/contacts/.test(e),e);
+  e=await err(U1,`select luma.save_split(null,'x',90,$1,current_date,'','equal',$2::jsonb)`,[U1,mem([U1,30],[U2,30],[U3,20])]); ok('shares must add up to the total',!!e&&/add up/.test(e),e);
+  e=await err(U1,`select luma.save_split(null,'x',90,$1,current_date,'','equal',$2::jsonb)`,[U4,mem([U1,45],[U2,45])]); ok('payer must be in the split',!!e,e);
+  const id=(await save(U1,null,U1,mem([U1,30],[U2,30],[U3,30]))).rows[0].id; ok('Zenith creates a split',!!id);
+  let r=await sup('select amount,category,name from luma.money_entries where split_id=$1',[id]); ok('my share (30) became a Money expense',r.rows.length===1&&Number(r.rows[0].amount)===30&&r.rows[0].category==='Split',JSON.stringify(r.rows));
+  r=await sup(`select count(*)::int n from luma.notifications where type='split'`); ok('the other two were notified',r.rows[0].n===2);
+  r=await as(U2,'select luma.my_splits() as s'); ok('a Glow member can see the split',r.rows[0].s.length===1&&r.rows[0].s[0].members.length===3);
+  r=await as(U4,'select luma.my_splits() as s'); ok('outsiders see nothing',r.rows[0].s.length===0);
+  e=await err(U2,`select luma.mark_split_paid($1,$2,true)`,[id,U3]); ok('a member cannot mark shares as paid',!!e&&/Only the person who paid/.test(e),e);
+  await as(U1,`select luma.mark_split_paid($1,$2,true)`,[id,U2]); r=await sup('select paid from luma.expense_split_members where split_id=$1 and user_id=$2',[id,U2]); ok('the payer marks a share as paid',r.rows[0].paid===true);
+  r=await sup(`select count(*)::int n from luma.notifications where user_id=$1 and title like '✅%'`,[U2]); ok('and the person is told',r.rows[0].n===1);
+  e=await err(U1,`select luma.mark_split_paid($1,$2,true)`,[id,U1]); ok('the payer has nothing to pay back',!!e);
+  r=await as(U1,`select luma.nudge_split_member($1,$2) as s`,[id,U3]); ok('nudge sent',r.rows[0].s==='sent');
+  r=await as(U1,`select luma.nudge_split_member($1,$2) as s`,[id,U3]); ok('second nudge too soon',r.rows[0].s==='too_soon');
+  r=await as(U1,`select luma.nudge_split_member($1,$2) as s`,[id,U2]); ok('no nudge for someone who paid',r.rows[0].s==='nothing_to_remind');
+  // edit: same shares keep paid; changed share resets
+  await as(U1,`select luma.save_split($1,'Dinner 2',90,$2,current_date,'note','equal',$3::jsonb)`,[id,U1,mem([U1,30],[U2,30],[U3,30])]);
+  r=await sup('select paid from luma.expense_split_members where split_id=$1 and user_id=$2',[id,U2]); ok('editing keeps a paid mark when the share is the same',r.rows[0].paid===true);
+  await as(U1,`select luma.save_split($1,'Dinner 2',100,$2,current_date,'','exact',$3::jsonb)`,[id,U1,mem([U1,40],[U2,30],[U3,30])]);
+  r=await sup('select amount from luma.money_entries where split_id=$1',[id]); ok('the Money entry follows the edit',r.rows.length===1&&Number(r.rows[0].amount)===40);
+  const idt=(await as(U1,`select luma.save_split(null,'Meal',106,$1,current_date,'','equal',$2::jsonb,100,'Service charge 10% + SST 6%') as id`,[U1,mem([U1,53],[U3,53])])).rows[0].id; r=await as(U1,`select s->>'tax_label' l, s->>'subtotal' st from jsonb_array_elements(luma.my_splits()) s where s->>'id'=$1`,[idt]); ok('tax label and subtotal are stored',r.rows[0].l.startsWith('Service')&&Number(r.rows[0].st)===100,JSON.stringify(r.rows));
+  e=await err(U2,`select luma.save_split($1,'x',90,$2,current_date,'','equal',$3::jsonb)`,[id,U1,mem([U1,45],[U2,45])]); ok('a member cannot edit',!!e);
+  // a friend paid
+  const id2=(await as(U1,`select luma.save_split(null,'Taxi',60,$1,current_date,'','equal',$2::jsonb) as id`,[U2,mem([U1,30],[U2,30])])).rows[0].id;
+  await as(U2,`select luma.mark_split_paid($1,$2,true)`,[id2,U1]); r=await sup('select paid from luma.expense_split_members where split_id=$1 and user_id=$2',[id2,U1]); ok('a Glow payer can mark the creator as paid',r.rows[0].paid===true);
+  r=await sup('select count(*)::int n from luma.money_entries where user_id=$1 and category=\'Split\'',[U1]); ok('creator has the Money entries of every split',r.rows[0].n===3);
+  e=await err(U2,`select luma.delete_split($1)`,[id]); ok('a member cannot delete',!!e);
+  await as(U1,`select luma.delete_split($1)`,[id]); r=await sup('select (select count(*) from luma.expense_split_members where split_id=$1)::int m,(select count(*) from luma.money_entries where split_id=$1)::int e',[id]); ok('delete removes members and the Money entry',r.rows[0].m===0&&r.rows[0].e===0);
+  e=await err(U1,`select * from luma.expense_splits`); ok('tables are closed to direct access',!!e,e);
+  r=await sup(`select count(*)::int n from luma.notifications where type like 'split%' and ref is not null`); ok('split notifications carry the split id',r.rows[0].n>=5,JSON.stringify(r.rows));
+  console.log(`${pass} passed, ${fail} failed`); process.exit(fail?1:0);
+})().catch(e=>{console.log('ERR',e.stack.split('\n').slice(0,4).join(' | '));process.exit(2)});

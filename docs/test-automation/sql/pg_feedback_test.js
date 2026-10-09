@@ -1,0 +1,36 @@
+const { boot } = require('./pg_boot.js');
+const U=['00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000005'];
+const [OWN,MEM,GUEST,VIEW,STR]=U; let pass=0,fail=0; const ok=(n,c,x)=>{ if(c)pass++; else {fail++; console.log('  ✗',n,x||'');} };
+(async()=>{
+  const {db,problems}=await boot({verbose:false}); ok('migrations apply',problems.length===0,JSON.stringify(problems).slice(0,300));
+  const sup=async(q,p)=>{await db.exec("select set_config('request.jwt.claim.role','service_role',false), set_config('request.jwt.claim.sub','',false)");return db.query(q,p)};
+  const as=async(u,q,p)=>{await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${u}',false), set_config('request.jwt.claim.role','authenticated',false)`);try{return await db.query(q,p)}finally{await db.exec('reset role')}};
+  const err=async(u,q,p)=>{try{await as(u,q,p);return null}catch(e){return e.message}};
+  for(const [i,e] of U.map((u,i)=>[u,'u'+i])) await sup('insert into auth.users (id,email) values ($1,$2)',[i,e+'@x.com']);
+  await sup(`update luma.profiles set plan='zenith' where id=$1`,[OWN]);
+  for(const u of [OWN,MEM,VIEW]) await sup(`insert into luma.user_addons (user_id,addon,source,expires_at) values ($1,'work','admin',now()+interval '30 days')`,[u]);   // GUEST and STR have no Work add-on
+  for(const u of [MEM,GUEST,VIEW]) await sup(`insert into luma.contacts (requester_id,addressee_id,status) values ($1,$2,'accepted')`,[OWN,u]);
+  let r,e;
+  await sup(`insert into luma.admin_users (user_id) values ($1)`,[STR]);
+  await sup(`update luma.profiles set first_name='Aina', last_name='Rahman', email='aina@x.com' where id=$1`,[MEM]);
+  const f=(await as(MEM,`insert into luma.feedback (kind,module,part,message,image_path,context) values ('bug','Work','Gantt chart','The bar jumps when I drag it',$1,'{"page":"work","version":"0.21.0"}') returning id,user_label,status`,[MEM+'/shot.png'])).rows[0];
+  ok('a person sends feedback (name and email are remembered for a reply)',!!f.id&&/Aina Rahman <aina@x.com>/.test(f.user_label)&&f.status==='new',JSON.stringify(f));
+  r=await sup(`select user_id,title,link,ref from luma.notifications where type='feedback'`); ok('the administrator is told, and it opens the feedback page',r.rows.length===1&&r.rows[0].user_id===STR&&r.rows[0].link==='adminfeedback'&&r.rows[0].ref===f.id,JSON.stringify(r.rows));
+  e=await err(MEM,`insert into luma.feedback (module,message,image_path) values ('Work','hello there',$1)`,[OWN+'/x.png']); ok('a picture in somebody else\'s folder is refused',!!e,e);
+  e=await err(MEM,`insert into luma.feedback (module,message) values ('Work','x')`); ok('a message must be at least 3 characters',!!e);
+  e=await err(MEM,`insert into luma.feedback (user_id,module,message) values ($1,'Work','pretending')`,[OWN]); ok('cannot send as somebody else',!!e);
+  e=await err(MEM,`insert into luma.feedback (kind,module,message) values ('rant','Work','hello')`); ok('only the known kinds',!!e);
+  r=await as(OWN,`select count(*)::int n from luma.feedback`); ok('other people cannot read it',r.rows[0].n===0);
+  r=await as(MEM,`select count(*)::int n from luma.feedback`); ok('you can read your own',r.rows[0].n===1);
+  r=await as(STR,`select count(*)::int n from luma.feedback`); ok('an administrator reads everything',r.rows[0].n===1);
+  e=await err(MEM,`update luma.feedback set status='done' where id=$1`,[f.id]); r=await sup(`select status from luma.feedback where id=$1`,[f.id]); ok('nobody can edit it directly',r.rows[0].status==='new');
+  e=await err(MEM,`select luma.admin_feedback_update($1,'done','x')`,[f.id]); ok('only an administrator can change the status',!!e,e);
+  await as(STR,`select luma.admin_feedback_update($1,'seen','looking')`,[f.id]); r=await sup(`select count(*)::int n from luma.notifications where user_id=$1 and type='feedback_reply'`,[MEM]); ok('Seen does not message the person',r.rows[0].n===0);
+  await as(STR,`select luma.admin_feedback_update($1,'planned','Next release')`,[f.id]); r=await sup(`select title,body,ref from luma.notifications where user_id=$1 and type='feedback_reply'`,[MEM]); ok('Planned tells the person, with the note',r.rows.length===1&&/Next release/.test(r.rows[0].body),JSON.stringify(r.rows));
+  r=await as(MEM,`select status,admin_note from luma.feedback where id=$1`,[f.id]); ok('the person sees the status and note',r.rows[0].status==='planned'&&r.rows[0].admin_note==='Next release');
+  for(let i=0;i<9;i++) await as(MEM,`insert into luma.feedback (module,message) values ('Dashboard','message number ${'$'}{i}')`.replace('${$}{i}',String(i)));
+  e=await err(MEM,`insert into luma.feedback (module,message) values ('Dashboard','one more')`); ok('at most 10 a day',!!e&&/10 messages/.test(e),e);
+  await as(STR,`select luma.admin_feedback_delete($1)`,[f.id]); r=await sup(`select count(*)::int n from luma.feedback where id=$1`,[f.id]); ok('an administrator can delete one',r.rows[0].n===0);
+  await sup(`delete from auth.users where id=$1`,[MEM]); r=await sup(`select count(*)::int n, count(user_id)::int u from luma.feedback`); ok('deleting an account keeps the feedback, anonymously linked',r.rows[0].n===9&&r.rows[0].u===0,JSON.stringify(r.rows[0]));
+  console.log(`${pass} passed, ${fail} failed`); process.exit(fail?1:0);
+})().catch(e=>{console.log('ERR',e.stack.split('\n').slice(0,4).join(' | '));process.exit(2)});

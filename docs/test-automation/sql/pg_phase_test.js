@@ -1,0 +1,33 @@
+const { boot } = require('./pg_boot.js');
+const U=['00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000005'];
+const [OWN,MEM,GUEST,VIEW,STR]=U; let pass=0,fail=0; const ok=(n,c,x)=>{ if(c)pass++; else {fail++; console.log('  ✗',n,x||'');} };
+(async()=>{
+  const {db,problems}=await boot({verbose:false}); ok('migrations apply',problems.length===0,JSON.stringify(problems).slice(0,300));
+  const sup=async(q,p)=>{await db.exec("select set_config('request.jwt.claim.role','service_role',false), set_config('request.jwt.claim.sub','',false)");return db.query(q,p)};
+  const as=async(u,q,p)=>{await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${u}',false), set_config('request.jwt.claim.role','authenticated',false)`);try{return await db.query(q,p)}finally{await db.exec('reset role')}};
+  const err=async(u,q,p)=>{try{await as(u,q,p);return null}catch(e){return e.message}};
+  for(const [i,e] of U.map((u,i)=>[u,'u'+i])) await sup('insert into auth.users (id,email) values ($1,$2)',[i,e+'@x.com']);
+  await sup(`update luma.profiles set plan='zenith' where id=$1`,[OWN]);
+  for(const u of [OWN,MEM,VIEW]) await sup(`insert into luma.user_addons (user_id,addon,source,expires_at) values ($1,'work','admin',now()+interval '30 days')`,[u]);   // GUEST and STR have no Work add-on
+  for(const u of [MEM,GUEST,VIEW]) await sup(`insert into luma.contacts (requester_id,addressee_id,status) values ($1,$2,'accepted')`,[OWN,u]);
+  let r,e;
+  const pid=(await as(OWN,`insert into luma.work_projects (name) values ('Site') returning id`)).rows[0].id;
+  r=await as(OWN,`select name,is_phase from luma.work_folders where project_id=$1 order by position`,[pid]); ok('a project starts with the six phases in order',r.rows.map(x=>x.name).join('|')==='Planning|Requirement study|Design|Development|Testing|Deployment'&&r.rows.every(x=>x.is_phase),JSON.stringify(r.rows));
+  const ph=(await as(OWN,`select id from luma.work_folders where project_id=$1 and name='Design'`,[pid])).rows[0].id;
+  e=await err(OWN,`insert into luma.work_folders (project_id,name) values ($1,'Extra')`,[pid]); ok('a project cannot get extra folders',!!e,e);
+  e=await err(OWN,`delete from luma.work_folders where id=$1`,[ph]); r=await sup('select count(*)::int n from luma.work_folders where project_id=$1',[pid]); ok('phases cannot be deleted',r.rows[0].n===6);
+  await as(OWN,`update luma.work_folders set name='Renamed', notes='wireframes in Figma' where id=$1`,[ph]); r=await sup('select name,notes from luma.work_folders where id=$1',[ph]); ok('a phase keeps its name but its notes can be written',r.rows[0].name==='Design'&&r.rows[0].notes==='wireframes in Figma');
+  const t=(await as(OWN,`insert into luma.work_tasks (project_id,title,folder_id) values ($1,'Mockups',$2) returning id`,[pid,ph])).rows[0].id; ok('a task goes in a phase',!!t);
+  const gid=(await as(OWN,`insert into luma.work_projects (name,kind) values ('Memo approvals','general') returning id`)).rows[0].id;
+  r=await sup('select count(*)::int n from luma.work_folders where project_id=$1',[gid]); ok('a general project has no phases',r.rows[0].n===0);
+  const f=(await as(OWN,`insert into luma.work_folders (project_id,name,notes) values ($1,'Policies','v1') returning id`,[gid])).rows[0].id; ok('but the owner adds folders',!!f);
+  await as(OWN,`update luma.work_folders set name='Policy docs' where id=$1`,[f]); r=await sup('select name from luma.work_folders where id=$1',[f]); ok('and renames them',r.rows[0].name==='Policy docs');
+  e=await err(OWN,`insert into luma.work_tasks (project_id,title,folder_id) values ($1,'x',$2)`,[gid,ph]); ok('a task cannot use another project\'s phase',!!e,e);
+  await as(OWN,`delete from luma.work_folders where id=$1`,[f]); r=await sup('select count(*)::int n from luma.work_folders where project_id=$1',[gid]); ok('folders can be deleted',r.rows[0].n===0);
+  await sup(`insert into luma.work_project_members (project_id,user_id,role,status) values ($1,$2,'viewer','accepted'),($1,$3,'member','accepted')`,[pid,VIEW,MEM]);
+  await as(VIEW,`update luma.work_folders set notes='hack' where id=$1`,[ph]); r=await sup('select notes from luma.work_folders where id=$1',[ph]); ok('a viewer cannot write notes',r.rows[0].notes==='wireframes in Figma');
+  await as(MEM,`update luma.work_folders set notes='member note' where id=$1`,[ph]); r=await sup('select notes from luma.work_folders where id=$1',[ph]); ok('a member can',r.rows[0].notes==='member note');
+  r=await as(VIEW,'select count(*)::int n from luma.work_folders'); ok('a viewer can read them',r.rows[0].n===6);
+  r=await as(STR,'select count(*)::int n from luma.work_folders'); ok('an outsider sees nothing',r.rows[0].n===0);
+  console.log(`${pass} passed, ${fail} failed`); process.exit(fail?1:0);
+})().catch(e=>{console.log('ERR',e.stack.split('\n').slice(0,4).join(' | '));process.exit(2)});

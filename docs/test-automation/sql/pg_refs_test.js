@@ -1,0 +1,23 @@
+const { boot } = require('./pg_boot.js');
+const U1='00000000-0000-0000-0000-000000000001',U2='00000000-0000-0000-0000-000000000002'; let pass=0,fail=0; const ok=(n,c,x)=>{ if(c)pass++; else {fail++; console.log('  ✗',n,x||'');} };
+(async()=>{
+  const {db,problems}=await boot({verbose:false}); ok('migrations apply',problems.length===0,JSON.stringify(problems).slice(0,300));
+  const sup=async(q,p)=>{await db.exec("select set_config('request.jwt.claim.role','service_role',false), set_config('request.jwt.claim.sub','',false)");return db.query(q,p)};
+  const as=async(u,q,p)=>{await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${u}',false), set_config('request.jwt.claim.role','authenticated',false)`);try{return await db.query(q,p)}finally{await db.exec('reset role')}};
+  for(const [i,e] of [[U1,'a'],[U2,'b']]) await sup('insert into auth.users (id,email) values ($1,$2)',[i,e+'@x.com']);
+  await sup(`insert into luma.user_addons (user_id,addon,source,expires_at) values ($1,'study','admin',now()+interval '30 days'),($2,'study','admin',now()+interval '30 days')`,[U1,U2]);
+  await sup(`insert into luma.contacts (requester_id,addressee_id,status) values ($1,$2,'pending')`,[U1,U2]);
+  let r=await sup(`select ref, c.id as cid from luma.notifications n join luma.contacts c on true where n.type='contact_request'`); ok('a contact request notification carries the contact id',r.rows.length===1&&r.rows[0].ref===r.rows[0].cid,JSON.stringify(r.rows));
+  await sup(`update luma.contacts set status='accepted'`); r=await sup(`select count(*)::int n from luma.notifications where type='contact_accepted' and ref is not null`); ok('contact accepted carries it too',r.rows[0].n===1);
+  const ev=(await as(U1,`insert into luma.events (title,category,event_date,all_day,repeats,note) values ('Meet','Meeting',current_date+3,true,'none','') returning id`)).rows[0].id;
+  await as(U1,`select luma.invite_to_event($1,array[$2::uuid])`,[ev,U2]); r=await sup(`select ref from luma.notifications where type='event_invite'`); ok('an event invitation carries the event id',r.rows[0].ref===ev);
+  await as(U2,`select luma.respond_event_invite($1,true)`,[ev]); r=await sup(`select ref from luma.notifications where type='event_invite_reply'`); ok('and so does the reply',r.rows[0].ref===ev);
+  const sem=(await as(U1,`insert into luma.study_semesters (name,start_date,end_date) values ('S',current_date-5,current_date+60) returning id`)).rows[0].id; await as(U1,`select luma.activate_study_semester($1)`,[sem]);
+  const sem2=(await as(U2,`insert into luma.study_semesters (name,start_date,end_date) values ('S',current_date-5,current_date+60) returning id`)).rows[0].id; await as(U2,`select luma.activate_study_semester($1)`,[sem2]);
+  const note=(await as(U1,`insert into luma.study_notes (title,body) values ('N','b') returning id`)).rows[0].id; await as(U1,`select luma.share_study_note($1,array[$2::uuid],false)`,[note,U2]); r=await sup(`select ref from luma.notifications where type='note_share'`); ok('a shared note notification carries the note id',r.rows[0].ref===note);
+  const p=(await as(U1,`select luma.create_study_project('P','',null,'') as id`)).rows[0].id; await as(U1,`select luma.invite_to_study_project($1,array[$2::uuid])`,[p,U2]); r=await sup(`select ref from luma.notifications where type='project_invite'`); ok('a project invitation carries the project id',r.rows[0].ref===p);
+  await as(U2,`select luma.respond_study_project($1,true)`,[p]); r=await sup(`select ref from luma.notifications where type='project_reply'`); ok('the reply carries it',r.rows[0].ref===p);
+  await as(U1,`select luma.add_study_project_task($1,'Draw ER',$2,current_date+2)`,[p,U2]); r=await sup(`select ref from luma.notifications where type='project_task'`); ok('a new project task carries the project id',r.rows[0].ref===p);
+  const doc=(await as(U1,`insert into luma.documents (name,mime_type,size_bytes,storage_path) values ('a.pdf','application/pdf',10,$1) returning id`,[U1+'/a.pdf'])).rows[0].id; await sup(`select luma.share_doc($1,$2)`,[doc,U2]).catch(()=>{}); r=await sup(`select ref from luma.notifications where type='share'`); ok('a shared file notification carries the document id',r.rows.length===0||r.rows[0].ref===doc,JSON.stringify(r.rows));
+  console.log(`${pass} passed, ${fail} failed`); process.exit(fail?1:0);
+})().catch(e=>{console.log('ERR',e.stack.split('\n').slice(0,4).join(' | '));process.exit(2)});
