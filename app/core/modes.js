@@ -17,6 +17,7 @@
     let LUMA_MODE = 'personal';
 
     function applyModeMenus() {
+      const nv = document.querySelector('#sidebar nav'); if (nv) nv.scrollTop = 0; // a different mode has a different menu: start it from the top
       document.querySelectorAll('#sidebar nav .menu').forEach(m => {
         const k = m.dataset.page, only = m.dataset.only;
         const show = MODE_ALWAYS.includes(k) ? true : only ? only === LUMA_MODE : LUMA_MODE === 'personal' || MODE_MENUS[LUMA_MODE].includes(k);

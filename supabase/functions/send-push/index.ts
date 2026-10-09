@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
     title: n.title,
     body: n.body ?? "",
     link: n.link ?? "",
+    ref: n.ref ?? "",
   });
 
   await Promise.all(subs.map(async (s) => {

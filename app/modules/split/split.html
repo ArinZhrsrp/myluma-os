@@ -1,0 +1,28 @@
+<!--@modals-->
+  <div class="modal-overlay confirm-overlay" id="spOverlay">
+    <div class="profile-edit-modal" style="width:560px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="spTitle">New split</div>
+        <button class="x" id="spClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-body">
+        <div class="pem-msg error" id="spError"></div>
+        <div class="pem-field"><label>What was it for? <span style="color:#fca5a5">*</span></label><input id="spName" type="text" maxlength="80" placeholder="e.g. Dinner at Nobu" autocomplete="off"></div>
+        <div class="pem-field"><label>Tax <span class="sp-dim">(Malaysia)</span></label><div class="sp-methods" id="spTax"></div><div id="spTaxOther" class="sp-other" style="display:none"><input id="spTaxPct" class="sp-money-pct" type="text" inputmode="decimal" placeholder="0" autocomplete="off"><span>% tax</span></div><div class="pem-hint" id="spTaxHint" style="margin:6px 0 0"></div></div>
+        <div class="sp-two">
+          <div class="pem-field"><label>Total before tax (RM)</label><input id="spTotal" class="sp-money" type="text" inputmode="numeric" placeholder="0.00" autocomplete="off"></div>
+          <div class="pem-field"><label>Total after tax (RM)</label><input id="spFinal" class="sp-money" type="text" inputmode="numeric" placeholder="0.00" autocomplete="off"></div>
+        </div>
+        <div class="pem-field"><label>Date</label><input id="spDate" type="text"></div>
+        <div class="pem-field"><label>Split with <span style="color:#fca5a5">*</span> <span class="sp-dim">(people in your contacts)</span></label><div id="spPeople" class="sp-people"></div></div>
+        <div class="pem-field"><label>How to split</label><div class="sp-methods" id="spMethods"></div></div>
+        <div class="pem-field"><label>Who paid?</label><div class="sp-methods" id="spPayers"></div></div>
+        <div class="sp-sum" id="spSum"></div>
+        <div class="pem-field"><label>Note <span class="sp-dim">(optional)</span></label><input id="spNote" type="text" maxlength="300" placeholder="e.g. Birthday for Aina" autocomplete="off"></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button class="confirm-btn save" id="spSave" style="flex:1">Save split</button>
+      </div>
+    </div>
+  </div>
+<!--@page-->

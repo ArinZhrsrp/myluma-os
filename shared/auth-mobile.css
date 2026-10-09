@@ -1,0 +1,14 @@
+/* LUMA — phone adjustments shared by the sign-in, register, verify and reset pages (loaded after each page's own CSS) */
+.inp input, .inp select { min-width: 0; }
+@media (max-width: 480px) {
+  body { align-items: flex-start; padding: max(18px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  .auth { margin: auto 0; padding: 30px 22px; border-radius: 24px; width: 100%; }
+  .inp input, .inp select, .field input, .field select { font-size: 16px; }   /* smaller text makes iPhones zoom in when a field is tapped */
+  .two { gap: 10px; }
+  .head h2 { font-size: 1.4rem; }
+}
+@media (max-width: 360px) {
+  .auth { padding: 26px 18px; }
+  .two { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .row { flex-wrap: wrap; gap: 10px; }
+}

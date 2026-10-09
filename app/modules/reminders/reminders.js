@@ -9,12 +9,33 @@
     //  REMINDERS — your own reminders, separate from tasks (delivered by the server: inbox + push)
     // =====================================================
     const REM_KINDS = [['once', 'Does not repeat'], ['daily', 'Every day'], ['weekdays', 'Every weekday (Mon–Fri)'], ['weekends', 'Every weekend (Sat–Sun)'], ['weekly', 'Every week'], ['monthly', 'Every month on a date'], ['month_last_weekday', 'Last weekday of every month'], ['month_last_day', 'Last day of every month'], ['yearly', 'Every year']];
-    const REM_TPLS = [
-      { title: 'Fill in the timesheet', kind: 'month_last_weekday', time: '09:00', note: 'Submit your hours for the month' },
-      { title: 'Pay rent', kind: 'monthly', time: '09:00', day: 1 },
-      { title: 'Weekly review', kind: 'weekly', time: '17:00', days: [5], note: 'What went well? What is next week?' },
-      { title: 'Back up your files', kind: 'monthly', time: '10:00', day: 1 },
-    ];
+    // starting ideas for an empty Reminders page: they depend on the mode you are in
+    const REM_TPL_SETS = {
+      personal: [
+        { title: 'Fill in the timesheet', kind: 'month_last_weekday', time: '09:00', note: 'Submit your hours for the month' },
+        { title: 'Pay rent', kind: 'monthly', time: '09:00', day: 1 },
+        { title: 'Weekly review', kind: 'weekly', time: '17:00', days: [5], note: 'What went well? What is next week?' },
+        { title: 'Back up your files', kind: 'monthly', time: '10:00', day: 1 },
+      ],
+      study: [
+        { title: 'Revise today\'s lessons', kind: 'daily', time: '20:00', note: 'Go through today\'s notes for 20 minutes' },
+        { title: 'Plan the week', kind: 'weekly', time: '19:00', days: [0], note: 'Look at next week\'s classes and deadlines' },
+        { title: 'Check the class portal', kind: 'weekdays', time: '18:00', note: 'Any new announcements or assignments?' },
+        { title: 'Pay hostel or rent', kind: 'monthly', time: '09:00', day: 1 },
+      ],
+      work: [
+        { title: 'Fill in the timesheet', kind: 'month_last_weekday', time: '09:00', note: 'Submit your hours for the month' },
+        { title: 'Send the weekly report', kind: 'weekly', time: '16:00', days: [5], note: 'Summarise what you finished this week' },
+        { title: 'Submit expense claims', kind: 'month_last_weekday', time: '10:00', note: 'Receipts and claims for the month' },
+        { title: 'Plan the week', kind: 'weekly', time: '09:00', days: [1], note: 'Priorities and meetings for the week' },
+      ],
+    };
+    const remTpls = () => REM_TPL_SETS[LUMA_MODE] || REM_TPL_SETS.personal;
+    const REM_EMPTY_TEXT = {
+      personal: 'Reminders are separate from tasks. Use them for things that come around again and again, like filling in your timesheet on the last weekday of the month.',
+      study: 'Reminders are separate from your assignments (those already remind you before they are due). Use them for things that repeat, like revising every evening or planning the week.',
+      work: 'Reminders are separate from tasks. Use them for things that come around again and again, like the timesheet on the last weekday of the month or the weekly report.',
+    };
     let REMS = [], REM_ERR = null;
     const remForm = { id: null, kind: 'once', days: new Set(), active: true };
     const remErr = m => { docEl('crError').textContent = m; docEl('crError').style.display = m ? 'flex' : 'none'; };
@@ -60,8 +81,8 @@
       if (!REMS.length) {
         sub.textContent = 'Never forget the things that are not tasks';
         root.innerHTML = card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-bell-concierge"></i></div><div class="h-empty-t">Add your first reminder</div>
-          <div class="h-empty-s">Reminders are separate from tasks. Use them for things that come around again and again, like filling in your timesheet on the last weekday of the month. You get a notification at the time you choose. Start from an idea or tap <b>New reminder</b>.</div>
-          <div class="h-empty-chips">${REM_TPLS.map((t, i) => `<button type="button" class="h-chip" data-rtpl="${i}"><i class="fa-solid fa-bell" style="color:#f59e0b"></i>${t.title}</button>`).join('')}</div></div>`);
+          <div class="h-empty-s">${REM_EMPTY_TEXT[LUMA_MODE] || REM_EMPTY_TEXT.personal} You get a notification at the time you choose. Start from an idea or tap <b>New reminder</b>.</div>
+          <div class="h-empty-chips">${remTpls().map((t, i) => `<button type="button" class="h-chip" data-rtpl="${i}"><i class="fa-solid fa-bell" style="color:#f59e0b"></i>${t.title}</button>`).join('')}</div></div>`);
         return;
       }
       const today = mytDayKey(Date.now()), items = REMS.map(r => ({ r, next: remNext(r) }));
@@ -135,7 +156,7 @@
     async function loadReminders(pg) {
       pg.querySelector('#remAddBtn').onclick = () => openRemModal(null);
       pg.querySelector('#remRoot').onclick = async e => {
-        const tpl = e.target.closest('[data-rtpl]'); if (tpl) return openRemModal(null, REM_TPLS[+tpl.dataset.rtpl]);
+        const tpl = e.target.closest('[data-rtpl]'); if (tpl) return openRemModal(null, remTpls()[+tpl.dataset.rtpl]);
         const row = e.target.closest('.rem-item'); if (!row) return; const r = REMS.find(x => x.id === row.dataset.id); if (!r) return;
         if (e.target.closest('[data-toggle]')) {
           const { data, error } = await LumaReminders.update(r.id, { active: !r.active, last_fired_on: null });

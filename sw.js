@@ -22,7 +22,7 @@ self.addEventListener("push", (event) => {
       tag: d.id || undefined,
       icon: "/shared/luma-mark.svg",
       silent: visible,
-      data: { link: d.link || "" },
+      data: { link: d.link || "", ref: d.ref || "", ntype: d.type || "" },
     });
     if (visible) {
       await new Promise((r) => setTimeout(r, 400));
@@ -34,7 +34,7 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const link = (event.notification.data && event.notification.data.link) || "";
+  const nd = event.notification.data || {}, link = nd.link || "", ref = nd.ref || "", ntype = nd.ntype || "";
 
   event.waitUntil((async () => {
     const base = new URL("app/", self.registration.scope).href;
@@ -42,10 +42,10 @@ self.addEventListener("notificationclick", (event) => {
     for (const c of wins) {
       if (c.url.startsWith(base)) {
         await c.focus();
-        c.postMessage({ type: "open-page", link });
+        c.postMessage({ type: "open-page", link, ref, ntype });
         return;
       }
     }
-    await self.clients.openWindow(link ? base + "?from=push#" + link : base);
+    await self.clients.openWindow(link ? base + "?from=push" + (ref ? "&ref=" + encodeURIComponent(ref) + "&nt=" + encodeURIComponent(ntype) : "") + "#" + link : base);
   })());
 });

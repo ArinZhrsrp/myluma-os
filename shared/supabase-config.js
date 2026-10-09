@@ -28,15 +28,15 @@
   window.LUMA_SUPABASE_URL = c.url;
   window.LUMA_SUPABASE_ANON_KEY = c.key;
   window.LUMA_ENV = useProd ? "production" : "staging";
+  // The app version. Bump it when something is pushed to staging:
+  //   patch (0.9.1) = fixes and small tweaks · minor (0.10.0) = a new feature or module · 1.0.0 = the first production release.
+  window.LUMA_VERSION = "0.10.6";
 
-  // a small corner tag so you never mistake staging for the real thing
-  if (!useProd) {
-    document.addEventListener("DOMContentLoaded", function () {
-      var t = document.createElement("div");
-      t.textContent = "STAGING";
-      t.title = "You are on the staging environment (test data, not production).";
-      t.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:2147483600;padding:3px 9px;border-radius:999px;font:700 10px/1.4 -apple-system,Segoe UI,Inter,sans-serif;letter-spacing:.1em;color:#1a1204;background:#fbbf24;opacity:.9;pointer-events:none";
-      document.body.appendChild(t);
-    });
-  }
+  // the version (and "staging") under "Your Personal OS": any element with data-luma-version gets filled in
+  window.lumaPaintVersion = function () {
+    var t = "Version " + window.LUMA_VERSION + (useProd ? "" : ' \u00b7 <span style="color:#fbbf24;font-weight:700">STAGING</span>');
+    var els = document.querySelectorAll("[data-luma-version]");
+    for (var i = 0; i < els.length; i++) els[i].innerHTML = t;
+  };
+  document.addEventListener("DOMContentLoaded", window.lumaPaintVersion);
 })();

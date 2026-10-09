@@ -280,6 +280,8 @@ Empty the `luma-documents` Storage bucket by hand afterwards.
 
 ## Staging and production
 
+**Version:** the line under "Your Personal OS" ("Version 0.9.0 · STAGING") comes from `window.LUMA_VERSION` in `shared/supabase-config.js`. Bump it when you push to staging: patch (0.9.1) for fixes and small tweaks, minor (0.10.0) for a new feature or module, and 1.0.0 for the first production release. Describe each change in `CHANGELOG.md`.
+
 Two Supabase projects, two websites, three git branches, one codebase:
 
 | Branch | Purpose | Website | Supabase |
@@ -388,6 +390,8 @@ supabase/migrations/
   060_study_reminders_v2.sql   Own reminder per assignment, timed items, overdue nudges; archived semesters stay quiet
   061_grade_scales.sql         Grade scale per semester or subject
   062_plan_expiry.sql          Plans and add-ons run for a period: end dates, automatic return to Dawn, admin sets or adds time
+  063_purchase_history.sql     Purchase history: every plan and add-on change (trial, started, extended, removed, ended) kept per person
+  064_split_expenses.sql       Split expenses (Zenith): shared bills, who paid, shares, mark-as-paid, your share in Money
   042_backgrounds.sql          your uploaded wallpaper is saved with your account (private storage bucket)
   041_focus_sessions.sql       Focus mode: every completed focus session is saved
   040_admin_report.sql         Admin page: monthly report of people per plan + log of every plan change

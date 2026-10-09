@@ -20,8 +20,9 @@
         <div class="grid-2">
           ${card(`<div class="section-title"><i class="fa-solid fa-user"></i> Profile</div><div style="display:flex;align-items:center;gap:16px"><div id="profAvatar" style="width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#3b82f6);display:grid;place-items:center;color:#fff;font-size:1.4rem;font-weight:600">${lumaInitial()}</div><div style="flex:1">
             <div id="profNameView" style="font-size:1rem;font-weight:600;color:#fff">${lumaFullName()}</div>
-            <div class="ls" id="profEmailView">${lumaEmail()}</div><button type="button" class="pill pill-violet" id="planPill" title="See the plans" style="margin-top:8px;border:none;cursor:pointer;font-family:inherit"><i class="fa-solid fa-sun" style="font-size:0.6rem"></i> ${LumaPlan.name()} plan${LumaPlan.plan !== 'dawn' && LumaPlan.planExpires ? ' · until ' + new Date(LumaPlan.planExpires).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''} <i class="fa-solid fa-chevron-right" style="font-size:0.5rem"></i></button>
-              ${['work', 'study'].filter(k => LumaPlan.hasAddon(k)).map(k => { const inf = LumaPlan.addonInfo[k] || {}, a = ADDONS[k], d = LumaPlan.daysTo(inf.expires_at); return `<button type="button" class="pill pill-addon" data-addon-pill title="${a.name} add-on · see your plan and add-ons" style="--ac:${a.color};${d !== null && d <= 7 ? 'outline:1px solid #fca5a5;' : ''}"><i class="fa-solid ${a.icon}" style="font-size:0.6rem"></i> ${a.name} add-on${inf.expires_at ? ' · until ' + new Date(new Date(inf.expires_at).getTime() - 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}${inf.source === 'trial' ? ' (trial)' : ''}</button>`; }).join('')}</div><div style="display:flex;flex-direction:column;gap:8px"><button id="profEditBtn" class="create-btn" style="background:rgba(255,255,255,0.06);box-shadow:none;justify-content:center">Edit</button><button id="logoutBtn" class="create-btn" style="background:rgba(239,68,68,0.12);color:#fca5a5;box-shadow:none;justify-content:center">Log out</button></div></div>`)}
+            <div class="ls" id="profEmailView">${lumaEmail()}</div>
+              <button type="button" class="pill pill-violet" data-addon-pill title="See your plan and add-ons" style="margin-top:8px;border:none;cursor:pointer;font-family:inherit"><i class="fa-solid fa-sun" style="font-size:0.6rem"></i> ${LumaPlan.name()} plan</button>
+              ${['work', 'study'].filter(k => LumaPlan.hasAddon(k)).map(k => { const inf = LumaPlan.addonInfo[k] || {}, a = ADDONS[k], d = LumaPlan.daysTo(inf.expires_at); return `<button type="button" class="pill pill-addon" data-addon-pill title="${a.name} add-on · see your plan and add-ons" style="--ac:${a.color};${d !== null && d <= 7 ? 'outline:1px solid #fca5a5;' : ''}"><i class="fa-solid ${a.icon}" style="font-size:0.6rem"></i> ${a.name} add-on${inf.source === 'trial' ? ' (trial)' : ''}</button>`; }).join('')}</div><div style="display:flex;flex-direction:column;gap:8px"><button id="profEditBtn" class="create-btn" style="background:rgba(255,255,255,0.06);box-shadow:none;justify-content:center">Edit</button><button id="logoutBtn" class="create-btn" style="background:rgba(239,68,68,0.35);color:#fff;border:1px solid rgba(248,113,113,0.7);box-shadow:none;justify-content:center">Log out</button></div></div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-palette"></i> Theme</div><div style="display:flex;gap:12px" id="themeGrid">${[['Slate', '#64748b', 'slate'], ['Midnight Navy', '#0f172a', 'midnight'], ['Obsidian', '#030408', 'obsidian']].map(t => `<div class="theme-opt ${['midnight', 'slate', 'obsidian'].indexOf(t[2]) >= (LumaPlan.get('themes') ?? 99) ? 'plan-lock' : ''}" data-theme="${t[2]}" data-swatch="${t[1]}" style="flex:1;padding:12px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);text-align:center;cursor:pointer"><div style="height:44px;border-radius:10px;background:${t[1]};border:1px solid rgba(255,255,255,0.08);margin-bottom:9px"></div><span style="font-size:0.7rem;color:#fff">${t[0]}</span></div>`).join('')}</div>`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-sliders"></i> Preferences</div><div class="pem-msg error" id="setPushError"></div>${prefs.map(p => `<div class="setting-row"><div class="sr-main"><div class="sr-t">${p[1]}</div><div class="sr-s" ${p[0] === 'notif' ? 'id="setNotifSub"' : ''}>${p[2]}</div></div><button class="switch ${p[0] === 'notif' ? '' : (savedPrefs[p[0]] ?? p[3]) ? 'on' : ''}" ${p[0] === 'notif' ? 'id="setNotifSwitch" data-push="1"' : `data-key="${p[0]}"`}><span class="knob"></span></button></div>`).join('')}`)}
           ${card(`<div class="section-title"><i class="fa-solid fa-shield-halved"></i> Account &amp; data</div><div class="pem-msg error" id="acctError"></div><div class="pem-msg ok" id="acctOk"></div>
@@ -40,6 +41,7 @@
             return row(paid ? 'fa-sun' : 'fa-seedling', paid ? '#fbbf24' : '#34d399', `${LumaPlan.name()} plan`, '', paid ? end(LumaPlan.planExpires) : '<span class="pc-end off">Free forever</span>', paid ? (LumaPlan.planExpires ? '<button type="button" class="np-btn" data-pc-renew="plan:' + plan + '"><i class="fa-brands fa-whatsapp"></i> Renew</button>' : '') : '<button type="button" class="np-btn" data-pc-plans>See plans</button>') + addon('work') + addon('study');
           })()}
           <p class="ls" style="margin-top:0.7rem;font-size:0.7rem;line-height:1.5">Plans and add-ons are monthly. The last day is the last day you can use it; after that you go back to the free Dawn plan (or the add-on switches off) and everything you made is kept. We remind you 7 days and 1 day before.</p>
+          <button type="button" class="pc-hist-link" id="pcHistLink"><i class="fa-solid fa-clock-rotate-left"></i> Purchase history <i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <div class="card full-width" style="margin-top:0.9rem" id="remPrefs">
           <div class="section-title"><i class="fa-regular fa-clock"></i> Reminders</div>
@@ -58,7 +60,8 @@
             ${remCard('budget_on', 'fa-wallet', '#4ade80', 'Budget alerts', 'When your spending passes a share of your monthly budget, and when you go over', fld('Warn me at', 'budget_pct', [50, 60, 70, 75, 80, 85, 90, 95].map(p => `<option value="${p}">${p}% of budget</option>`).join('')))}
           </div>
           <p class="ls" style="margin-top:0.9rem;font-size:0.7rem;line-height:1.5">Your own one-off and repeating reminders (like the monthly timesheet) live on the Reminders page.</p>
-        </div></div>`;
+        </div>
+</div>`;
     };
 
     // ---------- Edit profile modal (name, email, password) ----------
@@ -211,8 +214,8 @@
       // Settings — background picker
     WIRE.settings = function (pg, key) {
         wireReminderPrefs(pg);
-        pg.querySelector('#planPill')?.addEventListener('click', openPlans);
-        pg.querySelectorAll('[data-addon-pill]').forEach(b => b.addEventListener('click', () => pg.querySelector('#planCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' })));
+        pg.querySelector('#pcHistLink')?.addEventListener('click', () => goTo('purchases'));
+          pg.querySelectorAll('[data-addon-pill]').forEach(b => b.addEventListener('click', () => pg.querySelector('#planCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' })));
         pg.querySelector('#planCard')?.addEventListener('click', e => { const rn = e.target.closest('[data-pc-renew]'); if (rn) return requestRenew(rn.dataset.pcRenew); const by = e.target.closest('[data-pc-buy]'); if (by) return requestAddon(by.dataset.pcBuy); if (e.target.closest('[data-pc-plans]')) openPlans(); });
         pg.querySelector('#logoutBtn')?.addEventListener('click', openLogoutConfirm);
         // Notifications switch = push on this device

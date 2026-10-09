@@ -79,6 +79,7 @@
     skinDate(document.getElementById('hDate'));
     skinDate(document.getElementById('goalDeadline'));
     skinDate(document.getElementById('billDue'));
+    skinDate(document.getElementById('spDate'));
     skinDate(document.getElementById('mEntryDate'));
     skinDate(document.getElementById('tkDue'));
     skinDate(document.getElementById('calEvDate'));

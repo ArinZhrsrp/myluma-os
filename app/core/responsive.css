@@ -1,0 +1,125 @@
+/* LUMA — responsive layer. Loaded last; it only changes things on phones and small tablets.
+   Goals: nothing wider than the screen, room to breathe around everything, text and buttons big enough to read and tap,
+   and the same layout from the smallest phone (about 320px) up. */
+
+:root { --fab-room: 70px; }
+
+/* ---------------- tablets and phones ---------------- */
+@media (max-width: 768px) {
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 18px max(18px, env(safe-area-inset-left));
+    height: 100vh; height: 100dvh; min-height: 0; overflow: hidden;   /* the page itself does not scroll: only the content under the top bar does */
+  }
+  .main-content, .main-content.fit { flex: 1; width: 100%; height: 100%; min-height: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .content-wrapper, .main-content.fit .content-wrapper { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; overflow: visible; }
+  /* the top bar stays where it is (original glass look); the page under it scrolls, so items slide away at its edge and never show behind it */
+  .topbar { flex: none; position: relative; z-index: 60; }
+  .page.active, .main-content.fit .page.active { flex: 1; min-height: 0; overflow-y: auto; overflow-x: clip; padding-bottom: var(--fab-room); -webkit-overflow-scrolling: touch; }
+  /* inside the page, nothing scrolls on its own: every block takes the height its content needs, and the page scrolls as one */
+  .page.active > *, .main-content.fit .page.active > * { flex: none !important; min-height: 0; height: auto; max-height: none; overflow: visible !important; }
+  .page.active .fit-root, .page.active [id$="Root"], .page.active .kanban { flex: none; height: auto; max-height: none; overflow: visible; }
+  .page.active .faq-wrap, .page.active .ph-card, .page.active .s-list, .page.active #calBody { max-height: none; height: auto; overflow: visible; }
+  /* Support: the FAQ card takes the height of its questions (it used to be a fixed-height box with its own scroll) */
+  .supp-faq { height: auto !important; }
+  .supp-faq .supp-faq-in { position: static; padding: 1.1rem 1.1rem 0.6rem; }
+  .sidebar { height: 100vh; height: 100dvh; padding-top: max(24px, env(safe-area-inset-top)); }
+  /* the slide-out menu is glass like the rest of LUMA (not a solid dark panel) */
+  .sidebar { background: rgba(255, 255, 255, 0.09); backdrop-filter: blur(40px) saturate(1.5); -webkit-backdrop-filter: blur(40px) saturate(1.5); border-right: 1px solid rgba(255, 255, 255, 0.14); box-shadow: 6px 0 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+  .sidebar .menu:not(.active) { color: rgba(255, 255, 255, 0.82); }   /* a little brighter so it reads clearly on glass */
+
+  /* the top bar */
+  .topbar { padding: 0.6rem 0.8rem; border-radius: 16px; margin-bottom: 1.1rem; }
+  .topbar h2 { font-size: 0.95rem; }
+  .topbar-actions .icon-btn, .hamburger { min-width: 40px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.95rem; }
+  .hamburger { display: inline-flex; }
+  .topbar-actions { gap: 0.4rem; flex: none; }
+  .topbar h2 { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* spacing and size: breathe, instead of shrinking everything */
+  .card { padding: 1rem 1.1rem; }
+  .dashboard-grid, .grid-2, .grid-3, .grid-4 { gap: 1rem; }
+  .page-head { gap: 0.8rem; margin-bottom: 1rem; }
+  .page-head h1 { font-size: 1.5rem; }
+  .head-actions { flex-wrap: wrap; max-width: 100%; }
+  .create-btn, .np-btn, .confirm-btn { min-height: 40px; padding: 9px 16px; font-size: 0.8rem; }
+  .lrow, .rem-item, .menu { min-height: 44px; }
+  .menu { padding: 13px 16px; font-size: 14px; }
+  .quick-btn { font-size: 0.7rem; padding: 0.45rem 0.9rem; }
+  .h-chip, .ph-chip, .sp-chip, .chat-chip { min-height: 36px; }
+  .section-title { font-size: 0.95rem; }
+  .hero-bot { display: none !important; }          /* the floating Lumi button already does this */
+  input, select, textarea { font-size: 16px; }   /* anything smaller makes iPhones zoom in when you tap a field */
+  .modal-overlay { padding: 14px; }
+  .profile-edit-modal { padding: 22px 20px; }
+
+  /* On a phone the whole page scrolls (not a box inside it). A box that cannot scroll but is marked "overscroll contain"
+     swallows the swipe, so the page would not move at all: switch both off here. */
+  .main-content.fit .page.active > .fit-root,
+  .main-content.fit #page-dashboard .dashboard-grid { overflow: visible; flex: none; padding-right: 0; }
+  .page, .page * { overscroll-behavior: auto !important; }
+  .page.active { overscroll-behavior: contain !important; }   /* the page is the scroller: a swipe at its end does not drag the whole screen */
+
+  /* two-column pages become one column (minmax(0, 1fr) so a wide child can never push the page sideways) */
+  .bills-grid { grid-template-columns: minmax(0, 1fr); }
+  #page-contacts .fit-root > div[style*="grid-template-columns"],
+  #page-assistant .fit-root > div[style*="grid-template-columns"] { grid-template-columns: minmax(0, 1fr) !important; }
+  #page-contacts .lrow { flex-wrap: wrap; }
+  #page-contacts .c-actions { flex-wrap: wrap; gap: 8px !important; width: 100%; padding-left: 52px; }   /* under the name, lined up with it */
+  .plan-grid, .adm-stats { grid-template-columns: minmax(0, 1fr); }
+  .page > *, .fit-root > * { min-width: 0; }
+
+  /* the month calendar: a day with events shows small dots, tap the day to read them */
+  .cal-cell .cchip { display: inline-flex; width: auto; margin: 3px 1px 0; padding: 0; background: none; }
+  .cal-cell .cchip > :not(.dot) { display: none; }
+  .cal-cell .cchip .dot { width: 8px; height: 8px; }
+}
+
+/* ---------------- small phones ---------------- */
+@media (max-width: 480px) {
+  body { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); padding-top: max(16px, env(safe-area-inset-top)); }
+  html { font-size: 16.5px; }                     /* most sizes are in rem, so everything gets a little easier to read */
+  .card { padding: 0.95rem 1rem; }
+  .page-head h1 { font-size: 1.4rem; }
+  .page-head p { font-size: 0.82rem; }
+  .evt, .evt-title { font-size: 0.6rem; }
+  .evt-time { font-size: 0.55rem; }
+  .sidebar { width: min(280px, 86vw); }
+  .devices-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  /* a bill: name on the first line, its status, amount and buttons on the second */
+  .b-row { flex-wrap: wrap; row-gap: 8px; }
+  .b-row .lmain { flex: 1 1 calc(100% - 64px); min-width: 0; }
+  .b-row { gap: 10px; }
+  .b-row .lright { margin-left: auto; }
+}
+
+/* ---------------- the smallest phones (320px) ---------------- */
+@media (max-width: 360px) {
+  body { padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right)); }
+  html { font-size: 16px; }
+  .card { padding: 0.85rem 0.9rem; }
+  .topbar { padding: 0.5rem 0.6rem; }
+  .topbar-actions .icon-btn, .hamburger { min-width: 36px; min-height: 36px; }
+  .topbar-actions { gap: 0.3rem; }
+  .create-btn, .np-btn, .confirm-btn { padding: 8px 12px; }
+  .b-row { gap: 8px; }
+  .b-row .hedit, .b-row .hbtn { width: 34px; height: 34px; min-width: 34px; }
+  .b-row .lright { font-size: 0.85rem; }
+  .profile-edit-modal { padding: 20px 16px; }
+  .modal-overlay { padding: 10px; }
+}
+
+/* ---------------- grids that fold into fewer columns ----------------
+   "1fr" means "at least as wide as the widest thing inside", so one wide child could make a whole column wider than the screen.
+   minmax(0, 1fr) lets the column shrink and the child wrap or truncate instead. */
+@media (max-width: 1024px) {
+  .kanban, .habit-grid, .m-grid, .bills-grid, .cal-week { grid-template-columns: minmax(0, 1fr); }
+  .grid-3, .grid-4, .dashboard-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@media (max-width: 768px) {
+  .grid-2, .grid-3, .grid-4, .dashboard-grid, .rp-grid, #planAddons .pa-grid, .plan-grid { grid-template-columns: minmax(0, 1fr); }
+  .cal-year { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bg-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) { .sd-week, .att-chips { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 420px) { .sd-tiles[style*="repeat(3"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }

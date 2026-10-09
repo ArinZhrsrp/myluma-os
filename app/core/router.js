@@ -9,16 +9,16 @@
       dashboard: 'Dashboard', calendar: 'Calendar', reminders: 'Reminders', work: 'Work', study: 'Study', studyarchive: 'Study archive', admin: 'Admin', adminreport: 'Plan report', tasks: 'Tasks & Work', money: 'Money',
       subscriptions: 'Subscriptions', bills: 'Bills', goals: 'Goals', habits: 'Habits', health: 'Health',
       notes: 'Notes & Docs', documents: 'Documents', contacts: 'Contacts', assistant: 'Lumi',
-      analytics: 'Analytics', settings: 'Settings', support: 'Support', notifications: 'Notifications'
+      analytics: 'Analytics', settings: 'Settings', purchases: 'Purchase history', split: 'Split expenses', support: 'Support', notifications: 'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'admin', 'adminreport', 'dashboard', 'settings', 'health', 'contacts', 'assistant', 'support', 'work', 'study', 'studyarchive']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'purchases', 'split', 'admin', 'adminreport', 'dashboard', 'settings', 'purchases', 'split', 'health', 'contacts', 'assistant', 'support', 'work', 'study', 'studyarchive']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
     const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin', 'adminreport', 'study', 'studyarchive']);
 
     // pages whose markup is "heading + content": the content goes into one scrolling box so the heading stays put
-    const FIT_WRAP = new Set(['health', 'contacts', 'assistant', 'support', 'work', 'study', 'studyarchive']);
+    const FIT_WRAP = new Set(['split', 'health', 'contacts', 'assistant', 'support', 'work', 'study', 'studyarchive']);
     function fitWrap(pg, key) {
       if (!FIT_WRAP.has(key) || pg.querySelector(':scope > .fit-root')) return;
       const head = pg.querySelector(':scope > .page-head'), box = document.createElement('div'); box.className = 'fit-root';
@@ -42,7 +42,7 @@
       if (key === 'calendar') calOnShow();
       if (key === 'dashboard') { const dg = pg.querySelector('.dashboard-grid'); if (dg) dg.scrollTop = 0; }
       if (key === 'dashboard' && typeof LumaLoader !== 'undefined') LumaLoader.page(pg, key, loadDashboard().catch(e => console.error('LUMA: dashboard failed to load', e)));
-      mc.scrollTop = 0;
+      mc.scrollTop = 0; if (pg) pg.scrollTop = 0; // on phones the page itself is the scroller
       // remember the page in the URL so a browser refresh lands back here
       try { history.replaceState(null, '', '#' + key); } catch (e) { }
     }

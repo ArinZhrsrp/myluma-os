@@ -1,12 +1,17 @@
 // LUMA — module: assistant
       // ---------------- AI ASSISTANT (full chat) ----------------
     MODULES.assistant = function () {
-        const mem = ['Add events, tasks and notes', 'Log sleep, water, steps and mood', 'Record expenses and income', 'Answer questions about your data'];
-        const cmds = ['What should I focus on today?', 'How is my spending this month?', 'Add a task: pay rent, due Friday', 'Log 7 hours of sleep', 'Add dentist tomorrow 3pm'];
+        const mem = ['Add and change tasks, events, reminders and notes', 'Log sleep, water, steps, mood and habits', 'Record expenses, bills and goals', 'Split bills with contacts (Zenith)', 'Answer questions about your data'];
+        const cmdSets = {
+          personal: ['What should I focus on today?', 'How is my spending this month?', 'Add a task: pay rent, due Friday', 'Log 7 hours of sleep', 'Add dentist tomorrow 3pm', 'Split RM120 dinner with Aina, restaurant tax'],
+          study: ['What should I study this week?', 'Which assignment is due first?', 'Add an assignment: ER report for Databases, due Friday', 'Remind me to revise every evening at 8pm', 'Add my timetable', 'How am I doing on my grades?'],
+          work: ['What should I focus on today?', 'Add a task: send the weekly report, due Friday', 'Add a meeting tomorrow 3pm', 'Remind me to fill in the timesheet on the last weekday', 'What is on my calendar this week?', 'Add a note: meeting notes'],
+        };
+        const cmds = cmdSets[LUMA_MODE] || cmdSets.personal;
         const firstName = lumaName();
         return head('Lumi', 'Your personal assistant') +
           `<div style="display:grid;grid-template-columns:1fr 300px;gap:0.9rem;align-items:start">
-          ${card(`<div id="chatScroll" class="chat-scroll"><div class="bubble ai">Hi ${firstName}! I can add events, tasks and notes, log your health and expenses, and answer questions about your LUMA data. I can't delete things or help with topics outside the app.</div></div>
+          ${card(`<div id="chatScroll" class="chat-scroll"><div class="bubble ai">Hi ${firstName}! I can add and change tasks, events, reminders and notes, log your health, habits, expenses, bills and goals, split bills with your contacts, and answer questions about your LUMA data. I can delete your own items too, but only after you confirm. I can't help with topics outside the app.</div></div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:0.8rem">${cmds.slice(0, 3).map(c => `<span class="chat-chip suggestion-badge" style="font-size:0.62rem;padding:0.25rem 0.8rem;background:rgba(59,130,246,0.12);color:#93c5fd;border-color:rgba(59,130,246,0.25)">${c}</span>`).join('')}</div>
             <div class="lumi-left" style="font-size:0.7rem;color:rgba(255,255,255,0.6);text-align:right;margin-top:0.6rem">15 questions per day</div><div class="lumi-note" style="display:flex;align-items:flex-start;gap:6px;margin:0 4px 8px;font-size:0.66rem;line-height:1.4;color:rgba(255,255,255,0.55)"><i class="fa-regular fa-circle-question"></i> Chats are not saved. Refreshing the page or logging out clears this conversation.</div><div class="chat-input" style="margin-top:0.4rem"><input id="chatInput" placeholder="Message Lumi…" autocomplete="off"><button class="chat-send" id="chatSend"><i class="fa-solid fa-arrow-up"></i></button></div>`)}
           <div style="display:flex;flex-direction:column;gap:0.9rem">

@@ -3441,3 +3441,12 @@
     #planAddons .pa-grid .ad-bundle { grid-column:1 / -1; border-style:dashed; border-color:rgba(52,211,153,0.5); background:rgba(52,211,153,0.07); }
     .plan-card .pend { display:flex; align-items:center; gap:6px; font-size:0.72rem; color:rgba(255,255,255,0.75); margin-top:-4px; }
     .plan-card .pend.soon { color:#fca5a5; font-weight:600; }
+
+    /* the item a tapped notification points at: the glow is drawn INSIDE the box, so it can never make the page scroll sideways */
+    @keyframes luFlash {
+      0%, 100% { box-shadow: inset 0 0 0 0 rgba(251,191,36,0); background-color: rgba(251,191,36,0); }
+      25%, 65% { box-shadow: inset 0 0 0 2px rgba(251,191,36,0.95), inset 0 0 26px rgba(251,191,36,0.35); background-color: rgba(251,191,36,0.12); }
+    }
+    .luma-flash { animation: luFlash 1.5s ease-in-out 3; border-radius: 12px; }
+    .main-content.fit .page.active > .fit-root, .ph-card, .sp-cards { overflow-x: hidden; }
+    .main-content { overflow-x: clip; }   /* clip (not hidden): it hides sideways overflow without turning this box into a scroller */

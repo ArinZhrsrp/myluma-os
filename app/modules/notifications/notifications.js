@@ -12,6 +12,7 @@
     // =====================================================
     let NOTIFS = [], notifChannel = null, notifFilter = 'all';
     const NOTIF_ICONS = {
+      split: ['fa-receipt', '#a78bfa'], split_nudge: ['fa-bell', '#f59e0b'],
       welcome: ['fa-circle-check', '#22c55e'], share: ['fa-share-nodes', '#38bdf8'],
       contact_request: ['fa-user-plus', '#f59e0b'], nudge: ['fa-bell', '#f59e0b'], message: ['fa-comment', '#3b82f6'], reminder_water: ['fa-droplet', '#38bdf8'], reminder_steps: ['fa-shoe-prints', '#34d399'], reminder_active: ['fa-fire', '#fb923c'], reminder_habit: ['fa-bell', '#fb923c'], reminder_subscription: ['fa-repeat', '#f472b6'], reminder_sleep: ['fa-moon', '#a78bfa'], reminder_task: ['fa-list-check', '#60a5fa'], reminder_custom: ['fa-bell-concierge', '#f59e0b'], weekly_review: ['fa-chart-line', '#60a5fa'], reminder_bill: ['fa-file-invoice-dollar', '#fbbf24'], reminder_event: ['fa-calendar', '#8b5cf6'], reminder_goal: ['fa-bullseye', '#34d399'], reminder_study: ['fa-graduation-cap', '#34d399'], event_invite: ['fa-user-group', '#a78bfa'], reminder_class: ['fa-chalkboard-user', '#34d399'], note_share: ['fa-note-sticky', '#fbbf24'], project_invite: ['fa-people-group', '#a78bfa'], project_reply: ['fa-user-check', '#22c55e'], project_task: ['fa-thumbtack', '#60a5fa'], project_comment: ['fa-comments', '#60a5fa'], reminder_project: ['fa-people-group', '#34d399'], event_invite_reply: ['fa-user-check', '#22c55e'], budget_warn: ['fa-wallet', '#fbbf24'], budget_over: ['fa-triangle-exclamation', '#f87171'], contact_accepted: ['fa-user-check', '#22c55e'], system: ['fa-bell', '#94a3b8'],
     };
@@ -71,7 +72,7 @@
       if (!n.read_at) { n.read_at = new Date().toISOString(); refreshNotifUI(); LumaNotifications.markRead(n.id); }
       closeNotifPanel();
       if ((n.type === 'nudge' || n.type === 'message') && n.ref) pendingChatOpen = n.ref; // opens that chat once Contacts has loaded
-      if (n.link && titles[n.link]) goTo(n.link);
+      if (n.link && titles[n.link]) luOpenTarget(n.link, (n.type === 'nudge' || n.type === 'message') ? null : n.ref, n.type);
     }
     // the user is looking at this conversation, so its message/nudge notifications are already read
     function markChatNotifsRead(contactId) {

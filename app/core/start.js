@@ -1,4 +1,6 @@
 // LUMA — core: start
+    // the page restored from the URL after a refresh must wait until the mode (Personal / Work / Study) and the spaces are known, or it would load the wrong items
+    let lumaModesDone; const lumaModesReady = new Promise(r => { lumaModesDone = r; }); setTimeout(() => lumaModesDone(), 10000); // never wait forever
     (async function authGate() {
       const session = await LumaAuth.requireSession("/login/");
       if (!session) return; // requireSession already redirected
@@ -17,6 +19,7 @@
       await LumaSpace.init(); // does the database know about Work / Study spaces yet?
       applyUserUI();
       initModes(); // back to Personal / Work / Study as the person left it
+      lumaModesDone();
       initNotifications(session.user.id);
       initReminders();
       loadDashboard().catch(e => console.error('LUMA: dashboard failed to load', e)).then(() => LumaLoader.release('app'));
@@ -33,5 +36,6 @@
       const fromPush = /[?&]from=push\b/.test(location.search);
       if (fresh && !fromPush) { if (location.hash) history.replaceState(null, '', location.pathname + location.search); return; }
       const key = decodeURIComponent(location.hash.slice(1));
-      if (key && key !== 'dashboard' && titles[key]) LumaPlan.loaded.then(() => goTo(key)); // wait for the plan so locked things render locked
+      const qs = new URLSearchParams(location.search), ref = fromPush ? qs.get('ref') : null;
+      if (key && key !== 'dashboard' && titles[key]) lumaModesReady.then(() => luOpenTarget(key, ref, qs.get('nt') || '')); // wait for the plan, the mode and the spaces, so locked things render locked and each mode shows its own items
     })();

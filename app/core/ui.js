@@ -210,3 +210,32 @@
 
     // In-app document viewer: images, PDFs, video/audio and plain text render
     // inline; anything else (Word, Excel, …) offers a download instead.
+
+
+    // ---------- open the thing a notification is about: go to its page, scroll to it and flash it ----------
+    const LU_TARGET_TABS = { reminder_study: 'assignments', reminder_class: 'timetable', reminder_project: 'groups', project_invite: 'groups' }; // Study opens on the tab that holds the item
+    // scroll ONLY the list the item is in (scrollIntoView would also push the whole app frame around)
+    function luScrollTo(el) {
+      let sc = el.parentElement;
+      while (sc && sc !== document.body) { const o = getComputedStyle(sc).overflowY; if ((o === 'auto' || o === 'scroll') && sc.scrollHeight > sc.clientHeight + 1) break; sc = sc.parentElement; }
+      if (!sc || sc === document.body) return;
+      const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - (sc.clientHeight - el.offsetHeight) / 2;
+      sc.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }
+    function luFocusItem(key, ref) {
+      if (!ref) return;
+      const pg = document.getElementById('page-' + key); if (!pg) return;
+      const sel = ['data-id', 'data-task', 'data-cls', 'data-note', 'data-sem'].map(a => `[${a}="${String(ref).replace(/"/g, '')}"]`).join(',');
+      let tries = 0;
+      const t = setInterval(() => { // the page may still be loading its data: look for up to ~5 seconds
+        tries++; const el = pg.querySelector(sel);
+        if (el) { clearInterval(t); luScrollTo(el); el.classList.remove('luma-flash'); void el.offsetWidth; el.classList.add('luma-flash'); setTimeout(() => el.classList.remove('luma-flash'), 4800); }
+        else if (tries > 33) clearInterval(t);
+      }, 150);
+    }
+    function luOpenTarget(key, ref, type) {
+      if (!key || !titles[key]) return;
+      if (key === 'study' && LU_TARGET_TABS[type] && typeof SD !== 'undefined') { SD.tab = LU_TARGET_TABS[type]; SD.keepTab = true; }
+      if (key === 'split' && ref && typeof SP !== 'undefined') SP.open.add(ref);   // the split opens up, too
+      goTo(key); luFocusItem(key, ref);
+    }

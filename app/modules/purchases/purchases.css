@@ -1,0 +1,12 @@
+    .main-content.fit #page-purchases .ph-card { flex:1 1 auto; min-height:0; overflow-y:auto; margin-bottom:14px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
+    .ph-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:0.8rem; }
+    .ph-row { display:flex; align-items:center; gap:14px; padding:12px 4px; border-bottom:1px solid rgba(255,255,255,0.07); }
+    .ph-row:last-child { border-bottom:0; }
+    .ph-main { flex:1; min-width:0; }
+    .ph-t { color:#fff; font-size:0.88rem; }
+    .ph-v { font-size:0.76rem; margin-top:3px; display:flex; align-items:center; gap:6px; }
+    .ph-side { text-align:right; font-size:0.78rem; color:rgba(255,255,255,0.8); flex:none; }
+    .ph-time, .ph-until { font-size:0.7rem; color:rgba(255,255,255,0.5); margin-top:2px; }
+    .ph-more { display:block; margin:12px auto 4px; }
+    .ph-chip { border:1px solid rgba(255,255,255,0.14); background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.8); border-radius:999px; padding:6px 14px; font:inherit; font-size:0.78rem; cursor:pointer; }
+    .ph-chip.active { background:rgba(96,165,250,0.25); border-color:rgba(96,165,250,0.6); color:#fff; }

@@ -5,7 +5,9 @@
     .sd-tabs button:hover { color:#fff; background:rgba(255,255,255,0.07); }
     .sd-tabs button.on { color:#fff; background:linear-gradient(135deg,#059669,#34d399); box-shadow:0 6px 16px rgba(5,150,105,0.28); }
     @media (max-width:900px) { .sd-tabs button span { display:none; } .sd-tabs button { padding:9px 12px; } }
-    #page-study .head-actions { flex-wrap:wrap; gap:10px; }
+    #page-study .head-actions { flex:1 1 auto; flex-wrap:wrap; gap:10px; }
+    #page-study .sd-tabs { flex:1 1 auto; }
+    #page-study .sd-tabs button { flex:1 1 auto; justify-content:center; }
     #page-study .fit-root, #sdRoot { padding-bottom:24px; }
 
     /* overview tiles */
