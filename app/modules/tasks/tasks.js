@@ -41,7 +41,7 @@
             ${items.map(t => `<div class="card kcard" data-id="${t.id}">
               <div class="kt" style="${t.status === 'done' ? 'text-decoration:line-through;opacity:.55' : ''}">${escapeHtml(t.title)}</div>
               ${t.notes ? `<div class="knote"><i class="fa-regular fa-note-sticky"></i>${escapeHtml(t.notes)}</div>` : ''}
-              <div class="kmeta"><span class="pill pill-${t.priority}">${t.priority === 'high' ? 'High' : t.priority === 'med' ? 'Medium' : 'Low'}</span><span>${escapeHtml(t.tag)}</span>
+              <div class="kmeta"><span class="pill pill-${t.priority}">${t.priority === 'high' ? 'High' : t.priority === 'med' ? 'Medium' : 'Low'}</span><span>${escapeHtml(t.tag)}</span>${t.repeat && t.repeat !== 'none' ? `<span class="t-badge" title="Repeats ${t.repeat}"><i class="fa-solid fa-repeat"></i> ${(T_REPEAT.find(r => r[0] === t.repeat) || [])[1] || ''}</span>` : ''}${Array.isArray(t.checklist) && t.checklist.length ? `<span class="t-badge ${t.checklist.every(x => x.d) ? 'ok' : ''}" title="Checklist"><i class="fa-regular fa-square-check"></i> ${t.checklist.filter(x => x.d).length}/${t.checklist.length}</span>` : ''}
                 <span class="t-status" title="Change status"><span class="d" style="background:${col.dot}"></span>${col.name}<i class="fa-solid fa-chevron-down" style="font-size:0.5rem"></i></span>
               </div>
               <div class="kfoot">${t.due_date ? `<span class="kdue ${t.status !== 'done' && t.due_date < today ? 't-due-over' : ''}"><i class="fa-regular fa-clock"></i> ${taskDue(t)}</span>` : '<span class="kdue" style="opacity:.5"><i class="fa-regular fa-clock"></i> No due date</span>'}
@@ -60,7 +60,9 @@
         if (t.status === status) return;
         const { data, error } = await LumaTasks.update(t.id, { status });
         if (error) return luAlert('Could not update task: ' + error.message);
-        Object.assign(t, data); render();
+        Object.assign(t, data);
+        if (status === 'done' && t.repeat && t.repeat !== 'none') { const again = await LumaTasks.list(); if (!again.error) TASKS = again.data; flashToast('Next one added', t.title + ' · ' + t.repeat, 'fa-repeat', '#60a5fa'); } // a repeating task makes its next copy by itself
+        render();
       };
 
       board.addEventListener('click', async e => {
@@ -73,7 +75,7 @@
           if (!await luConfirm({ title: `Delete “${t.title}”?`, message: 'This task is removed. This can\'t be undone.' })) return;
           const { error } = await LumaTasks.remove(t.id);
           if (error) return luAlert('Could not delete task: ' + error.message);
-          TASKS = TASKS.filter(x => x !== t); render();
+          TASKS = TASKS.filter(x => x !== t); render(); tkUndo(t);
         } else if (e.target.closest('.t-status')) { // jump straight to any status
           openTaskStatusMenu(e.target.closest('.t-status'), t, st => setStatus(t, st));
         } else openTaskModal(t); // click anywhere else on the card to open it
@@ -89,18 +91,28 @@
     }
 
 
+    // "Task deleted · Undo": add it back as it was
+    const tkUndo = t => luUndo('Task deleted', async () => {
+      const { data, error } = await LumaTasks.add({ title: t.title, status: t.status, priority: t.priority, tag: t.tag, dueDate: t.due_date, notes: t.notes || '', repeat: t.repeat || 'none', checklist: t.checklist || [] });
+      if (error) throw error; TASKS.push(data); if (taskRender) taskRender();
+    });
+
     // ---------- Task popup (add / edit) + quick status menu ----------
     const T_PRIO = [['low', 'Low'], ['med', 'Medium'], ['high', 'High']];
     const T_TAGS = ['Personal', 'Work', 'Study', 'Errand'];
-    const tkForm = { id: null, status: 'todo', priority: 'med' };
+    const T_REPEAT = [['none', 'Never'], ['daily', 'Daily'], ['weekdays', 'Weekdays'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
+    const tkForm = { id: null, status: 'todo', priority: 'med', repeat: 'none', list: [] };
     const tkErr = m => { docEl('tkError').textContent = m; docEl('tkError').style.display = m ? 'flex' : 'none'; };
     function paintTaskForm() {
       docEl('tkStatus').innerHTML = TASK_COLS.map(c => `<button type="button" data-s="${c.status}" class="${c.status === tkForm.status ? 'on' : ''}">${c.name}</button>`).join('');
       docEl('tkPriority').innerHTML = T_PRIO.map(([v, l]) => `<button type="button" data-p="${v}" class="${v === tkForm.priority ? 'on' : ''}">${l}</button>`).join('');
+      docEl('tkRepeat').innerHTML = T_REPEAT.map(([v, l]) => `<button type="button" data-r="${v}" class="${v === tkForm.repeat ? 'on' : ''}">${l}</button>`).join('');
+      docEl('tkRepeatHint').style.display = tkForm.repeat === 'none' ? 'none' : '';
+      docEl('tkChecklist').innerHTML = tkForm.list.map((x, i) => `<div class="tk-item ${x.d ? 'done' : ''}" data-i="${i}"><button type="button" class="tk-tick" data-tick title="${x.d ? 'Untick' : 'Tick'}"><i class="fa-solid fa-check"></i></button><input type="text" value="${escapeHtml(x.t)}" maxlength="120" data-text><button type="button" class="tk-x" data-rm title="Remove"><i class="fa-solid fa-xmark"></i></button></div>`).join('');
       docEl('tkTags').innerHTML = T_TAGS.map(t => `<button type="button" class="h-chip sm ${docEl('tkTag').value.trim().toLowerCase() === t.toLowerCase() ? 'on' : ''}" data-t="${t}">${t}</button>`).join('');
     }
     function openTaskModal(t, status) {
-      tkForm.id = t ? t.id : null; tkForm.status = t ? t.status : status || 'todo'; tkForm.priority = t ? t.priority : 'med';
+      tkForm.id = t ? t.id : null; tkForm.status = t ? t.status : status || 'todo'; tkForm.priority = t ? t.priority : 'med'; tkForm.repeat = t && t.repeat ? t.repeat : 'none'; tkForm.list = t && Array.isArray(t.checklist) ? t.checklist.map(x => ({ t: x.t, d: !!x.d })) : []; docEl('tkCheckNew').value = '';
       docEl('tkModalTitle').textContent = t ? 'Edit task' : 'New task'; docEl('tkSave').textContent = t ? 'Save changes' : 'Add task';
       docEl('tkTitle').value = t ? t.title : ''; docEl('tkTag').value = t ? t.tag : 'Personal'; docEl('tkNotes').value = t ? t.notes || '' : '';
       docEl('tkDue').value = t && t.due_date ? t.due_date : ''; if (docEl('tkDue')._luDateRefresh) docEl('tkDue')._luDateRefresh();
@@ -113,6 +125,12 @@
     docEl('tkStatus').onclick = e => { const b = e.target.closest('button'); if (b) { tkForm.status = b.dataset.s; paintTaskForm(); } };
     docEl('tkPriority').onclick = e => { const b = e.target.closest('button'); if (b) { tkForm.priority = b.dataset.p; paintTaskForm(); } };
     docEl('tkTags').onclick = e => { const b = e.target.closest('button'); if (b) { docEl('tkTag').value = b.dataset.t; paintTaskForm(); } };
+    docEl('tkRepeat').onclick = e => { const b = e.target.closest('button'); if (b) { tkForm.repeat = b.dataset.r; paintTaskForm(); } };
+    const tkAddStep = () => { const v = docEl('tkCheckNew').value.trim(); if (!v) return; if (tkForm.list.length >= 30) return tkErr('A checklist can have up to 30 steps.'); tkForm.list.push({ t: v.slice(0, 120), d: false }); docEl('tkCheckNew').value = ''; paintTaskForm(); docEl('tkCheckNew').focus(); };
+    docEl('tkCheckAdd').onclick = tkAddStep;
+    docEl('tkCheckNew').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); tkAddStep(); } });
+    docEl('tkChecklist').addEventListener('click', e => { const row = e.target.closest('.tk-item'); if (!row) return; const i = +row.dataset.i; if (e.target.closest('[data-tick]')) { tkForm.list[i].d = !tkForm.list[i].d; paintTaskForm(); } else if (e.target.closest('[data-rm]')) { tkForm.list.splice(i, 1); paintTaskForm(); } });
+    docEl('tkChecklist').addEventListener('input', e => { const row = e.target.closest('.tk-item'); if (row && e.target.matches('[data-text]')) tkForm.list[+row.dataset.i].t = e.target.value; });
     docEl('tkTag').addEventListener('input', paintTaskForm);
     docEl('tkDue').addEventListener('change', paintTaskForm);
     docEl('tkTitle').addEventListener('keydown', e => { if (e.key === 'Enter') docEl('tkSave').click(); });
@@ -120,12 +138,13 @@
       const title = docEl('tkTitle').value.trim();
       if (!title) return tkErr('Give the task a name.');
       if (!docEl('tkDue').value) return tkErr('Pick a due date.');
-      const fields = { title, status: tkForm.status, priority: tkForm.priority, tag: docEl('tkTag').value.trim() || 'Personal', due_date: docEl('tkDue').value || null, notes: docEl('tkNotes').value.trim() };
+      const fields = { title, status: tkForm.status, priority: tkForm.priority, tag: docEl('tkTag').value.trim() || 'Personal', due_date: docEl('tkDue').value || null, notes: docEl('tkNotes').value.trim(), repeat: tkForm.repeat, checklist: tkForm.list.filter(x => x.t.trim()).map(x => ({ t: x.t.trim(), d: !!x.d })) };
       const btn = docEl('tkSave'), label = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
-      const { data, error } = tkForm.id ? await LumaTasks.update(tkForm.id, fields) : await LumaTasks.add({ title, status: fields.status, priority: fields.priority, tag: fields.tag, dueDate: fields.due_date, notes: fields.notes });
+      const { data, error } = tkForm.id ? await LumaTasks.update(tkForm.id, fields) : await LumaTasks.add({ title, status: fields.status, priority: fields.priority, tag: fields.tag, dueDate: fields.due_date, notes: fields.notes, repeat: fields.repeat, checklist: fields.checklist });
       btn.disabled = false; btn.textContent = label;
       if (error) return tkErr(/notes|schema cache/i.test(error.message) ? 'Notes need one more database step — run supabase/migrations/026_task_notes.sql in the SQL Editor (or clear the notes to save).' : error.message);
       const i = TASKS.findIndex(x => x.id === data.id); if (i >= 0) TASKS[i] = data; else TASKS.push(data);
+      if (fields.status === 'done' && fields.repeat !== 'none') { const again = await LumaTasks.list(); if (!again.error) TASKS = again.data; flashToast('Next one added', fields.title + ' · ' + fields.repeat, 'fa-repeat', '#60a5fa'); }
       closeTaskModal(); if (taskRender) taskRender();
     };
     docEl('tkDelete').onclick = async () => {
@@ -133,7 +152,7 @@
       if (!await luConfirm({ title: `Delete “${t.title}”?`, message: 'This task is removed. This can\'t be undone.' })) return;
       const { error } = await LumaTasks.remove(t.id);
       if (error) return tkErr(error.message);
-      TASKS = TASKS.filter(x => x !== t); closeTaskModal(); if (taskRender) taskRender();
+      TASKS = TASKS.filter(x => x !== t); closeTaskModal(); if (taskRender) taskRender(); tkUndo(t);
     };
 
     // small menu to move a task to any status in one click

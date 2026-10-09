@@ -42,8 +42,16 @@
       }
     })();
 
+    // One submit at a time: from the click until the page has moved on (or an error came back) the form is locked,
+    // so pressing the button again, or Enter, can not send a second request.
+    let busy = false;
+    const lock = (on) => { form.classList.toggle("is-busy", on); form.querySelectorAll("input, button").forEach((el) => (el.disabled = on)); };
+    const BTN = 'Update password <i class="fa-solid fa-arrow-right"></i>';
+    const SPIN = (t) => '<i class="fa-solid fa-spinner fa-spin"></i> ' + t;
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
+      if (busy) return;
       errEl.style.display = "none";
       okEl.style.display = "none";
 
@@ -54,22 +62,24 @@
         return;
       }
 
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = "Updating…";
+      busy = true;
+      lock(true);
+      submitBtn.innerHTML = SPIN("Updating your password…");
 
-      const { error } = await LumaAuth.updatePassword(pw);
-
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = 'Update password <i class="fa-solid fa-arrow-right"></i>';
+      let error = null;
+      try { ({ error } = await LumaAuth.updatePassword(pw)); } catch (x) { error = { message: x && x.message ? x.message : "Something went wrong. Please try again." }; }
 
       if (error) {
+        busy = false;
+        lock(false);
+        submitBtn.innerHTML = BTN;
         showError(error.message);
         return;
       }
 
-      form.querySelectorAll("input, button").forEach((el) => (el.disabled = true));
-      showOk("Password updated. Redirecting to sign in…");
-      await LumaAuth.signOut();
-      setTimeout(() => (window.location.href = "/login/"), 1800);
+      // success: stay locked and keep the spinner until we are on the sign-in page
+      submitBtn.innerHTML = SPIN("Redirecting to sign in…");
+      showOk("Password updated. Taking you to sign in…");
+      try { await LumaAuth.signOut(); } catch (x) { /* the redirect below still happens */ }
+      setTimeout(() => (window.location.href = "/login/"), 1200);
     });
-  

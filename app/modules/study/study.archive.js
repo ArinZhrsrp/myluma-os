@@ -156,7 +156,7 @@
         }
         const note = e.target.closest('[data-sa-note]'); if (note) return openNoteModal(SDN.notes.find(x => x.id === note.dataset.saNote));
         const cls = e.target.closest('[data-cls]'); if (cls) return openClassModal(SD.classes.find(x => x.id === cls.dataset.cls));
-        const row = e.target.closest('[data-task]'); if (row && !e.target.closest('[data-check]')) return openTaskModal(SD.tasks.find(x => x.id === row.dataset.task));
+        const row = e.target.closest('[data-task]'); if (row && !e.target.closest('[data-check]')) return sdOpenTaskModal(SD.tasks.find(x => x.id === row.dataset.task));
         const chk = e.target.closest('[data-check]'); if (chk) return sdToggleDone(chk.dataset.check);
         const co = e.target.closest('[data-course]'); if (co) return openCourseModal(sdCourse(co.dataset.course));
       });

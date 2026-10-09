@@ -2,7 +2,7 @@
     // ---------- Calendar ----------
     // Your own events (with category, time and repeats) plus — read-only — tasks that are due and bills that are due.
     const C_CATS = [['Work', '#3b82f6'], ['Meeting', '#8b5cf6'], ['Personal', '#22c55e'], ['Health', '#f59e0b'], ['Social', '#ec4899'], ['Other', '#14b8a6']];
-    const C_EXTRA = [['Tasks', '#38bdf8'], ['Bills', '#fb923c'], ['Classes', '#34d399'], ['Study', '#a78bfa']]; // Classes / Study only show with the Study add-on
+    const C_EXTRA = [['Tasks', '#38bdf8'], ['Bills', '#fb923c'], ['Classes', '#34d399'], ['Study', '#a78bfa'], ['Work tasks', '#fb923c']]; // Classes / Study only show with the Study add-on, Work tasks with the Work add-on
     const C_HOUR_H = 52; // pixels per hour in the week view
     const C_UP_DAYS = 14; // the upcoming list only looks 2 weeks ahead
     const C_REPEAT = [['none', 'Never'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
@@ -30,6 +30,7 @@
       if (!cHidden.has('Tasks')) CTASKS.forEach(t => { if (t.due_date === k && t.status !== 'done') out.push({ type: 'task', id: t.id, title: t.title, color: cColor('Tasks'), cat: 'Tasks', label: 'Task due' }); });
       if (!cHidden.has('Bills')) BILLS.filter(b => b.active !== false).forEach(b => { if (bCycles(b, bFirst(k)).includes(k)) out.push({ type: 'bill', id: b.id, title: `${b.name} · ${bRM(b.amount)}`, color: cColor('Bills'), cat: 'Bills', label: bPaidAmt(b, k) != null ? 'Bill · paid' : 'Bill due', done: bPaidAmt(b, k) != null }); });
       if (typeof studyCalItems === 'function') out.push(...studyCalItems(k)); // the Study add-on's classes and due dates
+      if (typeof workCalItems === 'function') out.push(...workCalItems(k)); // the Work add-on's task deadlines
       return out.sort((a, c) => (a.time ? 1 : 0) - (c.time ? 1 : 0) || (a.time || '').localeCompare(c.time || '') || a.title.localeCompare(c.title));
     }
     const cTimeLabel = it => it.type === 'sdclass' ? fmt12(it.time) + ' – ' + fmt12(it.end) : it.type === 'event' ? (it.time ? fmt12(it.time) + (it.end ? ' – ' + fmt12(it.end) : '') : 'All day') : it.label;
@@ -52,7 +53,7 @@
         evs.forEach(ev => { if (cluster.length && ev.s >= clusterEnd) { flush(); clusterEnd = 0; } cluster.push(ev); clusterEnd = Math.max(clusterEnd, ev.e); }); if (cluster.length) flush();
         return { k, loose, laid };
       });
-      const headCells = ds.map(k => `<div class="tg-dh ${k === today ? 'today' : ''}"><span class="dn">${+k.slice(8)}</span><span class="dw">${cFmt(k, { weekday: 'short' })}</span></div>`).join('');
+      const headCells = ds.map(k => { const ld = luBusyOn() ? luLoad(k) : { level: 0 }; return `<div class="tg-dh ${k === today ? 'today' : ''} ${ld.level ? 'load' + ld.level : ''}"${ld.level ? ` title="${ld.level === 2 ? 'Packed' : 'Busy'}: ${ld.why}"` : ''}><span class="dn">${+k.slice(8)}</span><span class="dw">${cFmt(k, { weekday: 'short' })}</span>${ld.level ? `<i class="cal-ld fa-solid ${ld.level === 2 ? 'fa-fire' : 'fa-triangle-exclamation'}"></i>` : ''}</div>`; }).join('');
       const adCells = cols.map(c => `<div class="tg-ad" data-d="${c.k}">${c.loose.map(it => cChip(it, c.k)).join('')}</div>`).join('');
       const dayCols = cols.map(c => `<div class="tg-col" data-d="${c.k}">${c.laid.map(ev => {
         const top = ev.s / 60 * hourH, h = Math.max(20, (ev.e - ev.s) / 60 * hourH - 2), w = 100 / ev.lanes, it = ev.it;
@@ -68,12 +69,13 @@
     const C_ICON = { Work: 'fa-briefcase', Meeting: 'fa-users', Personal: 'fa-user', Health: 'fa-heart-pulse', Social: 'fa-champagne-glasses', Other: 'fa-calendar-day', Tasks: 'fa-square-check', Bills: 'fa-file-invoice-dollar' };
     function cDayAgenda(k) {
       const items = cItemsOn(k), card = it => {
-        const when = it.type === 'event' || it.type === 'sdclass' ? (it.time ? it.time + (it.end ? ' – ' + it.end : '') : 'All day') : it.type === 'task' ? 'Task due' : it.type === 'sdtask' ? it.label : 'Bill';
+        const when = it.type === 'event' || it.type === 'sdclass' ? (it.time ? it.time + (it.end ? ' – ' + it.end : '') : 'All day') : it.type === 'task' ? 'Task due' : it.type === 'sdtask' || it.type === 'wktask' ? it.label : 'Bill';
         const detail = it.type === 'event' ? ((it.e.note || '').split('\n')[0] || it.cat) : it.label;
         return `<div class="cd-card ${it.done ? 'done' : ''}" style="--ic:${it.color}" data-type="${it.type}" data-id="${it.id}" data-d="${k}"><div class="cd-ico"><i class="fa-solid ${C_ICON[it.cat] || 'fa-calendar-day'}"></i></div><div class="cd-main"><div class="cd-t">${escapeHtml(it.title)}</div><div class="cd-s">${escapeHtml(when === 'All day' || it.type !== 'event' ? detail : when + ' · ' + detail)}</div></div></div>`;
       };
       const loose = items.filter(i => !i.time), timed = items.filter(i => i.time), nowH = k === mytDayKey(Date.now()) ? mytNowMin() / 60 | 0 : -1;
-      let html = `<div class="cd-list" data-d="${k}">`;
+      const ld = luBusyOn() ? luLoad(k) : { level: 0 };
+      let html = (ld.level ? `<div class="lu-busy inline ${ld.level === 2 ? 'packed' : ''}"><i class="fa-solid ${ld.level === 2 ? 'fa-fire' : 'fa-triangle-exclamation'}"></i><div class="bt"><b>${ld.level === 2 ? 'This day is packed' : 'This day is busy'}</b><span>${ld.why}${ld.clashes ? '. Some things are at the same time.' : ''}</span></div></div>` : '') + `<div class="cd-list" data-d="${k}">`;
       if (loose.length) html += `<div class="cd-row"><div class="cd-time">All day</div><div class="cd-cards">${loose.map(card).join('')}</div></div>`;
       for (let h = 0; h < 24; h++) {
         const hh = String(h).padStart(2, '0'), here = timed.filter(i => +i.time.slice(0, 2) === h);
@@ -82,6 +84,26 @@
       return html + '</div>';
     }
 
+    // On a small window (a laptop) a month cell is short: whatever does not fit is folded into "+N more", so nothing spills over the line below.
+    function calFitCells(root) {
+      root.querySelectorAll('.cal-cell').forEach(cell => {
+        if (cell.scrollHeight <= cell.clientHeight + 1) return;
+        const chips = [...cell.querySelectorAll('.cchip')]; let more = cell.querySelector('.cal-more'), hidden = more ? +(more.textContent.match(/\d+/) || [0])[0] : 0;
+        while (chips.length && cell.scrollHeight > cell.clientHeight + 1) {
+          chips.pop().remove(); hidden++;
+          if (!more) { more = document.createElement('div'); more.className = 'cal-more'; more.dataset.d = cell.dataset.d; cell.appendChild(more); }
+          more.textContent = `+${hidden} more`;
+        }
+      });
+    }
+    // the Calendar's data without drawing it (the Dashboard, Work and Study use it for the busy-day notice)
+    let calDataAt = 0;
+    async function calEnsureData(force) {
+      if (!force && Date.now() - calDataAt < 60000) return; calDataAt = Date.now();
+      const [ev, tk] = await Promise.all([LumaEvents.list(), LumaTasks.list(), loadBillsData(), LumaPlan.hasAddon('study') ? sdEnsureLoaded() : null, LumaPlan.hasAddon('work') && typeof wkEnsureLoaded === 'function' ? wkEnsureLoaded() : null]);
+      if (!ev.error) CEV = ev.data || []; if (!tk.error) CTASKS = tk.data || [];
+      try { const inv = await LumaEvents.invited(); CINV = inv.error ? [] : (inv.data || []); } catch (e) { }
+    }
     function paintCalendar() {
       const body = docEl('calBody'); if (!body) return;
       const today = mytDayKey(Date.now()); if (!cDate) cDate = today;
@@ -97,7 +119,8 @@
         const gridH = Math.max(weeks * 64, body.clientHeight - 4), cellH = gridH / weeks, cap = Math.max(2, Math.floor((cellH - 38) / 21)); // rows shrink to fit (min 64px); one line per item
         html = `<div class="cal-grid" style="grid-template-rows:repeat(${weeks},minmax(0,1fr));min-height:${weeks * 64}px">` + Array.from({ length: weeks * 7 }, (_, i) => {
           const k = bAddDays(start, i), items = cItemsOn(k), muted = k.slice(0, 7) !== first.slice(0, 7), shown = items.length > cap ? cap - 1 : items.length; // when it doesn't all fit, the last line becomes "+N more"
-          return `<div class="cal-cell ${muted ? 'muted' : ''} ${k === today ? 'today' : ''}" data-d="${k}"><div class="num">${+k.slice(8)}</div>${items.slice(0, shown).map(it => cChip(it, k)).join('')}${items.length > shown ? `<div class="cal-more" data-d="${k}">+${items.length - shown} more</div>` : ''}</div>`;
+          const ld = luBusyOn() ? luLoad(k) : { level: 0 };
+          return `<div class="cal-cell ${muted ? 'muted' : ''} ${k === today ? 'today' : ''} ${ld.level ? 'load' + ld.level : ''}" data-d="${k}"${ld.level ? ` title="${ld.level === 2 ? 'Packed' : 'Busy'}: ${ld.why}"` : ''}><div class="num"><span class="dn">${+k.slice(8)}</span>${ld.level ? `<i class="cal-ld fa-solid ${ld.level === 2 ? 'fa-fire' : 'fa-triangle-exclamation'}"></i>` : ''}</div>${items.slice(0, shown).map(it => cChip(it, k)).join('')}${items.length > shown ? `<div class="cal-more" data-d="${k}">+${items.length - shown} more</div>` : ''}</div>`;
         }).join('') + '</div>';
         body.classList.add('cal-nosc');
       } else if (cView === 'week') {
@@ -118,6 +141,8 @@
       const sun = k => bAddDays(k, -cDow(k)), here = cView === 'month' ? bFirst(cDate) === bFirst(today) : cView === 'week' ? sun(cDate) === sun(today) : cView === 'day' ? cDate === today : cDate.slice(0, 4) === today.slice(0, 4);
       docEl('calToday').style.display = here ? 'none' : ''; // already looking at today: no need for the Today button
       docEl('calTitle').textContent = title; body.innerHTML = html; body.dataset.v = cView;
+      { const bb = docEl('calBusy'); if (bb) { const b = luBusyBanner(); bb.innerHTML = b; bb.style.display = b ? '' : 'none'; } }
+      if (cView === 'month') calFitCells(body);   // after the notice above the grid is in, because it changes how tall the cells are
       if (cView === 'week' || cView === 'day') {
         const sc = body.querySelector('.tg-scroll');
         if (sc) {
@@ -145,7 +170,7 @@
       const hiddenNow = new Set(cHidden); cHidden.clear();
       for (let i = 0; i < n; i++) cItemsOn(bAddDays(first, i)).forEach(it => { cnt[it.cat] = (cnt[it.cat] || 0) + 1; });
       hiddenNow.forEach(h => cHidden.add(h));
-      docEl('calCats').innerHTML = [...C_CATS, ...C_EXTRA].filter(([n2]) => (n2 !== 'Classes' && n2 !== 'Study') || (typeof studyVisibleOnCalendar === 'function' && studyVisibleOnCalendar())).map(([n2, c]) => `<div class="cat-item ${cHidden.has(n2) ? 'off' : ''}" data-cat="${n2}" title="${cHidden.has(n2) ? 'Show' : 'Hide'} ${n2}"><div class="cat-left"><div class="dot" style="background:${c}"></div>${n2}</div><div class="count">${cnt[n2] || 0}</div></div>`).join('');
+      docEl('calCats').innerHTML = [...C_CATS, ...C_EXTRA].filter(([n2]) => (n2 !== 'Classes' && n2 !== 'Study' && n2 !== 'Work tasks') || (n2 === 'Work tasks' ? (typeof workVisibleOnCalendar === 'function' && workVisibleOnCalendar()) : (typeof studyVisibleOnCalendar === 'function' && studyVisibleOnCalendar()))).map(([n2, c]) => `<div class="cat-item ${cHidden.has(n2) ? 'off' : ''}" data-cat="${n2}" title="${cHidden.has(n2) ? 'Show' : 'Hide'} ${n2}"><div class="cat-left"><div class="dot" style="background:${c}"></div>${n2}</div><div class="count">${cnt[n2] || 0}</div></div>`).join('');
     }
 
     // ----- create / edit popup -----
@@ -224,7 +249,7 @@
       if (!await luConfirm({ title: `Delete “${e.title}”?`, message: e.repeats !== 'none' ? 'Every occurrence of this repeating event is removed.' : 'This event is removed. This can\'t be undone.' })) return;
       const { error } = await LumaEvents.remove(e.id);
       if (error) return cErr(error.message);
-      CEV = CEV.filter(x => x !== e); closeCalModal(); paintCalendar();
+      CEV = CEV.filter(x => x !== e); closeCalModal(); paintCalendar(); calUndo(e);
     };
 
     // small list of everything on a day (opened from "+N more")
@@ -302,7 +327,7 @@
         const ev = CEV.find(x => x.id === id); if (!ev) return;
         if (!await luConfirm({ title: `Delete “${ev.title}”?`, message: ev.repeats !== 'none' ? 'Every occurrence of this repeating event is removed.' : 'This event is removed. This can\'t be undone.' })) return;
         const { error } = await LumaEvents.remove(ev.id); if (error) return luAlert('Could not delete: ' + error.message);
-        CEV = CEV.filter(x => x !== ev); closeCalDetail(); return paintCalendar();
+        CEV = CEV.filter(x => x !== ev); closeCalDetail(); paintCalendar(); return calUndo(ev);
       }
       if (b.dataset.a === 'accept' || b.dataset.a === 'decline') {
         const ev = CINV.find(x => x.id === id); if (!ev) return; const accept = b.dataset.a === 'accept';
@@ -315,7 +340,7 @@
       if (b.dataset.a === 'gobill') { closeCalDetail(); closeCalList(); return goTo('bills'); }
       if (b.dataset.a === 'pay') { const bill = BILLS.find(x => x.id === id); if (bill) { await toggleBillPaid(bill, d); calShowDetail('bill', id, d); paintCalendar(); } }
     };
-    function calOpenItem(type, id, dateKey) { if (type === 'sdclass' || type === 'sdtask') return sdOpenFromCal(type, id); calShowDetail(type, id, dateKey); }
+    function calOpenItem(type, id, dateKey) { if (type === 'sdclass' || type === 'sdtask') return sdOpenFromCal(type, id); if (type === 'wktask') return wkOpenFromSearch({ kind: 'task', id }); calShowDetail(type, id, dateKey); }
 
     // "View all": a popup with the whole list of what's coming up
     function openCalList() {
@@ -340,9 +365,28 @@
       cDate = cView === 'month' ? bAddMonths(bFirst(d), dir) : cView === 'week' ? bAddDays(d, 7 * dir) : cView === 'day' ? bAddDays(d, dir) : bAddMonths(bFirst(d), 12 * dir);
       paintCalendar();
     }
+    // "Event deleted · Undo": add it back as it was (guest invitations are not restored)
+    const calUndo = e => luUndo('Event deleted', async () => {
+      const { data, error } = await LumaEvents.add({ title: e.title, category: e.category, event_date: e.event_date, all_day: e.all_day, start_time: e.start_time, end_time: e.end_time, repeats: e.repeats, note: e.note || '' });
+      if (error) throw error; CEV.push(data); paintCalendar();
+    });
+    // save events (and open tasks and bills with a due date) as an .ics file
+    async function calExportIcs() {
+      const rep = { daily: 'FREQ=DAILY', weekly: 'FREQ=WEEKLY', monthly: 'FREQ=MONTHLY', yearly: 'FREQ=YEARLY' };
+      const mine = [...CEV, ...CINV.filter(e => e.my_status === 'accepted')];
+      const evs = mine.map(e => ({ uid: 'event-' + e.id, title: e.title, date: e.event_date, time: e.all_day ? null : e.start_time, endTime: e.all_day ? null : e.end_time, allDay: !!e.all_day, rrule: rep[e.repeats] || '', desc: [e.category, e.note].filter(Boolean).join(' · '), alarm: e.all_day ? null : 15 }));
+      const tasks = (typeof CTASKS !== 'undefined' ? CTASKS : []).filter(t => t.due_date && t.status !== 'done').map(t => ({ uid: 'task-' + t.id, title: 'Task: ' + t.title, date: t.due_date, allDay: true }));
+      const bills = (typeof BILLS !== 'undefined' ? BILLS : []).filter(b => b.active !== false && b.due_date).map(b => ({ uid: 'bill-' + b.id, title: `Bill: ${b.name} (${bRM(b.amount)})`, date: b.due_date, allDay: true, rrule: rep[b.recurrence] || '' }));
+      if (!evs.length && !tasks.length && !bills.length) return luAlert('There is nothing to export yet.');
+      if (!await luConfirm({ title: 'Export your calendar', message: `${evs.length} event${evs.length === 1 ? '' : 's'}, ${tasks.length} open task${tasks.length === 1 ? '' : 's'} and ${bills.length} bill${bills.length === 1 ? '' : 's'} are saved in one .ics file. Open it on your phone or computer to add them to Google, Apple or Outlook Calendar. It is a copy: later changes in LUMA are not sent to it.`, ok: 'Download', icon: 'fa-file-export', tone: 'info' })) return;
+      luIcs.download('LUMA-calendar.ics', luIcs.build([...evs, ...tasks, ...bills], 'LUMA'));
+      flashToast('Calendar saved', 'LUMA-calendar.ics', 'fa-file-export', '#60a5fa');
+    }
     function calBind() {
       if (cBound) return; cBound = true;
       let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (cView === 'month' && document.getElementById('page-calendar').classList.contains('active')) paintCalendar(); }, 120); }); // squares are re-sized with the window
+      docEl('calExport').onclick = calExportIcs;
+      docEl('calTitle').title = 'Choose a date'; docEl('calTitle').onclick = () => luDatePopup(docEl('calTitle'), { value: cDate || mytDayKey(Date.now()), onPick: k => { cDate = k; paintCalendar(); } });
       docEl('calPrev').onclick = () => calMove(-1); docEl('calNext').onclick = () => calMove(1);
       docEl('calToday').onclick = () => { cDate = mytDayKey(Date.now()); paintCalendar(); };
       docEl('calCreate').onclick = () => openCalModal(null, cView === 'month' || cView === 'year' ? mytDayKey(Date.now()) : cDate);
@@ -364,8 +408,17 @@
     async function calOnShow() {
       calBind(); if (!cDate) cDate = mytDayKey(Date.now());
       paintCalendar();
-      const [ev, tk] = await Promise.all([LumaEvents.list(), LumaTasks.list(), loadBillsData(), LumaPlan.hasAddon('study') ? sdEnsureLoaded() : null]);
+      const [ev, tk] = await Promise.all([LumaEvents.list(), LumaTasks.list(), loadBillsData(), LumaPlan.hasAddon('study') ? sdEnsureLoaded() : null, LumaPlan.hasAddon('work') && typeof wkEnsureLoaded === 'function' ? wkEnsureLoaded() : null]);
       LumaEvents.invited().then(r => { CINV = r.error ? [] : (r.data || []); paintCalendar(); }); // invitations (migration 048); shown as soon as they arrive
       CERR = ev.error || null; if (!ev.error) CEV = ev.data || []; if (!tk.error) CTASKS = tk.data || [];
       paintCalendar();
     }
+
+
+    // opening a notification about an event: show the month (or, if it is crowded, the day) it is on
+    LU_FOCUS_HOOKS.calendar = (ref, type, tries) => {
+      const e = [...CEV, ...CINV].find(x => x.id === ref); if (!e) return;
+      const today = mytDayKey(Date.now());
+      const d = e.repeats !== 'none' && (cOccurs(e, today) || e.event_date < today) ? today : e.event_date, want = tries >= 8 ? 'day' : 'month';
+      if (cView !== want || cDate !== d) { cDate = d; cView = want; paintCalendar(); }
+    };

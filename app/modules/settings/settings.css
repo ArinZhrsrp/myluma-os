@@ -130,5 +130,22 @@
     .pill-addon:hover { background:color-mix(in srgb, var(--ac, #34d399) 40%, transparent); }
     .pill-addon i { color:var(--ac, #34d399); }
 
-    .pc-hist-link { margin-top:1rem; width:100%; display:flex; align-items:center; gap:8px; padding:12px 4px 2px; border:0; border-top:1px solid rgba(255,255,255,0.07); background:none; color:#fff; font:inherit; font-size:0.8rem; font-weight:600; cursor:pointer; text-align:left; }
+    .pc-hist-link { margin-top:1rem; width:100%; display:flex; align-items:center; gap:8px; padding:12px 4px 2px; border:0; border-top:1px solid rgba(255,255,255,0.07); background:none; color:#fff; font:inherit; font-size:0.8rem; font-weight:600; cursor:pointer; text-align:left; justify-content:flex-start; padding-bottom:10px; }
+    .pc-hist-link + .pc-hist-link { margin-top:0; padding-top:12px; }
     .pc-hist-link i:last-child { margin-left:auto; font-size:0.6rem; opacity:0.6; }
+
+    /* gifts from an administrator */
+    .pc-gifts { margin:4px 0 12px; padding:12px 14px; border-radius:16px; background:linear-gradient(135deg, rgba(52,211,153,0.14), rgba(96,165,250,0.08)); border:1px solid rgba(52,211,153,0.35); }
+    .pc-gh { display:flex; align-items:center; gap:8px; color:#fff; font-weight:600; font-size:0.9rem; }
+    .pc-gh i { color:#34d399; }
+    .pc-gpast { margin-top:12px; font-size:0.78rem; color:rgba(255,255,255,0.6); font-weight:500; }
+    .pc-gnote { margin:6px 0 4px; font-size:0.74rem; line-height:1.5; }
+    .pc-gift { display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid rgba(255,255,255,0.08); }
+    .pc-gift.used, .pc-gift.expired { opacity:0.6; }
+    .pc-gift .pc-main { flex:1; min-width:0; }
+    .pc-gift .pc-name em { display:block; font-style:normal; font-weight:400; font-size:0.74rem; color:rgba(255,255,255,0.7); margin-top:2px; }
+    .pc-claim { flex:none; background:linear-gradient(135deg,#059669,#34d399); border-color:transparent; color:#fff; }
+    @media (max-width:560px) { .pc-gift { flex-wrap:wrap; } .pc-claim { width:100%; justify-content:center; } }
+    .pc-gift .pc-name em { text-transform:none; letter-spacing:0; background:none; padding:0; border-radius:0; color:rgba(255,255,255,0.75); }
+
+.pc-btns { display:flex; flex-direction:column; gap:6px; align-items:stretch; } .pc-btns .np-btn { white-space:nowrap; }

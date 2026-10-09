@@ -36,6 +36,11 @@
     // is a row (already loaded) visible right now?
     visible(row) { return !this.ready || !row || !row.space || this.allowed().indexOf(row.space) !== -1; },
     setArchived(ids) { this.archivedSems = ids.slice(); },
+    // which space (personal / work / study) one item belongs to, whatever mode you are in now; null when unknown
+    async spaceOf(table, id) {
+      if (!this.ready || !id) return null;
+      try { const r = await original("luma").from(table).select("space").eq("id", id).maybeSingle(); return r.error || !r.data ? null : r.data.space || null; } catch (e) { return null; }
+    },
     // finds out whether the database has the "space" column; call once after sign-in, before data is loaded
     async init() {
       try {

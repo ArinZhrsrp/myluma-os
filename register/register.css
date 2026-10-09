@@ -19,7 +19,7 @@ body::after{content:'';position:fixed;inset:0;background:rgba(6,10,20,0.35);z-in
 .inp:focus-within{border-color:#3b82f6;background:rgba(59,130,246,0.08);}
 .inp i{color:rgba(255,255,255,0.4);font-size:0.9rem;width:18px;text-align:center;}
 .inp input{flex:1;min-width:0;background:transparent;border:none;outline:none;color:#fff;font-size:0.9rem;}
-.inp input::placeholder{color:rgba(255,255,255,0.3);}
+.inp input::placeholder{color:rgba(255,255,255,0.62);}
 .inp select{flex:1;min-width:0;height:100%;background:transparent;border:none;outline:none;color:#fff;font-size:0.9rem;cursor:pointer;appearance:none;-webkit-appearance:none;font-family:inherit;}
 .inp select:invalid{color:rgba(255,255,255,0.3);}
 .inp select option{background:#141a2c;color:#fff;}

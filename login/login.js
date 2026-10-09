@@ -19,6 +19,8 @@
     const okEl = document.getElementById("formOk");
     const submitBtn = document.getElementById("submitBtn");
 
+    if (/[?&]disabled=1\b/.test(location.search)) setTimeout(() => showError('This account has been deactivated. Please contact support if you think this is a mistake.'), 0);
+    if (/[?&]deleted=1\b/.test(location.search)) setTimeout(() => showOk('Your account and all its data have been deleted. Thank you for trying LUMA.'), 0);
     function showError(text) {
       okEl.style.display = "none";
       errEl.textContent = text;
@@ -52,7 +54,7 @@
           window.location.href = "/verify-email/?sent=1&email=" + encodeURIComponent(email);
           return;
         }
-        showError(error.message);
+        showError(/banned|deactivated|disabled/i.test(error.message || '') ? 'This account has been deactivated. Please contact support if you think this is a mistake.' : error.message);
         return;
       }
 

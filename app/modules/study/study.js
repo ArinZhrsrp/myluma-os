@@ -13,7 +13,7 @@
 
     // what each tab shows and what its Add button does; the Notes and Groups files add their own entries
     const SD_VIEW = {}, SD_CLICK = [], SD_ONSHOW = {}; // SD_ONSHOW: a tab's own loader, run when it is opened
-    const SD_ADD = { overview: ['Add assignment', () => openTaskModal(null)], timetable: ['Add class', () => openClassModal(null)], assignments: ['Add assignment', () => openTaskModal(null)], subjects: ['Add subject', () => openCourseModal(null)], semesters: ['Add semester', () => openSemModal(null)] };
+    const SD_ADD = { overview: ['Add assignment', () => sdOpenTaskModal(null)], timetable: ['Add class', () => openClassModal(null)], assignments: ['Add assignment', () => sdOpenTaskModal(null)], subjects: ['Add subject', () => openCourseModal(null)], semesters: ['Add semester', () => openSemModal(null)] };
     // a classmate invited to a group project can use the Groups tab even without the Study add-on of their own
     const sdGuest = () => !LumaPlan.hasAddon('study');
 
@@ -23,7 +23,7 @@
       const info = (LumaPlan.addonInfo && LumaPlan.addonInfo.study) || {}, ends = info.expires_at ? new Date(info.expires_at) : null;
       const left = ends ? Math.ceil((ends - Date.now()) / 864e5) : null, note = ends ? ` · ${info.source === 'trial' ? 'free trial' : 'add-on'} until ${new Date(ends - 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (${left} day${left === 1 ? '' : 's'} left)` : '';
       return head('Study', `<span id="sdSub">Loading…</span>${note}`,
-        `<div class="sd-tabs" id="sdTabs">${SD_TABS.filter(t => !sdGuest() || t[0] === 'groups').map(([k, n, i]) => `<button type="button" data-sdtab="${k}" class="${SD.tab === k ? 'on' : ''}"><i class="fa-solid ${i}"></i><span>${n}</span></button>`).join('')}</div><button class="create-btn" id="sdAdd"><i class="fa-solid fa-plus"></i> <span id="sdAddT">Add assignment</span></button>`) +
+        `<div class="sd-tabs" id="sdTabs">${SD_TABS.filter(t => !sdGuest() || t[0] === 'groups').map(([k, n, i]) => `<button type="button" data-sdtab="${k}" title="${n}" aria-label="${n}" class="${SD.tab === k ? 'on' : ''}"><i class="fa-solid ${i}"></i><span>${n}</span></button>`).join('')}</div><button class="create-btn" id="sdAdd"><i class="fa-solid fa-plus"></i> <span id="sdAddT">Add assignment</span></button>`) +
         '<div id="sdRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
     };
 
@@ -184,7 +184,7 @@
       const todayHtml = todays.length ? todays.map(c => {
         const s = sdMin(c.start_time), e = sdMin(c.end_time), isNow = nowM >= s && nowM < e, isNext = !isNow && !marked && s > nowM;
         if (isNext) marked = true;
-        return `<div class="sd-today ${isNow ? 'now' : ''}" data-cls="${c.id}" style="--c:${(sdCourse(c.course_id) || {}).color || '#34d399'}"><div class="tm">${sdT12(c.start_time)}<small>${sdT12(c.end_time)}</small></div><div class="bd"><b>${escapeHtml((sdCourse(c.course_id) || {}).name || 'Class')}</b><small>${[c.room, (SD_CLASS_KINDS.find(x => x[0] === c.kind) || [])[1]].filter(Boolean).map(escapeHtml).join(' · ')}</small></div>${isNow ? '<span class="sd-badge">Now</span>' : isNext ? '<span class="sd-badge next">Next</span>' : e <= nowM ? '<span class="sd-badge off">Done</span>' : ''}</div>`;
+      return `<div class="sd-today ${isNow ? 'now' : ''}" data-cls="${c.id}" style="--c:${(sdCourse(c.course_id) || {}).color || '#34d399'}"><div class="tm">${sdT12(c.start_time)}<small>${sdT12(c.end_time)}</small></div><div class="bd"><b>${escapeHtml((sdCourse(c.course_id) || {}).name || 'Class')}</b><small>${[c.room, (SD_CLASS_KINDS.find(x => x[0] === c.kind) || [])[1]].filter(Boolean).map(escapeHtml).join(' · ')}</small></div>${isNow ? '<span class="sd-badge">Now</span>' : isNext ? '<span class="sd-badge next">Next</span>' : e <= nowM ? '<span class="sd-badge off">Done</span>' : ''}</div>`;
       }).join('') : '<div class="ls" style="padding:6px 2px">No classes today. Enjoy!</div>';
       const soon = [...overdue, ...open.filter(t => t.due_date && t.due_date >= today)].sort((a, b) => a.due_date.localeCompare(b.due_date) || sdHM(a.due_time).localeCompare(sdHM(b.due_time))).slice(0, 8);
       const dueHtml = soon.length ? soon.map(sdRow).join('') : '<div class="ls" style="padding:6px 2px">Nothing is due. Add an assignment, test or exam to track it.</div>';
@@ -198,7 +198,8 @@
         : '<div class="ls" style="padding:6px 2px">Add a score and weight to your assignments to see your grade for each subject.</div>';
       const exams = open.filter(t => (t.kind === 'exam' || t.kind === 'test') && t.due_date && t.due_date >= today).sort((a, b) => a.due_date.localeCompare(b.due_date)).slice(0, 5);
       const examHtml = exams.length ? exams.map(t => { const d = sdDiff(today, t.due_date), c = sdCourse(t.course_id); return `<div class="sd-exam ${d <= 3 ? 'hot' : ''}" data-task="${t.id}" style="--c:${c ? c.color : '#a78bfa'}"><div class="dd"><b>${d}</b><span>${d === 1 ? 'day' : 'days'}</span></div><div class="bd"><b>${escapeHtml(t.title)}</b><small>${escapeHtml(c ? c.name : sdKind(t.kind)[1])} · ${sdFmtDate(t.due_date, { weekday: 'short', day: 'numeric', month: 'short' })}${t.due_time ? ' · ' + sdT12(t.due_time) : ''}</small></div></div>`; }).join('') : '<div class="ls" style="padding:6px 2px">No tests or exams coming up. Add one as an assignment of type Exam or Test.</div>';
-      return `${sdSemStrip()}<div class="sd-tiles">${tiles}</div><div class="grid-2">
+      setTimeout(() => luPaintBusy('sdBusy'), 0);
+      return `${sdSemStrip()}<div id="sdBusy" class="wk-busybox" style="display:none"></div><div class="sd-tiles">${tiles}</div><div class="grid-2">
         ${card(`<div class="section-title"><i class="fa-solid fa-chalkboard-user"></i> Today's classes</div>${todayHtml}`)}
         ${card(`<div class="section-title"><i class="fa-solid fa-hourglass-half"></i> Due soon</div>${dueHtml}`)}
         ${card(`<div class="section-title"><i class="fa-solid fa-stopwatch"></i> Study time this week</div>${timeHtml}`)}
@@ -543,7 +544,7 @@
       const off = ts => { const p = new Intl.DateTimeFormat('en-US', { timeZone: MYT, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(ts)), g = x => +p.find(y => y.type === x).value; return Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'), g('second')) - ts; };
       let guess = t - off(t); guess = t - off(guess); return new Date(guess).toISOString();
     }
-    function openTaskModal(t, pre) {
+    function sdOpenTaskModal(t, pre) {
       if (!t && !sdActiveSem()) { sdNeedSem(); return; }
       const src = t || pre || {};
       SDF.taskId = t ? t.id : null; SDF.taskKind = src.kind || 'assignment'; SDF.taskStatus = t ? t.status : 'todo';
@@ -813,7 +814,7 @@
     async function sdOpenFromSearch(r) {
       await sdEnsureLoaded();
       if (r.kind === 'course') { const c = sdCourse(r.id); if (c) openCourseModal(c); }
-      else if (r.kind === 'task') { const t = SD.tasks.find(x => x.id === r.id); if (t) openTaskModal(t); }
+      else if (r.kind === 'task') { const t = SD.tasks.find(x => x.id === r.id); if (t) sdOpenTaskModal(t); }
       else if (r.kind === 'note' && typeof sdOpenNoteById === 'function') sdOpenNoteById(r.id);
       else if (r.kind === 'group' && typeof sdOpenProject === 'function') sdOpenProject(r.id);
     }
@@ -907,7 +908,7 @@
     }
     function sdOpenFromCal(type, id) {
       if (type === 'sdclass') { const c = SD.classes.find(x => x.id === id); if (c) openClassModal(c); }
-      else { const t = SD.tasks.find(x => x.id === id); if (t) openTaskModal(t); }
+      else { const t = SD.tasks.find(x => x.id === id); if (t) sdOpenTaskModal(t); }
     }
 
     // ---------- wiring ----------
@@ -931,6 +932,7 @@
         if (e.target.closest('[data-ended]')) { SD.showEnded = !SD.showEnded; return sdPaint(); }
         if (e.target.closest('[data-scale]')) return openScale();
         if (e.target.closest('[data-breaks]')) return openBreaks();
+        const wl = e.target.closest('.sd-ttnav .lb'); if (wl) return void luDatePopup(wl, { value: SD.ttWeek || sdWeekStart(), onPick: k => { SD.ttWeek = sdWeekStartOf(k); sdPaint(); } });
         const wk = e.target.closest('[data-ttw]'); if (wk) { const m = wk.dataset.ttw; SD.ttWeek = m === 'today' ? sdWeekStart() : sdAdd(SD.ttWeek || sdWeekStart(), m === 'next' ? 7 : -7); return sdPaint(); }
         const cell = e.target.closest('.tg-col'); if (cell && !e.target.closest('.tg-ev')) { const y = e.clientY - cell.getBoundingClientRect().top, h = Math.max(0, Math.min(23, Math.floor(y / SD_H))); return openClassModal(null, +cell.dataset.wd, String(h).padStart(2, '0') + ':00'); } // an empty hour: new class at that hour
         const tt = e.target.closest('[data-tt]'); if (tt) { try { localStorage.setItem('luma_tt_view', tt.dataset.tt); } catch (x) { } return sdPaint(); }
@@ -939,7 +941,7 @@
         const f = e.target.closest('[data-f]'); if (f) { SD.filter = f.dataset.f; return sdPaint(); }
         const fc = e.target.closest('[data-fc]'); if (fc) { SD.fCourse = fc.dataset.fc; return sdPaint(); }
         const cls = e.target.closest('[data-cls]'); if (cls) return openClassModal(SD.classes.find(x => x.id === cls.dataset.cls));
-        const row = e.target.closest('[data-task]'); if (row) return openTaskModal(SD.tasks.find(x => x.id === row.dataset.task));
+        const row = e.target.closest('[data-task]'); if (row) return sdOpenTaskModal(SD.tasks.find(x => x.id === row.dataset.task));
         const co = e.target.closest('[data-course]'); if (co) { if (SD.sel) { const id = co.dataset.course; SD.sel.has(id) ? SD.sel.delete(id) : SD.sel.add(id); return sdPaint(); } return openCourseModal(sdCourse(co.dataset.course)); }
       });
       if (!sdGuest()) await sdLoad(); sdPaint();

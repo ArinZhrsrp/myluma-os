@@ -58,10 +58,17 @@
             </div>
           </div>
 
+          <!-- Work (Work mode only) -->
+          <div class="card" id="dashWork" style="display:none">
+            <div class="wgt-head"><span class="wgt-label"><i class="fa-solid fa-briefcase"></i> Work <small id="dashWorkSub" class="dw-co"></small></span><span class="wgt-link" data-dw-open>Open Work</span></div>
+            <div id="dashWorkBody"><div class="wgt-sub">Loading…</div></div>
+          </div>
+
           <!-- Today's Schedule -->
           <div class="card">
             <div class="wgt-head"><span class="wgt-label"><i class="fa-regular fa-calendar"></i> Today's
                 Schedule</span><span class="wgt-link nav-cal">View calendar</span></div>
+            <div id="dashBusy" style="display:none"></div>
             <div id="dashSched" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto;">
               <div class="wgt-sub">Loading…</div>
             </div>

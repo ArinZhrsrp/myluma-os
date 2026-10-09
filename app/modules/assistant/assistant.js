@@ -5,7 +5,7 @@
         const cmdSets = {
           personal: ['What should I focus on today?', 'How is my spending this month?', 'Add a task: pay rent, due Friday', 'Log 7 hours of sleep', 'Add dentist tomorrow 3pm', 'Split RM120 dinner with Aina, restaurant tax'],
           study: ['What should I study this week?', 'Which assignment is due first?', 'Add an assignment: ER report for Databases, due Friday', 'Remind me to revise every evening at 8pm', 'Add my timetable', 'How am I doing on my grades?'],
-          work: ['What should I focus on today?', 'Add a task: send the weekly report, due Friday', 'Add a meeting tomorrow 3pm', 'Remind me to fill in the timesheet on the last weekday', 'What is on my calendar this week?', 'Add a note: meeting notes'],
+          work: ['What should I focus on today?', 'Add a task to Website redesign: send the quotation, due Friday', 'Move the quotation task to Doing', 'I worked 2 hours on the quotation today', 'Start the timer on Website redesign', 'How many hours did I log this month?'],
         };
         const cmds = cmdSets[LUMA_MODE] || cmdSets.personal;
         const firstName = lumaName();
@@ -51,6 +51,7 @@
       if (r.left != null) { lumiLeft = r.left; lumiLimit = r.limit || lumiLimit; lumiPaintLeft(); }
       if (r.actions && r.actions.length) { // something was saved: refresh what's on screen
         if (typeof SD !== 'undefined') SD.loadedAt = 0; // Study data is fetched again
+        if (typeof WK !== 'undefined') { WK.loadedAt = 0; if (typeof WKTM !== 'undefined') WKTM.loaded = false; } // Work data is fetched again
         if (document.getElementById('page-dashboard').classList.contains('active')) loadDashboard().catch(() => { });
         const act = document.querySelector('.page.active'); if (act && act.id !== 'page-dashboard' && act.id !== 'page-assistant') goTo(act.id.replace('page-', ''));
       }

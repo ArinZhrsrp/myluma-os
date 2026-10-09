@@ -122,6 +122,9 @@
       if (e.target === docEl('moneyAllOverlay')) return closeAllTx();
       const row = e.target.closest('.m-tx[data-id]'); if (row && e.target.closest('.m-edit')) { closeAllTx(); openEntryModal(MENT.find(x => x.id === row.dataset.id)); }
     };
+    const keyEnd = first => bAddDays(bAddMonths(first, 1), -1); // the last day of the month that starts on `first`
+    docEl('mAllMonth').style.cursor = 'pointer'; docEl('mAllMonth').title = 'Choose a month and year';
+    docEl('mAllMonth').onclick = () => { const thisFirst = bFirst(mytDayKey(Date.now())); luDatePopup(docEl('mAllMonth'), { value: mAllMonth, min: bAddMonths(thisFirst, -24), max: keyEnd(bAddMonths(thisFirst, 12)), onPick: k => { mAllMonth = bFirst(k); mAllDay = ''; paintAllTx(); } }); };
     docEl('mAllPrev').onclick = () => { mAllMonth = bAddMonths(mAllMonth, -1); mAllDay = ''; paintAllTx(); };
     docEl('mAllNext').onclick = () => { mAllMonth = bAddMonths(mAllMonth, 1); mAllDay = ''; paintAllTx(); };
     docEl('mAllDay').addEventListener('change', () => { mAllDay = docEl('mAllDay').value; paintAllTx(); });
@@ -241,6 +244,7 @@
       pg.querySelector('#moneyIncomeBtn').addEventListener('click', openIncomeModal);
       pg.querySelector('#moneyBudgetBtn').addEventListener('click', editBudget);
       pg.querySelector('#moneyRoot').addEventListener('click', e => {
+        const mj = e.target.closest('.m-nav .h-mnav > span'); if (mj) { const cur = mMonth || bFirst(mytDayKey(Date.now())); return void luDatePopup(mj, { value: cur, onPick: k => { mMonth = bFirst(k); if (mMonth === bFirst(mytDayKey(Date.now()))) mMonth = null; paintMoney(); } }); }
         if (e.target.closest('.m-mprev') || e.target.closest('.m-mnext')) { mMonth = bAddMonths(mMonth || bFirst(mytDayKey(Date.now())), e.target.closest('.m-mprev') ? -1 : 1); if (mMonth === bFirst(mytDayKey(Date.now()))) mMonth = null; return paintMoney(); }
         if (e.target.closest('.m-viewall')) return openAllTx();
         const act = e.target.closest('[data-act]'); if (act) return act.dataset.act === 'income' ? openIncomeModal() : editBudget();

@@ -18,6 +18,14 @@
           <div class="h-days" id="tkPriority"></div>
         </div>
       </div>
+      <div class="pem-field"><label>Repeats</label>
+        <div class="h-days" id="tkRepeat"></div>
+        <div class="pem-hint" id="tkRepeatHint" style="margin:6px 0 0;display:none"><i class="fa-solid fa-repeat"></i> When you finish it, the next one is added for you.</div>
+      </div>
+      <div class="pem-field"><label>Checklist <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label>
+        <div class="tk-list" id="tkChecklist"></div>
+        <div class="tk-add"><input id="tkCheckNew" type="text" maxlength="120" placeholder="Add a step…" autocomplete="off"><button type="button" class="np-btn" id="tkCheckAdd"><i class="fa-solid fa-plus"></i></button></div>
+      </div>
       <div class="pem-field"><label>Tag</label><input id="tkTag" type="text" maxlength="30"
           placeholder="e.g. Work, Personal" autocomplete="off">
         <div class="h-tpls" id="tkTags" style="margin-top:8px"></div>

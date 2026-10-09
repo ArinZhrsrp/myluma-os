@@ -32,3 +32,20 @@
       </div>
     </div>
   </div>
+
+  <div class="modal-overlay confirm-overlay" id="acctDelOverlay">
+    <div class="profile-edit-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" style="color:#fca5a5">Delete my account</div>
+        <button class="x" id="acctDelClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="acctDelError"></div>
+      <div id="acctDelAdmin" style="display:none" class="ls">Administrator accounts can not be deleted here. Ask another administrator to remove your administrator access first.</div>
+      <div id="acctDelBody">
+        <div class="ls" style="line-height:1.6;margin-bottom:12px">This permanently removes your account and everything in it: tasks, events, notes, files, habits, goals, bills, money, reminders, Study data, contacts and chats, and your sign-in. <b style="color:#fff">It can not be undone.</b> Any paid plan or add-on ends with no refund.</div>
+        <button type="button" class="np-btn" id="acctDelExport" style="margin-bottom:14px"><i class="fa-solid fa-download"></i> Download my data first</button>
+        <div class="pem-field"><label>Type your email, <b id="acctDelEmailShow"></b>, to confirm</label><input id="acctDelEmail" type="text" autocomplete="off" placeholder="name@example.com"></div>
+        <button type="button" class="confirm-btn danger" id="acctDelGo" style="width:100%" disabled>Delete my account forever</button>
+      </div>
+    </div>
+  </div>

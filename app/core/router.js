@@ -6,19 +6,19 @@
     // ---------- Nav item click: set active + switch page ----------
     const pageTitle = document.getElementById('pageTitle');
     const titles = {
-      dashboard: 'Dashboard', calendar: 'Calendar', reminders: 'Reminders', work: 'Work', study: 'Study', studyarchive: 'Study archive', admin: 'Admin', adminreport: 'Plan report', tasks: 'Tasks & Work', money: 'Money',
+      dashboard: 'Dashboard', calendar: 'Calendar', reminders: 'Reminders', work: 'Work', company: 'Company', feedback: 'Feedback', adminfeedback: 'Feedback inbox', study: 'Study', studyarchive: 'Study archive', admin: 'Admin', adminreport: 'Plan report', tasks: 'Tasks & Work', money: 'Money',
       subscriptions: 'Subscriptions', bills: 'Bills', goals: 'Goals', habits: 'Habits', health: 'Health',
       notes: 'Notes & Docs', documents: 'Documents', contacts: 'Contacts', assistant: 'Lumi',
       analytics: 'Analytics', settings: 'Settings', purchases: 'Purchase history', split: 'Split expenses', support: 'Support', notifications: 'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'purchases', 'split', 'admin', 'adminreport', 'dashboard', 'settings', 'purchases', 'split', 'health', 'contacts', 'assistant', 'support', 'work', 'study', 'studyarchive']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'purchases', 'split', 'admin', 'adminreport', 'dashboard', 'settings', 'purchases', 'split', 'health', 'contacts', 'assistant', 'support', 'work', 'company', 'study', 'studyarchive', 'work', 'feedback', 'adminfeedback']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
-    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin', 'adminreport', 'study', 'studyarchive']);
+    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin', 'adminreport', 'study', 'studyarchive', 'work', 'company', 'feedback', 'adminfeedback']);
 
     // pages whose markup is "heading + content": the content goes into one scrolling box so the heading stays put
-    const FIT_WRAP = new Set(['split', 'health', 'contacts', 'assistant', 'support', 'work', 'study', 'studyarchive']);
+    const FIT_WRAP = new Set(['split', 'health', 'contacts', 'assistant', 'support', 'work', 'company', 'study', 'studyarchive', 'feedback', 'adminfeedback']);
     function fitWrap(pg, key) {
       if (!FIT_WRAP.has(key) || pg.querySelector(':scope > .fit-root')) return;
       const head = pg.querySelector(':scope > .page-head'), box = document.createElement('div'); box.className = 'fit-root';
@@ -27,7 +27,9 @@
     }
     function goTo(key) {
       if (!key || !titles[key]) return;
-      if ((key === 'work' || key === 'study') && !LumaPlan.hasAddon(key) && !(key === 'study' && LumaPlan.guestStudy)) return openAddon(key);
+      if (key === 'feedback') { const cur = document.querySelector('.page.active'); if (cur && cur.id !== 'page-feedback') window.LU_PREV_PAGE = cur.id.replace('page-', ''); }   // the Feedback page starts on the module you came from
+      if ((key === 'work' || key === 'study') && !LumaPlan.hasAddon(key) && !lumaModeOpen(key)) return openAddon(key);
+      if (key === 'company' && !LumaPlan.hasAddon('work')) return openAddon('work'); // companies are for people with the Work add-on
       if (key === 'studyarchive' && !LumaPlan.hasAddon('study')) return openAddon('study'); // the archive is for people with the Study add-on // the add-on isn't switched on for this account
       modeSync(key);
       closeContactChat(); // tear down any open chat's realtime subscription before navigating away

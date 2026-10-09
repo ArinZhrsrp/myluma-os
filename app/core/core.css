@@ -1618,7 +1618,7 @@
     }
 
     .chat-input input::placeholder {
-      color: rgba(255, 255, 255, 0.3);
+      color: rgba(255, 255, 255, 0.62);
     }
 
     .chat-send {
@@ -1714,7 +1714,7 @@
     .srch-bar { display:flex; align-items:center; gap:12px; padding:0 18px; height:58px; border-bottom:1px solid rgba(255,255,255,0.08); flex:none; }
     .srch-bar i { color:rgba(255,255,255,0.55); }
     .srch-bar input { flex:1; min-width:0; height:100%; background:none; border:none; outline:none; color:#fff; font:inherit; font-size:0.95rem; }
-    .srch-bar input::placeholder { color:rgba(255,255,255,0.4); }
+    .srch-bar input::placeholder { color:rgba(255,255,255,0.68); }
     kbd { font:600 0.62rem inherit; font-family:inherit; padding:3px 6px; border-radius:6px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.7); }
     .srch-list { flex:1 1 auto; min-height:0; overflow-y:auto; padding:8px 10px 6px; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.2) transparent; }
     .srch-g { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em; color:rgba(255,255,255,0.5); font-weight:700; padding:12px 12px 8px; }
@@ -2716,6 +2716,23 @@
       color: #fff;
     }
 
+    button.lu-cal-title { border: 0; background: transparent; font-family: inherit; cursor: pointer; padding: 5px 8px; margin-left: -8px; border-radius: 9px; display: inline-flex; align-items: center; gap: 6px; }
+    button.lu-cal-title:hover { background: rgba(255, 255, 255, 0.08); }
+    button.lu-cal-title i { font-size: 0.65rem; opacity: 0.7; }
+    .lu-cal-yr { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .lu-cal-yr label, .lu-cal-type label { color: rgba(255, 255, 255, 0.55); font-size: 0.72rem; }
+    .lu-cal-yr input { flex: 1; min-width: 0; height: 38px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); color: #fff; padding: 0 12px; font-size: 0.95rem; font-weight: 600; font-family: inherit; box-sizing: border-box; outline: none; }
+    .lu-cal-yr input:focus, .lu-cal-type input:focus { border-color: #3b82f6; }
+    .lu-cal-months { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+    .lu-cal-months button { height: 38px; border: 0; border-radius: 10px; background: rgba(255, 255, 255, 0.06); color: #fff; font-family: inherit; font-size: 0.82rem; cursor: pointer; }
+    .lu-cal-months button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.13); }
+    .lu-cal-months button.sel { background: #2563eb; font-weight: 600; }
+    .lu-cal-months button:disabled { opacity: 0.3; cursor: default; }
+    .lu-cal-type { margin-bottom: 8px; } .lu-cal-type > div:first-of-type { display: flex; gap: 8px; margin-top: 5px; }
+    .lu-cal-type input { flex: 1; min-width: 0; height: 38px; border-radius: 10px; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); color: #fff; padding: 0 12px; font-size: 0.85rem; font-family: inherit; box-sizing: border-box; outline: none; }
+    .lu-cal-type [data-go] { border: 0; border-radius: 10px; padding: 0 16px; background: #2563eb; color: #fff; font-family: inherit; font-weight: 600; cursor: pointer; }
+    .lu-cal-err { min-height: 1em; margin-top: 5px; color: #fca5a5; font-size: 0.72rem; }
+
     .lu-cal-nav {
       display: flex;
       gap: 6px;
@@ -3450,3 +3467,46 @@
     .luma-flash { animation: luFlash 1.5s ease-in-out 3; border-radius: 12px; }
     .main-content.fit .page.active > .fit-root, .ph-card, .sp-cards { overflow-x: hidden; }
     .main-content { overflow-x: clip; }   /* clip (not hidden): it hides sideways overflow without turning this box into a scroller */
+
+    /* the Undo bar after a delete */
+    .undo-toast { position:fixed; left:50%; bottom:26px; transform:translate(-50%, 20px); opacity:0; z-index:420; display:flex; align-items:center; gap:14px; max-width:min(92vw, 420px); padding:10px 12px 10px 18px; border-radius:16px; color:#fff; font-size:0.84rem; background:rgba(22,28,46,0.92); border:1px solid rgba(255,255,255,0.14); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); box-shadow:0 12px 40px rgba(0,0,0,0.45); transition:.25s; }
+    .undo-toast.in { opacity:1; transform:translate(-50%, 0); }
+    .undo-toast span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .undo-toast button { flex:none; border:0; border-radius:10px; padding:8px 14px; font:600 0.8rem inherit; font-family:inherit; color:#fff; background:linear-gradient(135deg,#3b82f6,#6366f1); cursor:pointer; min-height:36px; }
+    @media (max-width:768px) { .undo-toast { bottom:96px; } }
+
+    /* a small dot on the Settings menu item while a gift is waiting */
+    .menu.has-gift { position:relative; }
+    .menu.has-gift::after { content:''; width:9px; height:9px; border-radius:50%; background:#34d399; box-shadow:0 0 10px rgba(52,211,153,0.8); margin-left:auto; flex:none; }
+
+    /* ---------- busy days (core/busy.js) ---------- */
+    .lu-busy { display:flex; align-items:flex-start; gap:12px; padding:11px 14px; margin-bottom:12px; border-radius:14px; background:rgba(251,191,36,0.1); border:1px solid rgba(251,191,36,0.35); color:#fde68a; }
+    .lu-busy.packed { background:rgba(248,113,113,0.1); border-color:rgba(248,113,113,0.4); color:#fecaca; }
+    .lu-busy > i { flex:none; margin-top:3px; font-size:1rem; } .lu-busy .bt { flex:1; min-width:0; } .lu-busy .bt b { display:block; color:#fff; font-size:0.88rem; } .lu-busy .bt span { display:block; font-size:0.78rem; margin-top:2px; }
+    .lu-busy .bd { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px; } .lu-busy .bd em { font-style:normal; font-size:0.72rem; opacity:0.75; margin:0 2px 0 4px; }
+    .lu-busy .bd button { border:1px solid rgba(255,255,255,0.18); background:rgba(255,255,255,0.08); color:#fff; border-radius:99px; padding:4px 11px; font:600 0.72rem inherit; font-family:inherit; cursor:pointer; } .lu-busy .bd button.p { border-color:rgba(248,113,113,0.5); } .lu-busy .bd button:hover { background:rgba(255,255,255,0.16); }
+    .lu-busy .bx { flex:none; border:0; background:transparent; color:inherit; opacity:0.7; cursor:pointer; width:26px; height:26px; border-radius:8px; } .lu-busy .bx:hover { opacity:1; background:rgba(255,255,255,0.1); }
+    .lu-busy.inline { margin:0 0 12px; }
+    .lu-strip { display:grid; grid-template-columns:repeat(14, minmax(0,1fr)); gap:4px; } .lu-strip button { border:0; border-radius:9px; padding:6px 0 5px; background:rgba(255,255,255,0.06); color:#fff; cursor:pointer; font-family:inherit; display:flex; flex-direction:column; align-items:center; gap:1px; box-shadow:inset 0 -3px 0 rgba(52,211,153,0.5); }
+    .lu-strip button small { font-size:0.58rem; opacity:0.6; } .lu-strip button b { font-size:0.78rem; font-weight:600; } .lu-strip button.s1 { background:rgba(251,191,36,0.2); box-shadow:inset 0 -3px 0 #fbbf24; } .lu-strip button.s2 { background:rgba(248,113,113,0.24); box-shadow:inset 0 -3px 0 #f87171; } .lu-strip button.now { outline:2px solid rgba(255,255,255,0.7); outline-offset:1px; }
+    .lu-strip-key { display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; margin-top:8px; color:rgba(255,255,255,0.6); font-size:0.68rem; } .lu-strip-key span { display:inline-flex; align-items:center; gap:6px; } .lu-strip-key i { width:10px; height:10px; border-radius:3px; background:#34d399; } .lu-strip-key i.s1 { background:#fbbf24; } .lu-strip-key i.s2 { background:#f87171; } .lu-strip-key em { margin-left:auto; font-style:normal; opacity:0.7; }
+    .wk-busybox { margin-bottom:14px; } #dashBusy { margin-bottom:10px; }
+    .cal-cell.load1 { background:rgba(251,191,36,0.09) !important; box-shadow:inset 0 0 0 1px rgba(251,191,36,0.3); } .cal-cell.load2 { background:rgba(248,113,113,0.12) !important; box-shadow:inset 0 0 0 1px rgba(248,113,113,0.45); }
+    .cal-ld { font-size:0.62rem; margin-left:6px; color:#fbbf24; vertical-align:middle; } .load2 .cal-ld { color:#f87171; }
+    .tg-dh.load1 { box-shadow:inset 0 -3px 0 #fbbf24; } .tg-dh.load2 { box-shadow:inset 0 -3px 0 #f87171; }
+    @media (max-width:480px) { .lu-strip { gap:3px; } .lu-strip button { padding:5px 0 4px; } .lu-strip button small { display:none; } .lu-busy { padding:10px 11px; } }
+
+/* Work sizes (Work / Work Pro) in the plan and add-on popups */
+#planAddons .pa-lim { font-size:0.72rem; line-height:1.55; color:var(--text-muted,#94a3b8); margin:2px 0 8px; }
+#planAddons .pa-lim b { color:#fb923c; font-weight:600; }
+.ad-sizes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:10px; }
+@media (max-width:480px) { .ad-sizes { grid-template-columns:1fr; } }
+.ad-size { border:1px solid rgba(255,255,255,0.14); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:3px; background:rgba(255,255,255,0.04); }
+.ad-size.cur { border-color:#fb923c; background:rgba(251,146,60,0.1); }
+.ad-size b { color:#fb923c; font-size:0.85rem; }
+.ad-size em { font-style:normal; color:#e2e8f0; font-size:0.78rem; }
+.ad-size span { font-size:0.72rem; line-height:1.45; color:var(--text-muted,#94a3b8); }
+
+/* hint text inside boxes must stay readable on any wallpaper */
+.main-content input::placeholder, .main-content textarea::placeholder, .modal-overlay input::placeholder, .modal-overlay textarea::placeholder { color: rgba(255,255,255,0.68); opacity: 1; }
+#planAddons .pa-size { margin-bottom:6px; } #planAddons .pa-size em { font-style:normal; color:#e2e8f0; } #planAddons .pa-size span { color:#fb923c; font-weight:600; } #planAddons .pa-size.mine { color:#e2e8f0; }

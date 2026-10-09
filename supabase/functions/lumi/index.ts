@@ -63,6 +63,8 @@ const TOOLS = [
   fn("create_task", "Add one task. A due date is required: if the user gave none, choose a sensible one.", {
     title: s("Task title"), due_date: s("YYYY-MM-DD"), priority: { type: "string", enum: ["low", "med", "high"] },
     tag: { type: "string", enum: ["Personal", "Work", "Study", "Errand"] }, notes: s("optional notes"),
+    repeats: { type: "string", enum: ["none", "daily", "weekdays", "weekly", "monthly", "yearly"], description: "make it a repeating task: when it is finished the next one is added" },
+    checklist: { type: "array", items: { type: "string" }, description: "optional small steps to tick off" },
   }, ["title", "due_date"]),
   fn("add_note", "Save a note.", { title: s("Note title"), body: s("Note text"), tag: s("optional tag") }, ["title", "body"]),
   fn("log_health", "Log health for a day (default today). Water, steps and active minutes are ADDED to what is already logged; sleep and mood replace it.", {
@@ -142,6 +144,29 @@ const TOOLS = [
   fn("mark_split_paid", "When the user paid for a split, mark one person's share as paid back (paid=false to undo).", {
     split: s("part of the split title"), person: s("the person's name"), paid: { type: "boolean", description: "default true" },
   }, ["split", "person"]),
+  // ----- the Work add-on: projects, tasks and time (the user needs the Work add-on; the database refuses otherwise) -----
+  fn("create_work_project", "Add a project to the user's Work page (needs the Work add-on). kind 'project' has six phases (planning to deployment); 'general' is for documentation, approvals and memos with the user's own folders.", {
+    name: s("Project name"), client: s("optional client"), kind: { type: "string", enum: ["project", "general"] }, deadline: s("YYYY-MM-DD, optional"), notes: s("optional"),
+  }, ["name"]),
+  fn("add_work_tasks", "Add tasks to a Work project (up to 20). `project` is part of the project's name; leave it out only when the user has a single active project. Optionally put each task in a phase or folder of that project.", {
+    project: s("part of the project name"), items: arr({ title: s("Task title"), start_date: s("YYYY-MM-DD, optional"), due_date: s("YYYY-MM-DD, optional end date"), priority: { type: "string", enum: ["low", "med", "high"] }, phase: s("phase or folder name, optional"), budget_hours: n("expected hours of work, optional"), notes: s("optional") }, ["title"]),
+  }, ["items"]),
+  fn("update_work_task", "Change an existing Work task: move it to To do / Doing / Review / Done, rename it, change its dates or priority. If several match, ask which.", {
+    match: s("part of the task title"), project: s("part of the project name, optional"), status: { type: "string", enum: ["todo", "doing", "review", "done"] }, title: s("new title"),
+    priority: { type: "string", enum: ["low", "med", "high"] }, start_date: s("YYYY-MM-DD, or empty to clear"), due_date: s("YYYY-MM-DD, or empty to clear"),
+  }, ["match"]),
+  fn("move_work_task", "Move a Work task to another project (its comments, files and logged time go with it). If several tasks or projects match, ask which.", {
+    task: s("part of the task title"), from_project: s("part of the current project name, optional"), to_project: s("part of the project to move it to"),
+  }, ["task", "to_project"]),
+  fn("move_work_project", "Move a Work project to another of the user's active companies (its tasks and notes go with it).", {
+    project: s("part of the project name"), company: s("part of the company name to move it to"),
+  }, ["project", "company"]),
+  fn("log_work_time", "Log hours worked (the user's timesheet). Give hours and/or minutes. Put it on a task (`task`), a project (`project`), or leave both out for general time under the user's first active company.", {
+    hours: n("hours, optional"), minutes: n("minutes, optional"), date: s("YYYY-MM-DD, default today"), project: s("part of the project name"), task: s("part of the task title"), name: s("a name for general time with no project, e.g. \"Client call\""), note: s("optional note"),
+  }, []),
+  fn("work_timer", "Start or stop the user's work timer (one runs at a time; starting a new one stops the old one).", {
+    action: { type: "string", enum: ["start", "stop"] }, project: s("part of the project name, for start"), task: s("part of the task title, for start"), name: s("a name for general time with no project"), note: s("optional note"),
+  }, ["action"]),
   fn("get_overview", "Read the user's current data: open tasks, upcoming events, this month's money, bills, last 7 days of health and habits.", {}, []),
 ];
 function arr(properties: Record<string, unknown>, required: string[]) { return { type: "array", maxItems: 20, items: { type: "object", properties, required } }; }
@@ -193,6 +218,26 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
     if (rows.length > 1) return { error: `Several match "${m}": ${rows.map((x: any) => x[col]).join("; ")}. Ask which one.` };
     return { row: rows[0] };
   };
+  // Work: finds one project by part of its name (only active ones); with no name the user's single project is used
+  const workProject = async (nm: unknown): Promise<{ row: any } | { error: string }> => {
+    const r = await db.from("work_projects").select("id, name, kind, owner_id").eq("status", "active").limit(60); if (r.error) return { error: /row-level|violates/i.test(r.error.message) ? "Work isn't switched on for this account." : r.error.message };
+    const all = r.data || [], q = String(nm || "").trim().toLowerCase();
+    if (!q) return all.length === 1 ? { row: all[0] } : { error: all.length ? `Which project? ${all.map((x: any) => x.name).join("; ")}.` : "There are no Work projects yet: create one first." };
+    const hit = all.filter((x: any) => String(x.name).toLowerCase() === q), part = hit.length ? hit : all.filter((x: any) => String(x.name).toLowerCase().includes(q));
+    if (part.length === 1) return { row: part[0] }; return { error: part.length ? `Several projects match "${nm}": ${part.map((x: any) => x.name).join("; ")}. Ask which one.` : `I couldn't find a project called "${nm}".` };
+  };
+  // where time goes: a task, a project, or "general" under the first active company
+  const timeTarget = async (project: unknown, task: unknown): Promise<{ fields: Record<string, unknown>; label: string } | { error: string }> => {
+    if (task) { const m = String(task).replace(/[%_\\]/g, "").trim().slice(0, 60); let q = db.from("work_tasks").select("id, title, project_id").neq("status", "done").ilike("title", `%${m}%`).limit(6);
+      if (project) { const p = await workProject(project); if ("error" in p) return p; q = q.eq("project_id", p.row.id); }
+      const r = await q; if (r.error) return { error: r.error.message }; const rows = r.data || []; if (!rows.length) return { error: `I couldn't find an open task called "${m}".` };
+      if (rows.length > 1) return { error: `Several tasks match "${m}": ${rows.map((x: any) => x.title).join("; ")}. Ask which one.` };
+      return { fields: { task_id: rows[0].id }, label: rows[0].title }; }
+    if (project) { const p = await workProject(project); if ("error" in p) return p; return { fields: { project_id: p.row.id }, label: p.row.name }; }
+    const c = await db.from("work_companies").select("id, name").is("archived_at", null).order("created_at").limit(1);
+    if (c.error || !(c.data || []).length) return { error: "Add a company in Work first, or say which project the time is for." };
+    return { fields: { company_id: c.data[0].id }, label: "general · " + c.data[0].name };
+  };
   switch (name) {
     case "create_event": {
       if (!a.title || !isDate(a.date)) return fail("Need a title and a date (YYYY-MM-DD).");
@@ -204,9 +249,17 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
     case "create_task": {
       if (!a.title || !isDate(a.due_date)) return fail("Need a title and a due date (YYYY-MM-DD).");
       const row = { title: String(a.title).slice(0, 200), due_date: a.due_date, priority: pick(a.priority, ["low", "med", "high"], "med"), tag: pick(a.tag, ["Personal", "Work", "Study", "Errand"], "Personal") };
-      const first = await ins(db, "tasks", a.notes ? { ...row, notes: String(a.notes).slice(0, 2000) } : row, view);
-      const r = first.error && /notes|schema cache/i.test(first.error.message) ? await ins(db, "tasks", row, view) : first;
-      return res(r, { created: "task", ...row });
+      const extra: Record<string, unknown> = {};
+      if (a.notes) extra.notes = String(a.notes).slice(0, 2000);
+      const rep = pick(a.repeats, ["none", "daily", "weekdays", "weekly", "monthly", "yearly"], "none"); if (rep !== "none") extra.repeat = rep;   // migration 066
+      const steps = list(a.checklist).map((x: any) => ({ t: String(typeof x === "string" ? x : x.t || "").trim().slice(0, 120), d: false })).filter((x: any) => x.t).slice(0, 30);
+      if (!steps.length && Array.isArray(a.checklist)) a.checklist.forEach((x: unknown) => { if (typeof x === "string" && x.trim()) steps.push({ t: x.trim().slice(0, 120), d: false }); });
+      if (steps.length) extra.checklist = steps;
+      const first = await ins(db, "tasks", { ...row, ...extra }, view);
+      let r = first;
+      if (first.error && /repeat|checklist|schema cache/i.test(first.error.message)) { delete extra.repeat; delete extra.checklist; r = await ins(db, "tasks", { ...row, ...extra }, view); }
+      if (r.error && /notes|schema cache/i.test(r.error.message)) r = await ins(db, "tasks", row, view);
+      return res(r, { created: "task", ...row, ...(extra.repeat ? { repeats: extra.repeat } : {}), ...(steps.length ? { checklist_steps: steps.length } : {}) });
     }
     case "add_note": {
       if (!a.title || !a.body) return fail("Need a title and the note text.");
@@ -491,9 +544,72 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
       if (hits.length > 1) return fail(`Several match: ${hits.map((h: any) => `${h.m.name} in "${h.x.title}"`).join("; ")}. Ask which one.`);
       return res(await db.rpc("mark_split_paid", { p_split: hits[0].x.id, p_user: hits[0].m.user_id, p_paid: a.paid !== false }), { updated: "split", split: hits[0].x.title, person: hits[0].m.name, paid: a.paid !== false });
     }
+    case "create_work_project": {
+      const name = String(a.name || "").trim().slice(0, 80); if (!name) return fail("Give the project a name.");
+      const row: Record<string, unknown> = { name, client: String(a.client || "").slice(0, 80), kind: a.kind === "general" ? "general" : "project", description: String(a.notes || "").slice(0, 2000) };
+      if (isDate(a.deadline)) row.deadline = a.deadline;
+      return res(await db.from("work_projects").insert(row), { created: "work project", title: name, kind: row.kind });
+    }
+    case "add_work_tasks": {
+      const items = list(a.items); if (!items.length) return fail("Nothing to add.");
+      const p = await workProject(a.project); if ("error" in p) return fail(p.error);
+      const { data: fl } = await db.from("work_folders").select("id, name").eq("project_id", p.row.id);
+      const rows = items.filter((x: any) => String(x.title || "").trim()).map((x: any) => {
+        const f = x.phase ? (fl || []).find((y: any) => String(y.name).toLowerCase().includes(String(x.phase).toLowerCase())) : null;
+        return { project_id: p.row.id, title: String(x.title).trim().slice(0, 140), description: String(x.notes || "").slice(0, 4000), priority: pick(x.priority, ["low", "med", "high"], "med"), start_date: isDate(x.start_date) ? x.start_date : null, due_date: isDate(x.due_date) ? x.due_date : null, folder_id: f ? f.id : null, budget_minutes: Number(x.budget_hours) > 0 ? Math.min(60000, Math.round(Number(x.budget_hours) * 60)) : null };
+      });
+      if (!rows.length) return fail("Nothing to add.");
+      return res(await db.from("work_tasks").insert(rows), { created: "work tasks", project: p.row.name, count: rows.length, titles: rows.map((r: any) => r.title) });
+    }
+    case "update_work_task": {
+      let proj: string | null = null; if (a.project) { const p = await workProject(a.project); if ("error" in p) return fail(p.error); proj = p.row.id; }
+      const m = String(a.match || "").replace(/[%_\\]/g, "").trim().slice(0, 60); if (!m) return fail("Say which task you mean.");
+      let q = db.from("work_tasks").select("id, title, project_id").ilike("title", `%${m}%`).limit(6); if (proj) q = q.eq("project_id", proj);
+      const r = await q; if (r.error) return fail(r.error.message);
+      const rows = r.data || []; if (!rows.length) return fail(`I couldn't find a Work task called "${m}".`);
+      const exact = rows.filter((x: any) => String(x.title).toLowerCase() === m.toLowerCase());
+      const one = exact.length === 1 ? exact[0] : rows.length === 1 ? rows[0] : null; if (!one) return fail(`Several tasks match "${m}": ${rows.map((x: any) => x.title).join("; ")}. Ask which one.`);
+      const u: Record<string, unknown> = {};
+      if (["todo", "doing", "review", "done"].includes(a.status)) u.status = a.status; if (a.title) u.title = String(a.title).slice(0, 140);
+      if (["low", "med", "high"].includes(a.priority)) u.priority = a.priority;
+      if (a.start_date === "" || isDate(a.start_date)) u.start_date = a.start_date || null; if (a.due_date === "" || isDate(a.due_date)) u.due_date = a.due_date || null;
+      if (!Object.keys(u).length) return fail("Nothing to change.");
+      return res(await db.from("work_tasks").update(u).eq("id", one.id), { updated: "work task", title: one.title, ...u });
+    }
+    case "move_work_task": {
+      const dest = await workProject(a.to_project); if ("error" in dest) return fail(dest.error);
+      let proj: string | null = null; if (a.from_project) { const p = await workProject(a.from_project); if ("error" in p) return fail(p.error); proj = p.row.id; }
+      const m = String(a.task || "").replace(/[%_\\]/g, "").trim().slice(0, 60); if (!m) return fail("Say which task you mean.");
+      let q = db.from("work_tasks").select("id, title, project_id").ilike("title", `%${m}%`).limit(6); if (proj) q = q.eq("project_id", proj);
+      const r = await q; if (r.error) return fail(r.error.message); const rows = r.data || []; if (!rows.length) return fail(`I couldn't find a Work task called "${m}".`);
+      const exact = rows.filter((x: any) => String(x.title).toLowerCase() === m.toLowerCase()), one = exact.length === 1 ? exact[0] : rows.length === 1 ? rows[0] : null;
+      if (!one) return fail(`Several tasks match "${m}": ${rows.map((x: any) => x.title).join("; ")}. Ask which one.`);
+      if (one.project_id === dest.row.id) return fail(`"${one.title}" is already in ${dest.row.name}.`);
+      const mv = await db.rpc("work_move_task", { p_task: one.id, p_project: dest.row.id }); return mv.error ? fail(mv.error.message) : { ok: true, moved: "work task", title: one.title, to: dest.row.name };
+    }
+    case "move_work_project": {
+      const p = await workProject(a.project); if ("error" in p) return fail(p.error);
+      const q = String(a.company || "").replace(/[%_\\]/g, "").trim().slice(0, 80); if (!q) return fail("Say which company.");
+      const c = await db.from("work_companies").select("id, name").is("archived_at", null).ilike("name", `%${q}%`).limit(6); if (c.error) return fail(c.error.message);
+      const rows = c.data || []; if (!rows.length) return fail(`I couldn't find an active company called "${q}".`);
+      const ex = rows.filter((x: any) => String(x.name).toLowerCase() === q.toLowerCase()), one = ex.length === 1 ? ex[0] : rows.length === 1 ? rows[0] : null; if (!one) return fail(`Several companies match "${q}": ${rows.map((x: any) => x.name).join("; ")}. Ask which one.`);
+      const mv = await db.rpc("work_move_project", { p_project: p.row.id, p_company: one.id }); return mv.error ? fail(mv.error.message) : { ok: true, moved: "work project", title: p.row.name, to: one.name };
+    }
+    case "log_work_time": {
+      const mins = Math.round((Number(a.hours) || 0) * 60 + (Number(a.minutes) || 0)); if (!(mins >= 1 && mins <= 1440)) return fail("Say how long: between 1 minute and 24 hours.");
+      const row: Record<string, unknown> = { minutes: mins, work_date: isDate(a.date) ? a.date : today, note: String(a.note || "").slice(0, 200), label: String(a.name || "").slice(0, 100) };
+      const where = await timeTarget(a.project, a.task); if ("error" in where) return fail(where.error); Object.assign(row, where.fields);
+      return res(await db.from("work_time_entries").insert(row), { logged: "work time", minutes: mins, date: row.work_date, on: where.label });
+    }
+    case "work_timer": {
+      if (a.action === "stop") { const r = await db.rpc("work_timer_stop"); return r.error ? fail(r.error.message) : r.data ? { ok: true, stopped: "timer", minutes: r.data.minutes } : fail("No timer is running."); }
+      const where = await timeTarget(a.project, a.task); if ("error" in where) return fail(where.error);
+      const f = where.fields as any; const r = await db.rpc("work_timer_start", { p_project: f.project_id || null, p_task: f.task_id || null, p_company: f.company_id || null, p_note: String(a.note || "").slice(0, 200), p_label: String(a.name || "").slice(0, 100) });
+      return r.error ? fail(r.error.message) : { ok: true, started: "timer", on: where.label };
+    }
     case "get_overview": {
       const monthStart = today.slice(0, 8) + "01", weekAgo = new Date(Date.parse(today) - 6 * 864e5).toISOString().slice(0, 10), in14 = new Date(Date.parse(today) + 14 * 864e5).toISOString().slice(0, 10);
-      const [tasks, events, money, health, goals, bills, studyTasks, studyClasses, studyCourses, studyBreaks, habitsQ, habitLogs, goalsQ, remindersQ, notesQ, splitsQ, billPaid] = await Promise.all([
+      const [tasks, events, money, health, goals, bills, studyTasks, studyClasses, studyCourses, studyBreaks, habitsQ, habitLogs, goalsQ, remindersQ, notesQ, splitsQ, billPaid, wProj, wTasks, wTime] = await Promise.all([
         db.from("tasks").select("title, status, priority, due_date").neq("status", "done").order("due_date").limit(25),
         db.from("events").select("title, event_date, start_time, repeats, category").gte("event_date", today).lte("event_date", in14).order("event_date").limit(25),
         db.from("money_entries").select("kind, amount, category, entry_date").gte("entry_date", monthStart).limit(500),
@@ -512,6 +628,9 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
         db.from("notes").select("title, tag, updated_at").order("updated_at", { ascending: false }).limit(15),
         db.rpc("my_splits"),
         db.from("bill_payments").select("bill_id, due_date").gte("due_date", monthStart).limit(200),
+        db.from("work_projects").select("id, name, client, status, deadline, kind").neq("status", "archived").limit(40),
+        db.from("work_tasks").select("title, status, priority, start_date, due_date, project_id").neq("status", "done").order("due_date", { nullsFirst: false }).limit(40),
+        db.from("work_time_entries").select("minutes, project_name, work_date").gte("work_date", monthStart).limit(1000),
       ]);
       const spend: Record<string, number> = {}; let income = 0, spent = 0;
       (money.data || []).forEach((e: any) => { if (e.kind === "income") income += Number(e.amount); else { spent += Number(e.amount); spend[e.category] = (spend[e.category] || 0) + Number(e.amount); } });
@@ -522,7 +641,9 @@ async function runTool(name: string, a: any, db: any, today: string, uid: string
       const extra = { habits: (habitsQ.data || []).map((h: any) => ({ name: h.name, done_today: doneToday.has(h.id), done_last_7_days: habitDays.get(h.id) || 0 })), goals: goalsQ.data || [], active_reminders: remindersQ.data || [], recent_notes: notesQ.data || [],
         split_expenses: { open_splits: ((splitsQ.data as any[]) || []).filter((sp: any) => (sp.members || []).some((m: any) => m.user_id !== sp.paid_by && !m.paid)).length, owed_to_you: owed, you_owe: owe, net_by_person: owedTo },
         bills_paid_this_month: (billPaid.data || []).length };
-      return { today, ...extra, open_tasks: tasks.data || [], events_next_14_days: events.data || [], money_this_month: { spent, income, by_category: spend }, health_last_7_days: health.data || [], health_goals: goals.data, bills_and_subscriptions: bills.data || [],
+      const wp = wProj.data || [], wByName = new Map(wp.map((p: any) => [p.id, p.name])), wMin = (wTime.data || []).reduce((t: number, e: any) => t + e.minutes, 0), wBy: Record<string, number> = {}; (wTime.data || []).forEach((e: any) => { const k = e.project_name || "General"; wBy[k] = (wBy[k] || 0) + e.minutes; });
+      const work = wp.length ? { work: { projects: wp, open_tasks: (wTasks.data || []).map((t: any) => ({ ...t, project: wByName.get(t.project_id) })), hours_logged_this_month: Math.round(wMin / 6) / 10, hours_by_project_this_month: Object.fromEntries(Object.entries(wBy).map(([k, v]) => [k, Math.round(v / 6) / 10])) } } : {};
+      return { today, ...extra, ...work, open_tasks: tasks.data || [], events_next_14_days: events.data || [], money_this_month: { spent, income, by_category: spend }, health_last_7_days: health.data || [], health_goals: goals.data, bills_and_subscriptions: bills.data || [],
         ...((studyCourses.data || []).length ? { study: { subjects: studyCourses.data, open_assignments_tests_exams: (studyTasks.data || []).filter((x: any) => !x.course_id || (studyCourses.data || []).some((c: any) => c.id === x.course_id)), weekly_classes: (studyClasses.data || []).filter((k: any) => (studyCourses.data || []).some((c: any) => c.id === k.course_id)), upcoming_breaks_and_holidays: studyBreaks.data || [], note: "weekday 0 = Sunday; a class only runs between its start_date and end_date when they are set" } } : {}) };
     }
   }
@@ -557,12 +678,13 @@ async function chat(messages: unknown[], tools?: unknown[]) {
 const SYSTEM = (now: string, tz: string, name: string, view: string, page: string) => `You are Lumi, the assistant inside the LUMA personal-OS app. The user is ${name || "the user"}.
 Current date and time: ${now} (time zone ${tz}). Resolve words like "today", "tomorrow" and "Friday" from this.
 
-You ONLY help with things inside LUMA: tasks, calendar events, notes, health (sleep, water, steps, active minutes, mood), money (expenses, income, budget, bills, subscriptions), habits, goals, reminders, split expenses with contacts (Zenith) and study (subjects, classes, assignments, tests and exams), plus short questions and advice about the user's own data.
+You ONLY help with things inside LUMA: tasks, calendar events, notes, health (sleep, water, steps, active minutes, mood), money (expenses, income, budget, bills, subscriptions), habits, goals, reminders, split expenses with contacts (Zenith) study (subjects, classes, assignments, tests and exams) and work (projects, tasks, time tracking), plus short questions and advice about the user's own data.
 - Use the tools to do things. After a tool succeeds, say exactly what you saved in one short sentence. If a tool fails, say so honestly.
 - Do not ask follow-up questions about missing details. Fill them in with sensible, varied values (spread dates over the coming days or weeks, use realistic names) and say briefly what you assumed. Only ask when you cannot tell what the user wants at all.
 - If asked for a study plan, what to study, or how to prepare, call get_overview and answer with a short day-by-day plan (at most 8 lines) built around the classes, breaks and the nearest deadlines (exams and tests first, heavier weights first); then offer to add the steps as study items or reminders.
 - When the user asks for several things ("add 10 reminders", "add my timetable"), use the matching batch tool once with all items (up to 20).
 - The user is now in ${view === "study" ? "Study mode" : view === "work" ? "Work mode" : "Personal mode"}${page ? ", on the " + page + " page" : ""}. When they ask to add or create something without saying what kind, the page they are on decides first: Reminders page → reminders (create_reminders), Tasks → tasks, Calendar → events, Health → a health log, Money → an expense, Notes → a note. Otherwise use the mode: in Study mode that means study items (assignments, quizzes, tests, exams with due dates — LUMA reminds the user about them automatically, so "study reminders" or "reminders" outside the Reminders page mean these), subjects or timetable classes.
+- In Work mode, "add a task" means a Work task (add_work_tasks) and "I worked 2 hours on X" means log_work_time; start or stop the timer with work_timer; add a project with create_work_project; move a task between To do / Doing / Review / Done with update_work_task, move a task to another project with move_work_task, and move a project to another company with move_work_project.
 - To answer questions about the user's data, call get_overview first. Never invent numbers.
 - You can change existing things: study assignments, subjects and classes (update_study_items, update_study_subject, update_study_class), and tasks, events, reminders and notes (update_item: mark a task done, move a date or time, rename, switch a reminder off, add to a note). Goals: update_goal. Habits: log_habit. Bills: mark_bill_paid. If several items match, ask which. You can delete the user's OWN items with delete_items (always preview first, then wait for a clear yes). You can add habits, goals and bills with create_habits, create_goals and create_bills. To split a bill with contacts use split_expense (add Malaysian tax with the tax option: restaurants usually service10_sst6) and mark_split_paid when the user says someone paid them back; splits only work with people in the user's contacts and only on the Zenith plan.
 - If asked anything unrelated to LUMA (general knowledge, coding, news, jokes, other people), politely say you can only help with their LUMA data and offer what you can do.

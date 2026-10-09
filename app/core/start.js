@@ -9,6 +9,7 @@
       await flushPendingProfile(); // anything that could not be saved last time
       const { data, error } = await LumaAuth.getProfile();
       if (!error) LUMA_PROFILE = data;
+      if (LUMA_PROFILE && LUMA_PROFILE.disabled_at) { try { await LumaAuth.client.auth.signOut(); } catch (e) { } location.replace('/login/?disabled=1'); return; }   // an administrator deactivated this account
       await LumaPlan.load(); // which plan this account is on, and its limits
       if (window.lumaFocusLoad) window.lumaFocusLoad(); // timer lengths + ambience saved in the profile
       Object.keys(rendered).forEach(k => delete rendered[k]); // anything drawn before the plan was known is drawn again
@@ -20,6 +21,7 @@
       applyUserUI();
       initModes(); // back to Personal / Work / Study as the person left it
       lumaModesDone();
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { }); // lets the browser offer to install LUMA (the same worker shows push notifications)
       initNotifications(session.user.id);
       initReminders();
       loadDashboard().catch(e => console.error('LUMA: dashboard failed to load', e)).then(() => LumaLoader.release('app'));
@@ -36,6 +38,6 @@
       const fromPush = /[?&]from=push\b/.test(location.search);
       if (fresh && !fromPush) { if (location.hash) history.replaceState(null, '', location.pathname + location.search); return; }
       const key = decodeURIComponent(location.hash.slice(1));
-      const qs = new URLSearchParams(location.search), ref = fromPush ? qs.get('ref') : null;
+      const qs = new URLSearchParams(location.search), tt = (fromPush && qs.get('tt') || '').split('|'), ref = fromPush ? (qs.get('ref') || luNoticeTarget(key, tt[0], tt.slice(1).join('|'), qs.get('nt'))) : null;
       if (key && key !== 'dashboard' && titles[key]) lumaModesReady.then(() => luOpenTarget(key, ref, qs.get('nt') || '')); // wait for the plan, the mode and the spaces, so locked things render locked and each mode shows its own items
     })();

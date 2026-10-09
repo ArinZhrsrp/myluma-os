@@ -7035,3 +7035,3278 @@ end;
 $$;
 revoke execute on function luma.nudge_split_member(uuid, uuid) from public, anon;
 grant execute on function luma.nudge_split_member(uuid, uuid) to authenticated;
+
+
+-- ################################################################
+-- 065_admin_tools.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 065: admin tools.
+--   • Free trials by hand: the admin can start the 7-day trial for someone, or reset it so they can try again.
+--   • Bulk free access: give an add-on to many people at once (a gift: it does NOT use up their own free trial).
+--   • Deactivate / reactivate an account (they are signed out and cannot sign in until it is reactivated).
+--     Deleting an account is done by the `account` Edge function (it also has to remove the person's files).
+--   • An admin log: who did what, to whom, and when.
+-- Depends on 036, 044, 062, 063. Safe to re-run.
+-- ============================================================
+
+-- ---------- deactivated accounts ----------
+alter table luma.profiles add column if not exists disabled_at timestamptz;
+alter table luma.profiles add column if not exists disabled_reason text not null default '';
+
+-- people can not (re)activate themselves
+create or replace function luma.protect_disabled()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if coalesce(auth.role(), '') in ('authenticated', 'anon') and coalesce(current_setting('luma.allow_plan_change', true), '') <> 'on' then
+    if tg_op = 'INSERT' then new.disabled_at := null; new.disabled_reason := '';
+    else new.disabled_at := old.disabled_at; new.disabled_reason := old.disabled_reason; end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists protect_luma_profiles_disabled on luma.profiles;
+create trigger protect_luma_profiles_disabled before insert or update on luma.profiles
+  for each row execute function luma.protect_disabled();
+
+-- ---------- the admin log ----------
+create table if not exists luma.admin_audit (
+  id           uuid primary key default gen_random_uuid(),
+  admin_id     uuid,
+  action       text not null,
+  target_user  uuid,                    -- no foreign key: the row stays after an account is deleted
+  target_email text not null default '',
+  detail       jsonb not null default '{}'::jsonb,
+  created_at   timestamptz not null default now()
+);
+create index if not exists admin_audit_created_idx on luma.admin_audit (created_at desc);
+alter table luma.admin_audit enable row level security;
+revoke all on luma.admin_audit from anon, authenticated;
+
+create or replace function luma.admin_log(p_action text, p_target uuid, p_email text, p_detail jsonb)
+returns void
+language sql
+security definer set search_path = ''
+as $$ insert into luma.admin_audit (admin_id, action, target_user, target_email, detail) values (auth.uid(), p_action, p_target, coalesce(p_email, ''), coalesce(p_detail, '{}'::jsonb)); $$;
+revoke execute on function luma.admin_log(text, uuid, text, jsonb) from public, anon, authenticated;
+
+create or replace function luma.admin_recent_actions(p_limit integer default 50)
+returns table (id uuid, action text, target_user uuid, target_email text, detail jsonb, created_at timestamptz, admin_name text)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  return query select a.id, a.action, a.target_user, a.target_email, a.detail, a.created_at, luma.person_name(a.admin_id)
+    from luma.admin_audit a order by a.created_at desc limit least(coalesce(p_limit, 50), 200);
+end;
+$$;
+revoke execute on function luma.admin_recent_actions(integer) from public, anon;
+grant execute on function luma.admin_recent_actions(integer) to authenticated;
+
+-- ---------- the list: also deactivated accounts, who has used the free trial, where each add-on came from ----------
+drop function if exists luma.admin_list_users(text, integer);
+create or replace function luma.admin_list_users(p_search text default '', p_limit integer default 200)
+returns table (
+  id uuid, email text, first_name text, last_name text, plan text, country text,
+  created_at timestamptz, last_sign_in_at timestamptz, email_confirmed_at timestamptz, is_admin boolean, addons text[],
+  plan_expires_at timestamptz, addon_expiry jsonb, disabled_at timestamptz, disabled_reason text, trials_used text[], addon_source jsonb
+)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  return query
+    select p.id, p.email, p.first_name, p.last_name, p.plan, to_jsonb(p) ->> 'country',
+           p.created_at, u.last_sign_in_at, u.email_confirmed_at,
+           exists (select 1 from luma.admin_users a where a.user_id = p.id),
+           coalesce((select array_agg(x.addon order by x.addon) from luma.user_addons x
+                     where x.user_id = p.id and (x.expires_at is null or x.expires_at > now())), '{}'::text[]),
+           p.plan_expires_at,
+           coalesce((select jsonb_object_agg(x.addon, x.expires_at) from luma.user_addons x
+                     where x.user_id = p.id and (x.expires_at is null or x.expires_at > now())), '{}'::jsonb),
+           p.disabled_at, p.disabled_reason,
+           coalesce((select array_agg(x.addon order by x.addon) from luma.user_addons x where x.user_id = p.id and x.trial_started_at is not null), '{}'::text[]),
+           coalesce((select jsonb_object_agg(x.addon, x.source) from luma.user_addons x
+                     where x.user_id = p.id and (x.expires_at is null or x.expires_at > now())), '{}'::jsonb)
+    from luma.profiles p
+    join auth.users u on u.id = p.id
+    where coalesce(p_search, '') = ''
+       or p.email ilike '%' || p_search || '%'
+       or (coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) ilike '%' || p_search || '%'
+    order by p.created_at desc
+    limit least(coalesce(p_limit, 200), 500);
+end;
+$$;
+revoke execute on function luma.admin_list_users(text, integer) from public, anon;
+grant execute on function luma.admin_list_users(text, integer) to authenticated;
+
+-- ---------- free trials by hand ----------
+-- start the free trial for someone (it counts as their one trial); p_days = how long
+create or replace function luma.admin_give_trial(p_user uuid, p_addon text, p_days integer default 7)
+returns timestamptz
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_end timestamptz; v_email text;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_addon not in ('work', 'study') then raise exception 'Unknown add-on'; end if;
+  select email into v_email from luma.profiles where id = p_user; if not found then raise exception 'No such user'; end if;
+  if luma.has_addon(p_user, p_addon) then raise exception 'They already have this add-on switched on'; end if;
+  v_end := now() + make_interval(days => least(greatest(coalesce(p_days, 7), 1), 60));
+  insert into luma.user_addons as ua (user_id, addon, source, started_at, expires_at, trial_started_at, granted_by)
+    values (p_user, p_addon, 'trial', now(), v_end, now(), auth.uid())
+  on conflict (user_id, addon) do update set source = 'trial', started_at = now(), expires_at = v_end, trial_started_at = now(), granted_by = auth.uid();
+  perform luma.notify(p_user, 'system', '🎉 Your ' || initcap(p_addon) || ' trial has started', 'You can use ' || initcap(p_addon) || ' mode free until ' || to_char(v_end at time zone luma.user_tz(p_user), 'FMDD Mon YYYY') || '.', 'dashboard');
+  perform luma.admin_log('give_trial', p_user, v_email, jsonb_build_object('addon', p_addon, 'days', p_days));
+  return v_end;
+end;
+$$;
+revoke execute on function luma.admin_give_trial(uuid, text, integer) from public, anon;
+grant execute on function luma.admin_give_trial(uuid, text, integer) to authenticated;
+
+-- let someone try the free trial again
+create or replace function luma.admin_reset_trial(p_user uuid, p_addon text)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_email text;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_addon not in ('work', 'study') then raise exception 'Unknown add-on'; end if;
+  select email into v_email from luma.profiles where id = p_user; if not found then raise exception 'No such user'; end if;
+  update luma.user_addons set trial_started_at = null where user_id = p_user and addon = p_addon;
+  perform luma.admin_log('reset_trial', p_user, v_email, jsonb_build_object('addon', p_addon));
+end;
+$$;
+revoke execute on function luma.admin_reset_trial(uuid, text) from public, anon;
+grant execute on function luma.admin_reset_trial(uuid, text) to authenticated;
+
+-- ---------- bulk free access (a gift: their own free trial is left alone) ----------
+create or replace function luma.admin_bulk_grant(p_users uuid[], p_addon text, p_days integer default null, p_months integer default null, p_until date default null, p_extend boolean default false, p_note text default '')
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_user uuid; v_old timestamptz; v_active boolean; v_end timestamptz; v_base timestamptz;
+  v_given int := 0; v_extended int := 0; v_skipped int := 0; v_note text := left(btrim(coalesce(p_note, '')), 120);
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_addon not in ('work', 'study') then raise exception 'Unknown add-on'; end if;
+  if p_users is null or cardinality(p_users) = 0 then raise exception 'Pick at least one person'; end if;
+  if cardinality(p_users) > 500 then raise exception 'Up to 500 people at a time'; end if;
+  if (p_days is not null)::int + (p_months is not null)::int + (p_until is not null)::int <> 1 then raise exception 'Choose how long it lasts'; end if;
+  foreach v_user in array p_users loop
+    continue when not exists (select 1 from luma.profiles where id = v_user);
+    select expires_at, (expires_at is null or expires_at > now()) into v_old, v_active from luma.user_addons where user_id = v_user and addon = p_addon;
+    v_active := coalesce(v_active, false);
+    if v_active and not p_extend then v_skipped := v_skipped + 1; continue; end if;
+    if v_active and v_old is null then v_skipped := v_skipped + 1; continue; end if;      -- already has it with no end date
+    if p_until is not null then v_end := ((p_until + 1)::timestamp at time zone luma.user_tz(v_user));
+    else
+      v_base := case when v_active then v_old else now() end;
+      v_end := v_base + case when p_days is not null then make_interval(days => least(greatest(p_days, 1), 366)) else make_interval(months => least(greatest(p_months, 1), 24)) end;
+    end if;
+    insert into luma.user_addons as ua (user_id, addon, source, started_at, expires_at, granted_by)
+      values (v_user, p_addon, 'admin', now(), v_end, auth.uid())
+    on conflict (user_id, addon) do update set source = 'admin', started_at = case when v_active then ua.started_at else now() end, granted_by = auth.uid(), expires_at = v_end;
+    if v_active then v_extended := v_extended + 1; else v_given := v_given + 1; end if;
+    perform luma.notify(v_user, 'system', '🎁 Free ' || initcap(p_addon) || ' access',
+      'You can use ' || initcap(p_addon) || ' mode free until ' || to_char(v_end at time zone luma.user_tz(v_user), 'FMDD Mon YYYY') || '.' || case when v_note <> '' then ' ' || v_note else '' end, 'dashboard');
+  end loop;
+  perform luma.admin_log('bulk_grant', null, '', jsonb_build_object('addon', p_addon, 'given', v_given, 'extended', v_extended, 'skipped', v_skipped,
+    'days', p_days, 'months', p_months, 'until', p_until, 'note', v_note));
+  return jsonb_build_object('given', v_given, 'extended', v_extended, 'skipped', v_skipped);
+end;
+$$;
+revoke execute on function luma.admin_bulk_grant(uuid[], text, integer, integer, date, boolean, text) from public, anon;
+grant execute on function luma.admin_bulk_grant(uuid[], text, integer, integer, date, boolean, text) to authenticated;
+
+-- ---------- deactivate / reactivate ----------
+create or replace function luma.admin_set_disabled(p_user uuid, p_disabled boolean, p_reason text default '')
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_email text;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_user = auth.uid() then raise exception 'You can not deactivate your own account'; end if;
+  if exists (select 1 from luma.admin_users where user_id = p_user) then raise exception 'An administrator can not be deactivated'; end if;
+  select email into v_email from luma.profiles where id = p_user; if not found then raise exception 'No such user'; end if;
+  perform set_config('luma.allow_plan_change', 'on', true);
+  update luma.profiles set disabled_at = case when p_disabled then now() end, disabled_reason = case when p_disabled then left(coalesce(p_reason, ''), 200) else '' end where id = p_user;
+  perform set_config('luma.allow_plan_change', 'off', true);
+  -- sign-in is refused while banned_until is set, and every open session is ended
+  begin
+    update auth.users set banned_until = case when p_disabled then 'infinity'::timestamptz else null end where id = p_user;
+    if p_disabled then delete from auth.sessions where user_id = p_user; end if;
+  exception when others then
+    raise notice 'Could not update the sign-in ban (%)', sqlerrm;
+  end;
+  perform luma.admin_log(case when p_disabled then 'deactivate' else 'reactivate' end, p_user, v_email, jsonb_build_object('reason', left(coalesce(p_reason, ''), 200)));
+end;
+$$;
+revoke execute on function luma.admin_set_disabled(uuid, boolean, text) from public, anon;
+grant execute on function luma.admin_set_disabled(uuid, boolean, text) to authenticated;
+
+
+-- ################################################################
+-- 066_task_repeat_checklist.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 066: repeating tasks and task checklists.
+--   • tasks.repeat: none | daily | weekdays | weekly | monthly | yearly. When a repeating task is finished, the next one
+--     is created automatically (same title, priority, tag, notes, checklist unticked), due on the next date AFTER today.
+--   • tasks.checklist: a list of small steps, each { "t": text, "d": done } (up to 30).
+-- Depends on 002, 026, 050, 056. Safe to re-run.
+-- ============================================================
+
+alter table luma.tasks add column if not exists repeat text not null default 'none';
+alter table luma.tasks drop constraint if exists tasks_repeat_check;
+alter table luma.tasks add constraint tasks_repeat_check check (repeat in ('none', 'daily', 'weekdays', 'weekly', 'monthly', 'yearly'));
+alter table luma.tasks add column if not exists checklist jsonb not null default '[]'::jsonb;
+alter table luma.tasks drop constraint if exists tasks_checklist_check;
+alter table luma.tasks add constraint tasks_checklist_check check (jsonb_typeof(checklist) = 'array' and jsonb_array_length(checklist) <= 30);
+alter table luma.tasks add column if not exists next_spawned_at timestamptz;   -- set once the next repeat was made, so reopening and finishing again does not make a second one
+
+-- the date of the next repeat: the first date after both the old due date and today
+create or replace function luma.next_task_date(p_due date, p_repeat text, p_today date)
+returns date
+language plpgsql
+immutable
+as $$
+declare d date := coalesce(p_due, p_today); n int := 0;
+begin
+  loop
+    n := n + 1;
+    d := case p_repeat
+      when 'daily' then d + 1
+      when 'weekdays' then case extract(dow from d)::int when 5 then d + 3 when 6 then d + 2 else d + 1 end
+      when 'weekly' then d + 7
+      when 'monthly' then (d + interval '1 month')::date
+      when 'yearly' then (d + interval '1 year')::date
+      else null end;
+    exit when d is null or d > p_today or n > 400;
+  end loop;
+  return d;
+end;
+$$;
+
+create or replace function luma.spawn_next_task()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_next date; v_today date;
+begin
+  if new.status = 'done' and old.status <> 'done' and new.repeat <> 'none' and new.next_spawned_at is null then
+    v_today := (now() at time zone luma.user_tz(new.user_id))::date;
+    v_next := luma.next_task_date(new.due_date, new.repeat, v_today);
+    if v_next is not null then
+     begin
+      insert into luma.tasks (user_id, title, status, priority, tag, due_date, notes, repeat, checklist, space, semester_id)
+        values (new.user_id, new.title, 'todo', new.priority, new.tag, v_next, new.notes, new.repeat,
+                coalesce((select jsonb_agg(jsonb_set(x, '{d}', 'false'::jsonb)) from jsonb_array_elements(new.checklist) x), '[]'::jsonb), new.space, new.semester_id);
+      update luma.tasks set next_spawned_at = now() where id = new.id;
+     exception when others then
+      raise notice 'Could not make the next repeat of a task (%)', sqlerrm;   -- e.g. a Study task while no semester is active: finishing the task must still work
+     end;
+    end if;
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists spawn_next_task on luma.tasks;
+create trigger spawn_next_task after update of status on luma.tasks
+  for each row execute function luma.spawn_next_task();
+
+
+-- ################################################################
+-- 067_study_attendance_cards.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 067: Study attendance and flashcards.
+--   • luma.study_attendance: whether you were there (present / late / absent / excused) for each class on each date.
+--     luma.study_courses.attendance_target: the % of classes you want to attend (default 80).
+--   • luma.study_decks and luma.study_cards: flashcards with spaced repetition (each card remembers when it is due again).
+-- Same rules as the rest of Study: your own rows only, adding needs the Study add-on, decks go into the active semester.
+-- Depends on 045, 056. Safe to re-run.
+-- ============================================================
+
+-- ---------- attendance ----------
+alter table luma.study_courses add column if not exists attendance_target integer not null default 80;
+alter table luma.study_courses drop constraint if exists study_courses_attendance_target_check;
+alter table luma.study_courses add constraint study_courses_attendance_target_check check (attendance_target between 0 and 100);
+
+create table if not exists luma.study_attendance (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  class_id    uuid not null references luma.study_classes (id) on delete cascade,
+  course_id   uuid not null references luma.study_courses (id) on delete cascade,
+  att_date    date not null,
+  status      text not null check (status in ('present', 'late', 'absent', 'excused')),
+  semester_id uuid references luma.study_semesters (id) on delete set null,
+  created_at  timestamptz not null default now(),
+  unique (class_id, att_date)
+);
+create index if not exists study_attendance_user_idx on luma.study_attendance (user_id, att_date desc);
+
+-- the class must be yours and belong to that subject
+create or replace function luma.study_attendance_check()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if not exists (select 1 from luma.study_classes c where c.id = new.class_id and c.course_id = new.course_id and c.user_id = new.user_id) then
+    raise exception 'That class is not yours';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists study_attendance_owner on luma.study_attendance;
+create trigger study_attendance_owner before insert or update on luma.study_attendance for each row execute function luma.study_attendance_check();
+drop trigger if exists zz_assign_semester on luma.study_attendance;
+create trigger zz_assign_semester before insert on luma.study_attendance for each row execute function luma.assign_semester();
+drop trigger if exists study_attendance_cap on luma.study_attendance;
+create trigger study_attendance_cap before insert on luma.study_attendance for each row execute function luma.study_cap('6000', 'attendance records');
+
+-- ---------- flashcards ----------
+create table if not exists luma.study_decks (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  course_id   uuid references luma.study_courses (id) on delete set null,
+  title       text not null check (length(btrim(title)) between 1 and 80),
+  semester_id uuid references luma.study_semesters (id) on delete cascade,   -- deleting an archived semester removes its decks too
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists study_decks_user_idx on luma.study_decks (user_id, created_at);
+create table if not exists luma.study_cards (
+  id               uuid primary key default gen_random_uuid(),
+  deck_id          uuid not null references luma.study_decks (id) on delete cascade,
+  user_id          uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  front            text not null check (length(btrim(front)) between 1 and 500),
+  back             text not null check (length(btrim(back)) between 1 and 1000),
+  ease             numeric(4,2) not null default 2.5,
+  interval_days    integer not null default 0,
+  reps             integer not null default 0,
+  lapses           integer not null default 0,
+  due_on           date not null default current_date,
+  last_reviewed_at timestamptz,
+  created_at       timestamptz not null default now()
+);
+create index if not exists study_cards_deck_idx on luma.study_cards (deck_id, due_on);
+create index if not exists study_cards_user_idx on luma.study_cards (user_id, due_on);
+
+create or replace function luma.study_deck_check()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_n int;
+begin
+  if tg_table_name = 'study_cards' then
+    if not exists (select 1 from luma.study_decks d where d.id = new.deck_id and d.user_id = new.user_id) then raise exception 'That deck is not yours'; end if;
+    if tg_op = 'INSERT' then
+      select count(*) into v_n from luma.study_cards where deck_id = new.deck_id;
+      if v_n >= 500 then raise exception 'A deck can have up to 500 cards'; end if;
+    end if;
+  elsif new.course_id is not null and not exists (select 1 from luma.study_courses c where c.id = new.course_id and c.user_id = new.user_id) then
+    raise exception 'That subject is not yours';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists study_cards_owner on luma.study_cards;
+create trigger study_cards_owner before insert or update on luma.study_cards for each row execute function luma.study_deck_check();
+drop trigger if exists study_decks_owner on luma.study_decks;
+create trigger study_decks_owner before insert or update on luma.study_decks for each row execute function luma.study_deck_check();
+drop trigger if exists zz_assign_semester on luma.study_decks;
+create trigger zz_assign_semester before insert on luma.study_decks for each row execute function luma.assign_semester();
+drop trigger if exists study_decks_cap on luma.study_decks;
+create trigger study_decks_cap before insert on luma.study_decks for each row execute function luma.study_cap('200', 'decks');
+drop trigger if exists study_cards_cap on luma.study_cards;
+create trigger study_cards_cap before insert on luma.study_cards for each row execute function luma.study_cap('20000', 'flashcards');
+
+-- ---------- access: your own rows; adding and changing needs the Study add-on ----------
+do $$
+declare t text;
+begin
+  foreach t in array array['study_attendance', 'study_decks', 'study_cards'] loop
+    execute format('alter table luma.%I enable row level security', t);
+    execute format('drop policy if exists %I on luma.%I', t || '_read', t);
+    execute format('drop policy if exists %I on luma.%I', t || '_insert', t);
+    execute format('drop policy if exists %I on luma.%I', t || '_update', t);
+    execute format('drop policy if exists %I on luma.%I', t || '_delete', t);
+    execute format('create policy %I on luma.%I for select to authenticated using (user_id = auth.uid())', t || '_read', t);
+    execute format('create policy %I on luma.%I for insert to authenticated with check (user_id = auth.uid() and luma.has_my_addon(''study''))', t || '_insert', t);
+    execute format('create policy %I on luma.%I for update to authenticated using (user_id = auth.uid() and luma.has_my_addon(''study'')) with check (user_id = auth.uid())', t || '_update', t);
+    execute format('create policy %I on luma.%I for delete to authenticated using (user_id = auth.uid())', t || '_delete', t);
+    execute format('grant select, insert, update, delete on luma.%I to authenticated', t);
+  end loop;
+end $$;
+
+-- how many cards each deck has, and how many are due (p_today = your today)
+create or replace function luma.my_deck_stats(p_today date)
+returns table (deck_id uuid, total integer, due integer)
+language sql
+stable
+set search_path = ''
+as $$
+  select c.deck_id, count(*)::int, (count(*) filter (where c.due_on <= p_today))::int
+  from luma.study_cards c where c.user_id = auth.uid() group by c.deck_id;
+$$;
+revoke execute on function luma.my_deck_stats(date) from public, anon;
+grant execute on function luma.my_deck_stats(date) to authenticated;
+
+
+-- ################################################################
+-- 068_admin_roles.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 068: make someone an administrator (or remove it) from the Admin page.
+--   • Only an administrator can do it, never for their own account (so there is always at least one administrator),
+--     and a deactivated account can not be made an administrator. Every change is written to the admin log.
+-- Depends on 036, 065. Safe to re-run.
+-- ============================================================
+
+create or replace function luma.admin_set_admin(p_user uuid, p_admin boolean)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_email text; v_is boolean;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_user = auth.uid() then raise exception 'You can not change your own administrator access'; end if;
+  select email, (disabled_at is not null) into v_email, v_is from luma.profiles where id = p_user;
+  if not found then raise exception 'No such user'; end if;
+  if p_admin then
+    if v_is then raise exception 'Reactivate this account before making it an administrator'; end if;
+    insert into luma.admin_users (user_id) values (p_user) on conflict do nothing;
+    perform luma.notify(p_user, 'system', '🛡️ You are now an administrator', 'You can open the Admin page from the menu.', 'admin');
+  else
+    delete from luma.admin_users where user_id = p_user;
+  end if;
+  perform luma.admin_log(case when p_admin then 'make_admin' else 'remove_admin' end, p_user, v_email, '{}'::jsonb);
+end;
+$$;
+revoke execute on function luma.admin_set_admin(uuid, boolean) from public, anon;
+grant execute on function luma.admin_set_admin(uuid, boolean) to authenticated;
+
+
+-- ################################################################
+-- 069_addon_gifts.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 069: gifts you can use later.
+--   • An administrator can send free access as a GIFT instead of switching it on at once: the person sees it under
+--     Settings → "Your plan and add-ons" and starts it with "Use now" whenever they like, up to the "use by" date.
+--     Nothing starts and no time is lost until they press it. A person can hold up to 3 unused gifts at a time.
+--   • Using a gift adds the time to what they already have (or starts it now). It never uses up their own free trial.
+--   • They get a notification when it arrives (tapping it opens the gift) and a reminder 7 days and 1 day before it expires.
+-- Depends on 044, 062, 064 (notify with a reference), 065. Safe to re-run.
+-- ============================================================
+
+create table if not exists luma.addon_gifts (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  addon      text not null check (addon in ('work', 'study')),
+  days       integer check (days between 1 and 366),
+  months     integer check (months between 1 and 24),
+  message    text not null default '' check (length(message) <= 120),
+  claim_by   timestamptz,                          -- the last moment it can be used (null = no deadline)
+  granted_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  claimed_at timestamptz,
+  check ((days is not null)::int + (months is not null)::int = 1)
+);
+create index if not exists addon_gifts_user_idx on luma.addon_gifts (user_id, created_at desc);
+alter table luma.addon_gifts enable row level security;
+drop policy if exists "Read own gifts" on luma.addon_gifts;
+create policy "Read own gifts" on luma.addon_gifts for select to authenticated using (user_id = auth.uid());
+revoke all on luma.addon_gifts from anon, authenticated;
+grant select on luma.addon_gifts to authenticated;
+
+-- the gifts a person can see: the ones waiting, and the ones used or expired in the last 60 days
+create or replace function luma.my_gifts()
+returns jsonb
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'id', g.id, 'addon', g.addon, 'days', g.days, 'months', g.months, 'message', g.message, 'claim_by', g.claim_by, 'created_at', g.created_at, 'claimed_at', g.claimed_at,
+      'state', case when g.claimed_at is not null then 'used' when g.claim_by is not null and g.claim_by <= now() then 'expired' else 'waiting' end)
+    order by (g.claimed_at is null and (g.claim_by is null or g.claim_by > now())) desc, g.created_at desc), '[]'::jsonb)
+  from luma.addon_gifts g
+  where g.user_id = auth.uid() and (g.claimed_at is null and (g.claim_by is null or g.claim_by > now()) or greatest(g.claimed_at, g.claim_by, g.created_at) > now() - interval '60 days');
+$$;
+revoke execute on function luma.my_gifts() from public, anon;
+grant execute on function luma.my_gifts() to authenticated;
+
+-- start a gift now
+create or replace function luma.claim_gift(p_id uuid)
+returns timestamptz
+language plpgsql
+security definer set search_path = ''
+as $$
+declare g record; v_old timestamptz; v_active boolean; v_base timestamptz; v_end timestamptz;
+begin
+  if auth.uid() is null then raise exception 'Not signed in'; end if;
+  select * into g from luma.addon_gifts where id = p_id and user_id = auth.uid() for update;
+  if not found then raise exception 'That gift was not found'; end if;
+  if g.claimed_at is not null then raise exception 'You have already used this gift'; end if;
+  if g.claim_by is not null and g.claim_by <= now() then raise exception 'This gift has expired'; end if;
+  select expires_at, (expires_at is null or expires_at > now()) into v_old, v_active from luma.user_addons where user_id = auth.uid() and addon = g.addon;
+  v_active := coalesce(v_active, false);
+  if v_active and v_old is null then raise exception 'You already have % with no end date, so there is nothing to add', initcap(g.addon); end if;
+  v_base := case when v_active then v_old else now() end;
+  v_end := v_base + case when g.days is not null then make_interval(days => g.days) else make_interval(months => g.months) end;
+  insert into luma.user_addons as ua (user_id, addon, source, started_at, expires_at, granted_by)
+    values (auth.uid(), g.addon, 'admin', now(), v_end, g.granted_by)
+  on conflict (user_id, addon) do update set source = 'admin', started_at = case when v_active then ua.started_at else now() end, expires_at = v_end;
+  update luma.addon_gifts set claimed_at = now() where id = g.id;
+  perform luma.notify(auth.uid(), 'system', '🎉 ' || initcap(g.addon) || ' is on', 'Your free ' || initcap(g.addon) || ' access runs until ' || to_char(v_end at time zone luma.user_tz(auth.uid()), 'FMDD Mon YYYY') || '.', 'dashboard');
+  return v_end;
+end;
+$$;
+revoke execute on function luma.claim_gift(uuid) from public, anon;
+grant execute on function luma.claim_gift(uuid) to authenticated;
+
+-- admin: send a gift to many people (each can hold up to 3 unused gifts)
+create or replace function luma.admin_bulk_gift(p_users uuid[], p_addon text, p_days integer default null, p_months integer default null, p_claim_days integer default 60, p_note text default '')
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_user uuid; v_id uuid; v_given int := 0; v_skipped int := 0; v_note text := left(btrim(coalesce(p_note, '')), 120); v_by timestamptz; v_len text;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_addon not in ('work', 'study') then raise exception 'Unknown add-on'; end if;
+  if p_users is null or cardinality(p_users) = 0 then raise exception 'Pick at least one person'; end if;
+  if cardinality(p_users) > 500 then raise exception 'Up to 500 people at a time'; end if;
+  if (p_days is not null)::int + (p_months is not null)::int <> 1 then raise exception 'Choose how long the gift lasts'; end if;
+  v_by := case when p_claim_days is null then null else now() + make_interval(days => least(greatest(p_claim_days, 1), 730)) end;
+  v_len := case when p_days is not null then p_days || ' day' || case when p_days = 1 then '' else 's' end else p_months || ' month' || case when p_months = 1 then '' else 's' end end;
+  foreach v_user in array p_users loop
+    continue when not exists (select 1 from luma.profiles where id = v_user and disabled_at is null);
+    if (select count(*) from luma.addon_gifts g where g.user_id = v_user and g.claimed_at is null and (g.claim_by is null or g.claim_by > now())) >= 3 then v_skipped := v_skipped + 1; continue; end if;
+    insert into luma.addon_gifts (user_id, addon, days, months, message, claim_by, granted_by)
+      values (v_user, p_addon, case when p_days is not null then least(greatest(p_days, 1), 366) end, case when p_months is not null then least(greatest(p_months, 1), 24) end, v_note, v_by, auth.uid()) returning id into v_id;
+    perform luma.notify(v_user, 'gift', '🎁 A free ' || initcap(p_addon) || ' gift is waiting', v_len || ' of ' || initcap(p_addon) || ' mode. Start it whenever you like' || case when v_by is null then '.' else ', before ' || to_char(v_by at time zone luma.user_tz(v_user), 'FMDD Mon YYYY') || '.' end || case when v_note <> '' then ' ' || v_note else '' end, 'settings', v_id);
+    v_given := v_given + 1;
+  end loop;
+  perform luma.admin_log('bulk_gift', null, '', jsonb_build_object('addon', p_addon, 'given', v_given, 'skipped', v_skipped, 'days', p_days, 'months', p_months, 'claim_days', p_claim_days, 'note', v_note));
+  return jsonb_build_object('given', v_given, 'skipped', v_skipped);
+end;
+$$;
+revoke execute on function luma.admin_bulk_gift(uuid[], text, integer, integer, integer, text) from public, anon;
+grant execute on function luma.admin_bulk_gift(uuid[], text, integer, integer, integer, text) to authenticated;
+
+-- reminders 7 days and 1 day before an unused gift expires
+create or replace function luma.run_gift_reminders()
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare r record; v_days int; v_title text; v_count int := 0;
+begin
+  for r in select g.* from luma.addon_gifts g where g.claimed_at is null and g.claim_by is not null and g.claim_by > now() and g.claim_by <= now() + interval '7 days' loop
+    v_days := ceil(extract(epoch from (r.claim_by - now())) / 86400)::int;
+    continue when v_days not in (1, 7);
+    v_title := '⏳ Your free ' || initcap(r.addon) || ' gift ends ' || case when v_days = 1 then 'tomorrow' else 'in 7 days' end;
+    continue when exists (select 1 from luma.notifications n where n.user_id = r.user_id and n.title = v_title and n.ref = r.id and n.created_at > now() - interval '20 hours');
+    perform luma.notify(r.user_id, 'gift', v_title, 'Open Settings → Your plan and add-ons and tap Use now before ' || to_char(r.claim_by at time zone luma.user_tz(r.user_id), 'FMDD Mon YYYY') || '.', 'settings', r.id);
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end;
+$$;
+revoke execute on function luma.run_gift_reminders() from public, anon, authenticated;
+
+do $$
+begin
+  create extension if not exists pg_cron;
+  if exists (select 1 from cron.job where jobname = 'luma-gift-reminders') then perform cron.unschedule('luma-gift-reminders'); end if;
+  perform cron.schedule('luma-gift-reminders', '10 * * * *', 'select luma.run_gift_reminders()');
+exception when others then
+  raise notice 'Could not schedule the gift reminder job (%). Enable pg_cron under Database → Extensions, then re-run this file.', sqlerrm;
+end $$;
+
+
+-- ################################################################
+-- 070_notification_refs.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 070: notifications that know what they are about.
+--   When you tap one of these notifications the app now scrolls to and highlights the thing it is about:
+--   a file someone shared, a contact request, a calendar invitation (and its reply), a shared Study note,
+--   a group project invitation / reply / new task.
+--   (Only a reference is added to each notification; the functions are otherwise exactly as before.)
+-- Depends on 008, 048, 053, 054, 058, 059, 064 (notify with a reference). Safe to re-run.
+-- ============================================================
+
+-- notify_document_share: the notification now carries new.document_id (from 008_notifications.sql)
+create or replace function luma.notify_document_share()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_doc text;
+begin
+  select name into v_doc from luma.documents where id = new.document_id;
+  perform luma.notify(
+    new.shared_with, 'share',
+    luma.display_name(new.shared_by) || ' shared a document with you',
+    '“' || coalesce(v_doc, 'A document') || '” is in Documents → Shared with me.',
+    'documents'
+  , new.document_id);
+  return new;
+end;
+$$;
+
+-- notify_contact_change: the notification now carries new.id (from 008_notifications.sql)
+create or replace function luma.notify_contact_change()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' and new.status = 'pending' then
+    perform luma.notify(new.addressee_id, 'contact_request',
+      luma.display_name(new.requester_id) || ' sent you a contact request',
+      'Open Contacts to accept or decline.', 'contacts', new.id);
+  elsif tg_op = 'UPDATE' and old.status is distinct from new.status then
+    if new.status = 'accepted' then
+      perform luma.notify(new.requester_id, 'contact_accepted',
+        luma.display_name(new.addressee_id) || ' accepted your contact request',
+        'You can now chat and share documents with each other.', 'contacts', new.id);
+    elsif new.status = 'pending' then -- a declined request re-opened by request_contact()
+      perform luma.notify(new.addressee_id, 'contact_request',
+        luma.display_name(new.requester_id) || ' sent you a contact request',
+        'Open Contacts to accept or decline.', 'contacts', new.id);
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+-- invite_to_event: the notification now carries p_event (from 048_event_invites.sql)
+create or replace function luma.invite_to_event(p_event uuid, p_users uuid[])
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_ev record;
+  v_user uuid;
+  v_count int := 0;
+  v_total int;
+  v_row luma.event_invites;
+begin
+  select * into v_ev from luma.events where id = p_event and user_id = auth.uid();
+  if not found then raise exception 'You can only invite people to your own events'; end if;
+  select count(*) into v_total from luma.event_invites where event_id = p_event and status <> 'declined';
+  foreach v_user in array coalesce(p_users, '{}'::uuid[]) loop
+    continue when v_user = auth.uid();
+    if not exists (select 1 from luma.contacts c where c.status = 'accepted'
+                   and ((c.requester_id = auth.uid() and c.addressee_id = v_user) or (c.addressee_id = auth.uid() and c.requester_id = v_user))) then
+      raise exception 'You can only invite people who are in your contacts';
+    end if;
+    select * into v_row from luma.event_invites where event_id = p_event and invitee_id = v_user;
+    if found and v_row.status <> 'declined' then continue; end if;   -- already invited
+    if v_total >= 30 then raise exception 'An event can have up to 30 guests'; end if;
+    insert into luma.event_invites (event_id, inviter_id, invitee_id) values (p_event, auth.uid(), v_user)
+      on conflict (event_id, invitee_id) do update set status = 'pending', responded_at = null, created_at = now();
+    v_total := v_total + 1; v_count := v_count + 1;
+    perform luma.notify(v_user, 'event_invite', '📅 ' || luma.person_name(auth.uid()) || ' invited you to ' || v_ev.title,
+      to_char(v_ev.event_date, 'FMDay, FMDD Mon') || case when v_ev.all_day then ' · all day' else ' · ' || to_char(v_ev.start_time::time, 'FMHH12:MI am') end || '. Open your calendar to accept or decline.', 'calendar', p_event);
+  end loop;
+  return v_count;
+end;
+$$;
+
+-- respond_event_invite: the notification now carries p_event (from 048_event_invites.sql)
+create or replace function luma.respond_event_invite(p_event uuid, p_accept boolean)
+returns text
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_inv luma.event_invites; v_title text;
+begin
+  select * into v_inv from luma.event_invites where event_id = p_event and invitee_id = auth.uid();
+  if not found then raise exception 'No invitation found'; end if;
+  update luma.event_invites set status = case when p_accept then 'accepted' else 'declined' end, responded_at = now() where id = v_inv.id;
+  select title into v_title from luma.events where id = p_event;
+  perform luma.notify(v_inv.inviter_id, 'event_invite_reply',
+    (case when p_accept then '✅ ' else '❌ ' end) || luma.person_name(auth.uid()) || (case when p_accept then ' is coming to ' else ' can''t make ' end) || coalesce(v_title, 'your event'),
+    'Open your calendar to see who is on the guest list.', 'calendar', p_event);
+  return case when p_accept then 'accepted' else 'declined' end;
+end;
+$$;
+
+-- share_study_note: the notification now carries p_note (from 059_study_notes_extras.sql)
+create or replace function luma.share_study_note(p_note uuid, p_users uuid[], p_can_edit boolean default false)
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_title text; v_user uuid; v_count int := 0; v_total int; f record;
+begin
+  select title into v_title from luma.study_notes where id = p_note and user_id = auth.uid();
+  if not found then raise exception 'You can only share your own notes'; end if;
+  select count(*) into v_total from luma.study_note_shares where note_id = p_note;
+  foreach v_user in array coalesce(p_users, '{}'::uuid[]) loop
+    continue when v_user = auth.uid();
+    if not luma.is_contact(auth.uid(), v_user) then raise exception 'You can only share with people in your contacts'; end if;
+    if exists (select 1 from luma.study_note_shares where note_id = p_note and shared_with = v_user) then
+      update luma.study_note_shares set can_edit = coalesce(p_can_edit, false) where note_id = p_note and shared_with = v_user;
+      continue;
+    end if;
+    if v_total >= 30 then raise exception 'A note can be shared with up to 30 people'; end if;
+    insert into luma.study_note_shares (note_id, shared_with, can_edit) values (p_note, v_user, coalesce(p_can_edit, false));
+    for f in select document_id from luma.study_note_files where note_id = p_note loop perform luma.share_doc(f.document_id, v_user); end loop;
+    v_total := v_total + 1; v_count := v_count + 1;
+    perform luma.notify(v_user, 'note_share', '📝 ' || luma.person_name(auth.uid()) || ' shared a note with you' || case when p_can_edit then ' (you can edit it)' else '' end, v_title, 'study', p_note);
+  end loop;
+  return v_count;
+end;
+$$;
+
+-- invite_to_study_project: the notification now carries p_project (from 054_study_groups.sql)
+create or replace function luma.invite_to_study_project(p_project uuid, p_users uuid[])
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_title text; v_user uuid; v_count int := 0; v_total int; v_old text;
+begin
+  select title into v_title from luma.study_projects where id = p_project and owner_id = auth.uid();
+  if not found then raise exception 'Only the project owner can invite people'; end if;
+  select count(*) into v_total from luma.study_project_members where project_id = p_project and status <> 'declined';
+  foreach v_user in array coalesce(p_users, '{}'::uuid[]) loop
+    continue when v_user = auth.uid();
+    if not luma.is_contact(auth.uid(), v_user) then raise exception 'You can only invite people in your contacts'; end if;
+    select status into v_old from luma.study_project_members where project_id = p_project and user_id = v_user;
+    continue when found and v_old <> 'declined';
+    if v_total >= 12 then raise exception 'A group project can have up to 12 members'; end if;
+    insert into luma.study_project_members (project_id, user_id, status, invited_by) values (p_project, v_user, 'pending', auth.uid())
+      on conflict (project_id, user_id) do update set status = 'pending', invited_by = auth.uid(), created_at = now();
+    v_total := v_total + 1; v_count := v_count + 1;
+    perform luma.notify(v_user, 'project_invite', '🤝 ' || luma.person_name(auth.uid()) || ' invited you to a group project', v_title || '. Open Study → Groups to join.', 'study', p_project);
+  end loop;
+  return v_count;
+end;
+$$;
+
+-- respond_study_project: the notification now carries p_project (from 058_study_groups_extras.sql)
+create or replace function luma.respond_study_project(p_project uuid, p_accept boolean)
+returns text
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_owner uuid; v_title text; f record;
+begin
+  update luma.study_project_members set status = case when p_accept then 'accepted' else 'declined' end
+    where project_id = p_project and user_id = auth.uid() and status = 'pending';
+  if not found then raise exception 'No invitation found'; end if;
+  select owner_id, title into v_owner, v_title from luma.study_projects where id = p_project;
+  if p_accept then
+    for f in select document_id from luma.study_project_files where project_id = p_project loop perform luma.share_doc(f.document_id, auth.uid()); end loop;
+  end if;
+  perform luma.notify(v_owner, 'project_reply', (case when p_accept then '✅ ' else '❌ ' end) || luma.person_name(auth.uid()) || (case when p_accept then ' joined ' else ' declined ' end) || v_title, 'Open Study → Groups.', 'study', p_project);
+  return case when p_accept then 'accepted' else 'declined' end;
+end;
+$$;
+
+-- add_study_project_task: the notification now carries p_project (from 054_study_groups.sql)
+create or replace function luma.add_study_project_task(p_project uuid, p_title text, p_assignee uuid, p_due date)
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_id uuid; v_title text;
+begin
+  if not luma.in_project(p_project, auth.uid()) then raise exception 'Not allowed'; end if;
+  if (select count(*) from luma.study_project_tasks where project_id = p_project) >= 200 then raise exception 'A project can have up to 200 tasks'; end if;
+  if p_assignee is not null and not luma.in_project(p_project, p_assignee) then raise exception 'That person is not on this project'; end if;
+  insert into luma.study_project_tasks (project_id, title, assignee_id, due_date, created_by) values (p_project, btrim(coalesce(p_title, '')), p_assignee, p_due, auth.uid()) returning id into v_id;
+  update luma.study_projects set updated_at = now() where id = p_project;
+  if p_assignee is not null and p_assignee <> auth.uid() then
+    select title into v_title from luma.study_projects where id = p_project;
+    perform luma.notify(p_assignee, 'project_task', '📌 ' || luma.person_name(auth.uid()) || ' gave you a task', btrim(p_title) || ' · ' || v_title, 'study', p_project);
+  end if;
+  return v_id;
+end;
+$$;
+
+-- update_study_project_task: the notification now carries v_t.project_id (from 054_study_groups.sql)
+create or replace function luma.update_study_project_task(p_task uuid, p_fields jsonb)
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_t record; v_new uuid; v_title text;
+begin
+  select * into v_t from luma.study_project_tasks where id = p_task;
+  if not found or not luma.in_project(v_t.project_id, auth.uid()) then raise exception 'Not allowed'; end if;
+  if p_fields ? 'assignee_id' then
+    v_new := nullif(p_fields ->> 'assignee_id', '')::uuid;
+    if v_new is not null and not luma.in_project(v_t.project_id, v_new) then raise exception 'That person is not on this project'; end if;
+  else
+    v_new := v_t.assignee_id;
+  end if;
+  update luma.study_project_tasks set
+    title = case when p_fields ? 'title' then btrim(p_fields ->> 'title') else title end,
+    assignee_id = v_new,
+    status = case when p_fields ? 'status' then p_fields ->> 'status' else status end,
+    due_date = case when p_fields ? 'due_date' then nullif(p_fields ->> 'due_date', '')::date else due_date end,
+    updated_at = now()
+  where id = p_task;
+  update luma.study_projects set updated_at = now() where id = v_t.project_id;
+  if p_fields ? 'assignee_id' and v_new is not null and v_new is distinct from v_t.assignee_id and v_new <> auth.uid() then
+    select title into v_title from luma.study_projects where id = v_t.project_id;
+    perform luma.notify(v_new, 'project_task', '📌 ' || luma.person_name(auth.uid()) || ' gave you a task', v_t.title || ' · ' || v_title, 'study', v_t.project_id);
+  end if;
+  return true;
+end;
+$$;
+
+
+-- ################################################################
+-- 071_work_projects.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 071: Work add-on, step 1: projects, tasks and the people on them.
+--   • luma.work_projects: a project (name, client, colour, status, deadline). Only someone with the Work add-on can create one.
+--   • luma.work_tasks: its tasks (Board columns To do / Doing / Review / Done, assignee, due date, checklist).
+--   • luma.work_project_members: people the owner invited from their CONTACTS (people who already have a LUMA account).
+--   • Who can do what:
+--       owner  — everything in their projects (needs the Work add-on to create or change things);
+--       member — sees the project and can add and change tasks, but ONLY while they have the Work add-on themselves;
+--       viewer — can only look.
+--     A person WITHOUT the Work add-on who was added to a project can only LOOK at what they were added to (read-only), however they were invited.
+--   • Limits: 60 projects per person, 15 people per project, 1,500 tasks per project, 30 checklist steps per task.
+--   • The tables are protected by row-level rules; inviting and answering invitations go through functions that check who is asking.
+-- Depends on 046 (luma.has_my_addon), 048 (person_name), 054 (is_contact), 064 (notify with a reference). Safe to re-run.
+-- ============================================================
+
+create table if not exists luma.work_projects (
+  id          uuid primary key default gen_random_uuid(),
+  owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name        text not null check (length(btrim(name)) between 1 and 80),
+  client      text not null default '' check (length(client) <= 80),
+  color       text not null default '#fb923c' check (color ~ '^#[0-9a-fA-F]{6}$'),
+  status      text not null default 'active' check (status in ('active', 'on_hold', 'done', 'archived')),
+  deadline    date,
+  description text not null default '' check (length(description) <= 2000),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists work_projects_owner_idx on luma.work_projects (owner_id, created_at desc);
+
+create table if not exists luma.work_project_members (
+  project_id uuid not null references luma.work_projects (id) on delete cascade,
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  role       text not null default 'member' check (role in ('member', 'viewer')),
+  status     text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  invited_by uuid references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  primary key (project_id, user_id)
+);
+create index if not exists work_project_members_user_idx on luma.work_project_members (user_id, status);
+
+create table if not exists luma.work_tasks (
+  id           uuid primary key default gen_random_uuid(),
+  project_id   uuid not null references luma.work_projects (id) on delete cascade,
+  title        text not null check (length(btrim(title)) between 1 and 140),
+  description  text not null default '' check (length(description) <= 4000),
+  status       text not null default 'todo' check (status in ('todo', 'doing', 'review', 'done')),
+  priority     text not null default 'med' check (priority in ('low', 'med', 'high')),
+  assignee_id  uuid references auth.users (id) on delete set null,
+  due_date     date,
+  position     integer not null default 0,
+  checklist    jsonb not null default '[]'::jsonb check (jsonb_typeof(checklist) = 'array' and jsonb_array_length(checklist) <= 30),
+  created_by   uuid default auth.uid() references auth.users (id) on delete set null,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  completed_at timestamptz
+);
+create index if not exists work_tasks_project_idx on luma.work_tasks (project_id, status, position);
+create index if not exists work_tasks_assignee_idx on luma.work_tasks (assignee_id, status);
+
+-- ---------- who is who ----------
+-- 'owner', 'member', 'viewer' (accepted only), or null
+create or replace function luma.work_role(p_project uuid, p_user uuid)
+returns text
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select case when p.owner_id = p_user then 'owner'
+              else (select m.role from luma.work_project_members m where m.project_id = p.id and m.user_id = p_user and m.status = 'accepted') end
+  from luma.work_projects p where p.id = p_project;
+$$;
+revoke execute on function luma.work_role(uuid, uuid) from public, anon;
+grant execute on function luma.work_role(uuid, uuid) to authenticated;
+
+-- may the signed-in person change things in this project? (owner or member, and only while they have the Work add-on)
+create or replace function luma.work_can_edit(p_project uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$ select coalesce(luma.work_role(p_project, auth.uid()) in ('owner', 'member'), false) and luma.has_my_addon('work'); $$;
+revoke execute on function luma.work_can_edit(uuid) from public, anon;
+grant execute on function luma.work_can_edit(uuid) to authenticated;
+
+-- ---------- row-level rules ----------
+alter table luma.work_projects enable row level security;
+alter table luma.work_project_members enable row level security;
+alter table luma.work_tasks enable row level security;
+drop policy if exists work_projects_read on luma.work_projects;
+drop policy if exists work_projects_insert on luma.work_projects;
+drop policy if exists work_projects_update on luma.work_projects;
+drop policy if exists work_projects_delete on luma.work_projects;
+create policy work_projects_read on luma.work_projects for select to authenticated using (owner_id = auth.uid() or luma.work_role(id, auth.uid()) is not null);   -- (the owner is checked directly so a brand-new row can be read back)
+create policy work_projects_insert on luma.work_projects for insert to authenticated with check (owner_id = auth.uid() and luma.has_my_addon('work'));
+create policy work_projects_update on luma.work_projects for update to authenticated using (owner_id = auth.uid() and luma.has_my_addon('work')) with check (owner_id = auth.uid());
+create policy work_projects_delete on luma.work_projects for delete to authenticated using (owner_id = auth.uid());
+drop policy if exists work_members_read on luma.work_project_members;
+create policy work_members_read on luma.work_project_members for select to authenticated using (user_id = auth.uid() or luma.work_role(project_id, auth.uid()) is not null);
+drop policy if exists work_tasks_read on luma.work_tasks;
+drop policy if exists work_tasks_insert on luma.work_tasks;
+drop policy if exists work_tasks_update on luma.work_tasks;
+drop policy if exists work_tasks_delete on luma.work_tasks;
+create policy work_tasks_read on luma.work_tasks for select to authenticated using (luma.work_role(project_id, auth.uid()) is not null);
+create policy work_tasks_insert on luma.work_tasks for insert to authenticated with check (luma.work_can_edit(project_id));
+create policy work_tasks_update on luma.work_tasks for update to authenticated using (luma.work_can_edit(project_id)) with check (luma.work_can_edit(project_id));
+create policy work_tasks_delete on luma.work_tasks for delete to authenticated using (luma.work_role(project_id, auth.uid()) = 'owner' or (created_by = auth.uid() and luma.work_can_edit(project_id)));
+revoke all on luma.work_projects, luma.work_project_members, luma.work_tasks from anon, authenticated;
+grant select, insert, update, delete on luma.work_projects, luma.work_tasks to authenticated;
+grant select on luma.work_project_members to authenticated;
+
+-- ---------- limits and tidy-ups ----------
+create or replace function luma.work_project_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' and (select count(*) from luma.work_projects where owner_id = new.owner_id) >= 60 then raise exception 'You can have up to 60 projects'; end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists work_projects_guard on luma.work_projects;
+create trigger work_projects_guard before insert or update on luma.work_projects for each row execute function luma.work_project_guard();
+
+create or replace function luma.work_task_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' and (select count(*) from luma.work_tasks where project_id = new.project_id) >= 1500 then raise exception 'A project can have up to 1,500 tasks'; end if;
+  if new.assignee_id is not null and luma.work_role(new.project_id, new.assignee_id) is null then raise exception 'That person is not on this project'; end if;
+  if tg_op = 'UPDATE' and new.project_id <> old.project_id then raise exception 'A task can not move to another project'; end if;
+  new.updated_at := now();
+  if new.status = 'done' and (tg_op = 'INSERT' or old.status <> 'done') then new.completed_at := now();
+  elsif new.status <> 'done' then new.completed_at := null; end if;
+  return new;
+end;
+$$;
+drop trigger if exists work_tasks_guard on luma.work_tasks;
+create trigger work_tasks_guard before insert or update on luma.work_tasks for each row execute function luma.work_task_guard();
+
+-- the person a task was given to hears about it (the notification opens that task)
+create or replace function luma.work_task_assigned()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if new.assignee_id is not null and new.assignee_id <> coalesce(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid)
+     and (tg_op = 'INSERT' or new.assignee_id is distinct from old.assignee_id) then
+    perform luma.notify(new.assignee_id, 'work_task', '📌 ' || luma.person_name(auth.uid()) || ' gave you a task',
+      new.title || ' · ' || (select name from luma.work_projects where id = new.project_id), 'work', new.id);
+  end if;
+  update luma.work_projects set updated_at = now() where id = new.project_id;
+  return null;
+end;
+$$;
+drop trigger if exists work_tasks_assigned on luma.work_tasks;
+create trigger work_tasks_assigned after insert or update on luma.work_tasks for each row execute function luma.work_task_assigned();
+
+-- ---------- people on a project ----------
+-- the owner invites people from their contacts (they need a LUMA account; they do not need the Work add-on to be added)
+create or replace function luma.work_invite(p_project uuid, p_users uuid[], p_role text default 'member')
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_name text; v_user uuid; v_count int := 0; v_total int; v_old text;
+begin
+  if p_role not in ('member', 'viewer') then raise exception 'Unknown role'; end if;
+  select name into v_name from luma.work_projects where id = p_project and owner_id = auth.uid();
+  if not found then raise exception 'Only the project owner can invite people'; end if;
+  if not luma.has_my_addon('work') then raise exception 'The Work add-on is needed to invite people'; end if;
+  select count(*) into v_total from luma.work_project_members where project_id = p_project and status <> 'declined';
+  foreach v_user in array coalesce(p_users, '{}'::uuid[]) loop
+    continue when v_user = auth.uid();
+    if not luma.is_contact(auth.uid(), v_user) then raise exception 'You can only invite people in your contacts'; end if;
+    select status into v_old from luma.work_project_members where project_id = p_project and user_id = v_user;
+    continue when found and v_old <> 'declined';
+    if v_total >= 15 then raise exception 'A project can have up to 15 people'; end if;
+    insert into luma.work_project_members (project_id, user_id, role, status, invited_by) values (p_project, v_user, p_role, 'pending', auth.uid())
+      on conflict (project_id, user_id) do update set role = p_role, status = 'pending', invited_by = auth.uid(), created_at = now();
+    v_total := v_total + 1; v_count := v_count + 1;
+    perform luma.notify(v_user, 'work_invite', '💼 ' || luma.person_name(auth.uid()) || ' added you to a project', v_name || '. Open Work to accept.', 'work', p_project);
+  end loop;
+  return v_count;
+end;
+$$;
+revoke execute on function luma.work_invite(uuid, uuid[], text) from public, anon;
+grant execute on function luma.work_invite(uuid, uuid[], text) to authenticated;
+
+create or replace function luma.work_respond(p_project uuid, p_accept boolean)
+returns text
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_owner uuid; v_name text;
+begin
+  update luma.work_project_members set status = case when p_accept then 'accepted' else 'declined' end where project_id = p_project and user_id = auth.uid() and status = 'pending';
+  if not found then raise exception 'No invitation found'; end if;
+  select owner_id, name into v_owner, v_name from luma.work_projects where id = p_project;
+  perform luma.notify(v_owner, 'work_reply', (case when p_accept then '✅ ' else '❌ ' end) || luma.person_name(auth.uid()) || (case when p_accept then ' joined ' else ' declined ' end) || v_name, 'Open Work → Projects.', 'work', p_project);
+  return case when p_accept then 'accepted' else 'declined' end;
+end;
+$$;
+revoke execute on function luma.work_respond(uuid, boolean) from public, anon;
+grant execute on function luma.work_respond(uuid, boolean) to authenticated;
+
+-- the owner removes anyone; anyone can remove themselves (their tasks become unassigned)
+create or replace function luma.work_remove_member(p_project uuid, p_user uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if not (p_user = auth.uid() or exists (select 1 from luma.work_projects where id = p_project and owner_id = auth.uid())) then raise exception 'Not allowed'; end if;
+  delete from luma.work_project_members where project_id = p_project and user_id = p_user;
+  update luma.work_tasks set assignee_id = null where project_id = p_project and assignee_id = p_user;
+end;
+$$;
+revoke execute on function luma.work_remove_member(uuid, uuid) from public, anon;
+grant execute on function luma.work_remove_member(uuid, uuid) to authenticated;
+
+create or replace function luma.work_set_role(p_project uuid, p_user uuid, p_role text)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if p_role not in ('member', 'viewer') then raise exception 'Unknown role'; end if;
+  if not exists (select 1 from luma.work_projects where id = p_project and owner_id = auth.uid()) then raise exception 'Only the project owner can change roles'; end if;
+  update luma.work_project_members set role = p_role where project_id = p_project and user_id = p_user;
+end;
+$$;
+revoke execute on function luma.work_set_role(uuid, uuid, text) from public, anon;
+grant execute on function luma.work_set_role(uuid, uuid, text) to authenticated;
+
+-- the people on a project, with names (only people on it can ask)
+create or replace function luma.work_project_members(p_project uuid)
+returns table (user_id uuid, name text, role text, status text, is_owner boolean)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  if luma.work_role(p_project, auth.uid()) is null then raise exception 'Not allowed'; end if;
+  return query
+    select p.owner_id, luma.person_name(p.owner_id), 'owner'::text, 'accepted'::text, true from luma.work_projects p where p.id = p_project
+    union all
+    select m.user_id, luma.person_name(m.user_id), m.role, m.status, false from luma.work_project_members m
+      where m.project_id = p_project and m.status <> 'declined' and (m.status = 'accepted' or luma.work_role(p_project, auth.uid()) = 'owner');
+end;
+$$;
+revoke execute on function luma.work_project_members(uuid) from public, anon;
+grant execute on function luma.work_project_members(uuid) to authenticated;
+
+-- projects other people added me to (and invitations waiting for my answer), with their counts
+create or replace function luma.my_work_shared()
+returns jsonb
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', p.id, 'name', p.name, 'client', p.client, 'color', p.color, 'status', p.status, 'deadline', p.deadline,
+    'owner_id', p.owner_id, 'owner_name', luma.person_name(p.owner_id), 'my_role', m.role, 'my_status', m.status,
+    'tasks', (select count(*) from luma.work_tasks t where t.project_id = p.id and m.status = 'accepted'),
+    'done', (select count(*) from luma.work_tasks t where t.project_id = p.id and t.status = 'done' and m.status = 'accepted')) order by p.updated_at desc), '[]'::jsonb)
+  from luma.work_project_members m join luma.work_projects p on p.id = m.project_id
+  where m.user_id = auth.uid() and m.status in ('pending', 'accepted');
+$$;
+revoke execute on function luma.my_work_shared() from public, anon;
+grant execute on function luma.my_work_shared() to authenticated;
+
+-- everyone on every project I am on (for avatars and the "assigned to" list), in one call
+create or replace function luma.my_work_people()
+returns table (project_id uuid, user_id uuid, name text, role text, status text)
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select p.id, p.owner_id, luma.person_name(p.owner_id), 'owner'::text, 'accepted'::text
+    from luma.work_projects p where luma.work_role(p.id, auth.uid()) is not null
+  union all
+  select m.project_id, m.user_id, luma.person_name(m.user_id), m.role, m.status
+    from luma.work_project_members m
+    where m.status <> 'declined' and luma.work_role(m.project_id, auth.uid()) is not null
+      and (m.status = 'accepted' or luma.work_role(m.project_id, auth.uid()) = 'owner');
+$$;
+revoke execute on function luma.my_work_people() from public, anon;
+grant execute on function luma.my_work_people() to authenticated;
+
+
+-- ################################################################
+-- 072_work_task_dates_assignees.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 072: Work tasks get a start date and an end date, and can be given to several people.
+--   • work_tasks.start_date (new) and due_date (now called the end date in the app; start must not be after end).
+--   • work_tasks.assignee_ids: a list of people (all must be on the project, up to 10) instead of a single assignee_id.
+--     Existing single assignees are carried over. Each person added to a task is told, and the notification opens the task.
+-- Depends on 071. Safe to re-run.
+-- ============================================================
+
+alter table luma.work_tasks add column if not exists start_date date;
+alter table luma.work_tasks drop constraint if exists work_tasks_dates_check;
+alter table luma.work_tasks add constraint work_tasks_dates_check check (start_date is null or due_date is null or start_date <= due_date);
+
+alter table luma.work_tasks add column if not exists assignee_ids uuid[] not null default '{}';
+do $$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'luma' and table_name = 'work_tasks' and column_name = 'assignee_id') then
+    update luma.work_tasks set assignee_ids = array[assignee_id] where assignee_id is not null and cardinality(assignee_ids) = 0;
+    drop index if exists luma.work_tasks_assignee_idx;
+    alter table luma.work_tasks drop column assignee_id;
+  end if;
+end $$;
+alter table luma.work_tasks drop constraint if exists work_tasks_assignees_check;
+alter table luma.work_tasks add constraint work_tasks_assignees_check check (cardinality(assignee_ids) <= 10);
+create index if not exists work_tasks_assignees_idx on luma.work_tasks using gin (assignee_ids);
+
+create or replace function luma.work_task_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_a uuid;
+begin
+  if tg_op = 'INSERT' and (select count(*) from luma.work_tasks where project_id = new.project_id) >= 1500 then raise exception 'A project can have up to 1,500 tasks'; end if;
+  new.assignee_ids := coalesce((select array_agg(distinct x) from unnest(new.assignee_ids) x), '{}'::uuid[]);
+  foreach v_a in array new.assignee_ids loop
+    if luma.work_role(new.project_id, v_a) is null then raise exception 'That person is not on this project'; end if;
+  end loop;
+  if tg_op = 'UPDATE' and new.project_id <> old.project_id then raise exception 'A task can not move to another project'; end if;
+  new.updated_at := now();
+  if new.status = 'done' and (tg_op = 'INSERT' or old.status <> 'done') then new.completed_at := now();
+  elsif new.status <> 'done' then new.completed_at := null; end if;
+  return new;
+end;
+$$;
+
+create or replace function luma.work_task_assigned()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_a uuid; v_proj text;
+begin
+  select name into v_proj from luma.work_projects where id = new.project_id;
+  foreach v_a in array new.assignee_ids loop
+    continue when v_a = coalesce(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid);
+    continue when tg_op = 'UPDATE' and v_a = any (old.assignee_ids);
+    perform luma.notify(v_a, 'work_task', '📌 ' || luma.person_name(auth.uid()) || ' gave you a task', new.title || ' · ' || v_proj, 'work', new.id);
+  end loop;
+  update luma.work_projects set updated_at = now() where id = new.project_id;
+  return null;
+end;
+$$;
+
+create or replace function luma.work_remove_member(p_project uuid, p_user uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if not (p_user = auth.uid() or exists (select 1 from luma.work_projects where id = p_project and owner_id = auth.uid())) then raise exception 'Not allowed'; end if;
+  delete from luma.work_project_members where project_id = p_project and user_id = p_user;
+  update luma.work_tasks set assignee_ids = array_remove(assignee_ids, p_user) where project_id = p_project and p_user = any (assignee_ids);
+end;
+$$;
+
+
+-- ################################################################
+-- 073_work_phases_folders.sql
+-- ################################################################
+
+-- LUMA — Work: project phases and folders.
+--   • A project is either 'project' (six fixed phases: Planning, Requirement study, Design, Development, Testing, Deployment)
+--     or 'general' (documentation, approvals, memos…: the owner makes their own folders instead of phases).
+--   • Each phase / folder has a notes area; tasks can be put in one (work_tasks.folder_id).
+-- Run after 072.
+
+alter table luma.work_projects add column if not exists kind text not null default 'project';
+alter table luma.work_projects drop constraint if exists work_projects_kind_check;
+alter table luma.work_projects add constraint work_projects_kind_check check (kind in ('project', 'general'));
+
+create table if not exists luma.work_folders (
+  id         uuid primary key default gen_random_uuid(),
+  project_id uuid not null references luma.work_projects (id) on delete cascade,
+  name       text not null check (length(btrim(name)) between 1 and 80),
+  notes      text not null default '' check (length(notes) <= 8000),
+  position   integer not null default 0,
+  is_phase   boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists work_folders_project_idx on luma.work_folders (project_id, position);
+
+alter table luma.work_tasks add column if not exists folder_id uuid references luma.work_folders (id) on delete set null;
+create index if not exists work_tasks_folder_idx on luma.work_tasks (folder_id);
+
+alter table luma.work_folders enable row level security;
+drop policy if exists work_folders_read on luma.work_folders;
+drop policy if exists work_folders_insert on luma.work_folders;
+drop policy if exists work_folders_update on luma.work_folders;
+drop policy if exists work_folders_delete on luma.work_folders;
+create policy work_folders_read on luma.work_folders for select to authenticated using (luma.work_role(project_id, auth.uid()) is not null);
+create policy work_folders_insert on luma.work_folders for insert to authenticated with check (luma.work_can_edit(project_id) and not is_phase);
+create policy work_folders_update on luma.work_folders for update to authenticated using (luma.work_can_edit(project_id)) with check (luma.work_can_edit(project_id));
+create policy work_folders_delete on luma.work_folders for delete to authenticated using (luma.work_can_edit(project_id) and not is_phase);
+revoke all on luma.work_folders from anon, authenticated;
+grant select, insert, update, delete on luma.work_folders to authenticated;
+
+-- guard: limits, phases keep their name, nothing moves between projects
+create or replace function luma.work_folder_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if (select kind from luma.work_projects where id = new.project_id) <> 'general' and not new.is_phase then raise exception 'Phases are fixed; folders are only for general projects'; end if;
+    if (select count(*) from luma.work_folders where project_id = new.project_id) >= 40 then raise exception 'A project can have up to 40 folders'; end if;
+  else
+    if new.project_id <> old.project_id then raise exception 'A folder can not move to another project'; end if;
+    if old.is_phase then new.name := old.name; new.is_phase := true; new.position := old.position; end if;
+  end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists work_folders_guard on luma.work_folders;
+create trigger work_folders_guard before insert or update on luma.work_folders for each row execute function luma.work_folder_guard();
+
+-- a task's folder must belong to the same project
+create or replace function luma.work_task_folder_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if new.folder_id is not null and not exists (select 1 from luma.work_folders where id = new.folder_id and project_id = new.project_id) then
+    raise exception 'That phase or folder is not in this project';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists work_tasks_folder_guard on luma.work_tasks;
+create trigger work_tasks_folder_guard before insert or update on luma.work_tasks for each row execute function luma.work_task_folder_guard();
+
+-- a new 'project' gets its six phases
+create or replace function luma.work_project_phases()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if new.kind = 'project' then
+    insert into luma.work_folders (project_id, name, position, is_phase)
+    select new.id, n, i, true from unnest(array['Planning', 'Requirement study', 'Design', 'Development', 'Testing', 'Deployment']) with ordinality as x(n, i);
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists work_projects_phases on luma.work_projects;
+create trigger work_projects_phases after insert on luma.work_projects for each row execute function luma.work_project_phases();
+
+-- projects that already exist get the phases too
+insert into luma.work_folders (project_id, name, position, is_phase)
+select p.id, x.n, x.i, true from luma.work_projects p
+cross join unnest(array['Planning', 'Requirement study', 'Design', 'Development', 'Testing', 'Deployment']) with ordinality as x(n, i)
+where p.kind = 'project' and not exists (select 1 from luma.work_folders f where f.project_id = p.id);
+
+-- shared projects also say what kind they are
+create or replace function luma.my_work_shared()
+returns jsonb
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', p.id, 'name', p.name, 'client', p.client, 'color', p.color, 'status', p.status, 'deadline', p.deadline, 'kind', p.kind,
+    'owner_id', p.owner_id, 'owner_name', luma.person_name(p.owner_id), 'my_role', m.role, 'my_status', m.status,
+    'tasks', (select count(*) from luma.work_tasks t where t.project_id = p.id and m.status = 'accepted'),
+    'done', (select count(*) from luma.work_tasks t where t.project_id = p.id and t.status = 'done' and m.status = 'accepted')) order by p.updated_at desc), '[]'::jsonb)
+  from luma.work_project_members m join luma.work_projects p on p.id = m.project_id
+  where m.user_id = auth.uid() and m.status in ('pending', 'accepted');
+$$;
+revoke execute on function luma.my_work_shared() from public, anon;
+grant execute on function luma.my_work_shared() to authenticated;
+
+
+-- ################################################################
+-- 074_work_companies.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 074: Work companies.
+--   • luma.work_companies: the companies (employers / clients' workplaces) a person works for. Several can be active at once.
+--   • Every Work project belongs to one company. A project made without one goes into the owner's first active company
+--     (a company called "My company" is made if there is none); projects that already exist are moved into "My company".
+--   • A company has a start date (optional, chosen by you) and an end date, which is filled in with today's date when it is archived
+--     (and cleared again on restore).
+--   • A company can also hold your position there (job title, optional, up to 80 characters). Name, position, start date and end date can all be edited.
+--   • Archiving a company puts all of its projects, tasks, folders and notes on ice: they stay readable but can't be changed,
+--     until the company is restored. Only an archived company can be deleted (this deletes its projects too).
+-- Depends on 071–073. Safe to re-run.
+-- ============================================================
+
+create table if not exists luma.work_companies (
+  id          uuid primary key default gen_random_uuid(),
+  owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name        text not null check (length(btrim(name)) between 1 and 80),
+  archived_at timestamptz,
+  start_date  date,
+  end_date    date,
+  position    text not null default '' check (length(position) <= 80),
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+alter table luma.work_companies add column if not exists start_date date;
+alter table luma.work_companies add column if not exists end_date date;
+alter table luma.work_companies add column if not exists position text not null default '';
+alter table luma.work_companies drop constraint if exists work_companies_position_check;
+alter table luma.work_companies add constraint work_companies_position_check check (length(position) <= 80);
+alter table luma.work_companies drop constraint if exists work_companies_dates_check;
+alter table luma.work_companies add constraint work_companies_dates_check check (start_date is null or end_date is null or start_date <= end_date);
+create index if not exists work_companies_owner_idx on luma.work_companies (owner_id, created_at);
+
+alter table luma.work_companies enable row level security;
+drop policy if exists work_companies_read on luma.work_companies;
+drop policy if exists work_companies_insert on luma.work_companies;
+drop policy if exists work_companies_update on luma.work_companies;
+drop policy if exists work_companies_delete on luma.work_companies;
+create policy work_companies_read on luma.work_companies for select to authenticated using (owner_id = auth.uid());
+create policy work_companies_insert on luma.work_companies for insert to authenticated with check (owner_id = auth.uid() and luma.has_my_addon('work'));
+create policy work_companies_update on luma.work_companies for update to authenticated using (owner_id = auth.uid() and luma.has_my_addon('work')) with check (owner_id = auth.uid());
+create policy work_companies_delete on luma.work_companies for delete to authenticated using (owner_id = auth.uid() and archived_at is not null);
+revoke all on luma.work_companies from anon, authenticated;
+grant select, insert, update, delete on luma.work_companies to authenticated;
+
+create or replace function luma.work_company_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' and (select count(*) from luma.work_companies where owner_id = new.owner_id) >= 20 then raise exception 'You can have up to 20 companies'; end if;
+  if tg_op = 'UPDATE' and new.owner_id <> old.owner_id then raise exception 'A company can not change owner'; end if;
+  new.name := btrim(new.name); new.position := btrim(new.position);
+  -- archiving stamps the end date; restoring clears it
+  if new.archived_at is not null and (tg_op = 'INSERT' or old.archived_at is null) and new.end_date is null then new.end_date := (new.archived_at at time zone 'Asia/Kuala_Lumpur')::date; end if;
+  if new.archived_at is null and tg_op = 'UPDATE' and old.archived_at is not null then new.end_date := null; end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists work_companies_guard on luma.work_companies;
+create trigger work_companies_guard before insert or update on luma.work_companies for each row execute function luma.work_company_guard();
+
+alter table luma.work_projects add column if not exists company_id uuid references luma.work_companies (id) on delete cascade;
+create index if not exists work_projects_company_idx on luma.work_projects (company_id);
+
+-- projects that already exist go into a company called "My company"
+insert into luma.work_companies (owner_id, name)
+select distinct p.owner_id, 'My company' from luma.work_projects p
+where p.company_id is null and not exists (select 1 from luma.work_companies c where c.owner_id = p.owner_id);
+update luma.work_projects p set company_id = (select c.id from luma.work_companies c where c.owner_id = p.owner_id order by c.created_at limit 1) where p.company_id is null;
+
+create or replace function luma.work_project_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_arch timestamptz; v_owner uuid;
+begin
+  if tg_op = 'INSERT' then
+    if (select count(*) from luma.work_projects where owner_id = new.owner_id) >= 60 then raise exception 'You can have up to 60 projects'; end if;
+    if new.company_id is null then
+      select id into new.company_id from luma.work_companies where owner_id = new.owner_id and archived_at is null order by created_at limit 1;
+      if new.company_id is null then insert into luma.work_companies (owner_id, name) values (new.owner_id, 'My company') returning id into new.company_id; end if;
+    end if;
+  elsif new.company_id is distinct from old.company_id then raise exception 'A project can not move to another company';
+  end if;
+  select archived_at, owner_id into v_arch, v_owner from luma.work_companies where id = new.company_id;
+  if v_owner is distinct from new.owner_id then raise exception 'That is not your company'; end if;
+  if v_arch is not null then raise exception 'This company is archived: restore it to change its projects'; end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+-- nothing in an archived company can be changed (members included)
+create or replace function luma.work_can_edit(p_project uuid)
+returns boolean
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select coalesce(luma.work_role(p_project, auth.uid()) in ('owner', 'member'), false) and luma.has_my_addon('work')
+     and not exists (select 1 from luma.work_projects p join luma.work_companies c on c.id = p.company_id where p.id = p_project and c.archived_at is not null);
+$$;
+revoke execute on function luma.work_can_edit(uuid) from public, anon;
+grant execute on function luma.work_can_edit(uuid) to authenticated;
+
+-- shared projects say whether their company is archived
+create or replace function luma.my_work_shared()
+returns jsonb
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', p.id, 'name', p.name, 'client', p.client, 'color', p.color, 'status', p.status, 'deadline', p.deadline, 'kind', p.kind,
+    'owner_id', p.owner_id, 'owner_name', luma.person_name(p.owner_id), 'my_role', m.role, 'my_status', m.status,
+    'archived', exists (select 1 from luma.work_companies c where c.id = p.company_id and c.archived_at is not null),
+    'tasks', (select count(*) from luma.work_tasks t where t.project_id = p.id and m.status = 'accepted'),
+    'done', (select count(*) from luma.work_tasks t where t.project_id = p.id and t.status = 'done' and m.status = 'accepted')) order by p.updated_at desc), '[]'::jsonb)
+  from luma.work_project_members m join luma.work_projects p on p.id = m.project_id
+  where m.user_id = auth.uid() and m.status in ('pending', 'accepted');
+$$;
+revoke execute on function luma.my_work_shared() from public, anon;
+grant execute on function luma.my_work_shared() to authenticated;
+
+
+-- ################################################################
+-- 075_work_comments_files.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 075: Work tasks get comments and files.
+--   • work_task_comments: a conversation on a task. Owners and members (with the Work add-on) can write; everyone on the project can read.
+--     The people on the task (and whoever made it) are told about a new comment, and the notification opens the task.
+--   • work_task_files: documents from the Documents page attached to a task. Attaching shares the document with the people on the project;
+--     it is un-shared again when the file is removed, the person leaves, or the task / project is deleted (unless something else still links it).
+-- Depends on 071–074, 058 (the sharing helpers). Safe to re-run.
+-- ============================================================
+
+create table if not exists luma.work_task_comments (
+  id         uuid primary key default gen_random_uuid(),
+  task_id    uuid not null references luma.work_tasks (id) on delete cascade,
+  project_id uuid not null references luma.work_projects (id) on delete cascade,
+  user_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  body       text not null check (length(btrim(body)) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+create index if not exists work_task_comments_task_idx on luma.work_task_comments (task_id, created_at);
+
+create table if not exists luma.work_task_files (
+  id          uuid primary key default gen_random_uuid(),
+  task_id     uuid not null references luma.work_tasks (id) on delete cascade,
+  project_id  uuid not null references luma.work_projects (id) on delete cascade,
+  document_id uuid not null references luma.documents (id) on delete cascade,
+  added_by    uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  unique (task_id, document_id)
+);
+create index if not exists work_task_files_doc_idx on luma.work_task_files (document_id);
+create index if not exists work_task_files_project_idx on luma.work_task_files (project_id);
+
+alter table luma.work_task_comments enable row level security;
+alter table luma.work_task_files enable row level security;
+drop policy if exists work_comments_read on luma.work_task_comments;
+drop policy if exists work_comments_insert on luma.work_task_comments;
+drop policy if exists work_comments_delete on luma.work_task_comments;
+create policy work_comments_read on luma.work_task_comments for select to authenticated using (luma.work_role(project_id, auth.uid()) is not null);
+create policy work_comments_insert on luma.work_task_comments for insert to authenticated with check (user_id = auth.uid() and luma.work_can_edit(project_id));
+create policy work_comments_delete on luma.work_task_comments for delete to authenticated using (user_id = auth.uid() or luma.work_role(project_id, auth.uid()) = 'owner');
+revoke all on luma.work_task_comments, luma.work_task_files from anon, authenticated;
+grant select, insert, delete on luma.work_task_comments to authenticated;
+-- files go through the functions below (they do the sharing)
+
+create or replace function luma.work_comment_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  select project_id into new.project_id from luma.work_tasks where id = new.task_id;
+  if new.project_id is null then raise exception 'Task not found'; end if;
+  if (select count(*) from luma.work_task_comments where task_id = new.task_id) >= 500 then raise exception 'A task can have up to 500 comments'; end if;
+  return new;
+end;
+$$;
+drop trigger if exists work_comments_guard on luma.work_task_comments;
+create trigger work_comments_guard before insert on luma.work_task_comments for each row execute function luma.work_comment_guard();
+
+create or replace function luma.work_comment_notify()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_t record; v_u uuid;
+begin
+  select title, assignee_ids, created_by into v_t from luma.work_tasks where id = new.task_id;
+  for v_u in select distinct x from unnest(v_t.assignee_ids || coalesce(array[v_t.created_by], '{}'::uuid[])) x where x is not null and x <> new.user_id loop
+    if luma.work_role(new.project_id, v_u) is not null then
+      perform luma.notify(v_u, 'work_comment', '💬 ' || luma.person_name(new.user_id) || ' commented on ' || v_t.title, left(new.body, 120), 'work', new.task_id);
+    end if;
+  end loop;
+  return null;
+end;
+$$;
+drop trigger if exists work_comments_notify on luma.work_task_comments;
+create trigger work_comments_notify after insert on luma.work_task_comments for each row execute function luma.work_comment_notify();
+
+-- who is on a project (owner + accepted people)
+create or replace function luma.work_people(p_project uuid)
+returns setof uuid
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select owner_id from luma.work_projects where id = p_project
+  union select user_id from luma.work_project_members where project_id = p_project and status = 'accepted';
+$$;
+revoke execute on function luma.work_people(uuid) from public, anon, authenticated;
+
+-- a document stays shared while a Work task they can reach still has it attached (Study links still count too)
+create or replace function luma.doc_linked(p_doc uuid, p_user uuid, p_skip_project uuid, p_skip_note uuid)
+returns boolean
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  return exists (select 1 from luma.study_project_files f join luma.study_project_members m on m.project_id = f.project_id
+                 where f.document_id = p_doc and m.user_id = p_user and m.status = 'accepted' and f.project_id is distinct from p_skip_project)
+      or exists (select 1 from luma.study_note_files nf join luma.study_note_shares s on s.note_id = nf.note_id
+                 where nf.document_id = p_doc and s.shared_with = p_user and nf.note_id is distinct from p_skip_note)
+      or exists (select 1 from luma.work_task_files wf where wf.document_id = p_doc and p_user in (select luma.work_people(wf.project_id)));
+end;
+$$;
+revoke execute on function luma.doc_linked(uuid, uuid, uuid, uuid) from public, anon, authenticated;
+
+create or replace function luma.work_attach_file(p_task uuid, p_document uuid)
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_proj uuid; v_id uuid; v_u uuid;
+begin
+  select project_id into v_proj from luma.work_tasks where id = p_task;
+  if v_proj is null or not luma.work_can_edit(v_proj) then raise exception 'Not allowed'; end if;
+  if not exists (select 1 from luma.documents where id = p_document and user_id = auth.uid()) then raise exception 'You can only attach your own documents'; end if;
+  if (select count(*) from luma.work_task_files where task_id = p_task) >= 20 then raise exception 'A task can have up to 20 files'; end if;
+  insert into luma.work_task_files (task_id, project_id, document_id, added_by) values (p_task, v_proj, p_document, auth.uid())
+    on conflict (task_id, document_id) do update set added_by = excluded.added_by returning id into v_id;
+  for v_u in select luma.work_people(v_proj) loop perform luma.share_doc(p_document, v_u); end loop;
+  update luma.work_projects set updated_at = now() where id = v_proj;
+  return v_id;
+end;
+$$;
+revoke execute on function luma.work_attach_file(uuid, uuid) from public, anon;
+grant execute on function luma.work_attach_file(uuid, uuid) to authenticated;
+
+create or replace function luma.work_detach_file(p_file uuid)
+returns boolean
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_f record; v_u uuid;
+begin
+  select * into v_f from luma.work_task_files where id = p_file;
+  if not found then return true; end if;
+  if not luma.work_can_edit(v_f.project_id) or (v_f.added_by <> auth.uid() and luma.work_role(v_f.project_id, auth.uid()) <> 'owner') then raise exception 'Only the person who attached it, or the project owner, can remove it'; end if;
+  delete from luma.work_task_files where id = p_file;
+  for v_u in select luma.work_people(v_f.project_id) loop perform luma.unshare_doc(v_f.document_id, v_u, null, null); end loop;
+  return true;
+end;
+$$;
+revoke execute on function luma.work_detach_file(uuid) from public, anon;
+grant execute on function luma.work_detach_file(uuid) to authenticated;
+
+create or replace function luma.work_task_files_of(p_task uuid)
+returns table (id uuid, document_id uuid, name text, size_bytes bigint, mime_type text, storage_path text, added_by uuid, added_by_name text, created_at timestamptz)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v_proj uuid;
+begin
+  select t.project_id into v_proj from luma.work_tasks t where t.id = p_task;
+  if v_proj is null or luma.work_role(v_proj, auth.uid()) is null then raise exception 'Not allowed'; end if;
+  return query select f.id, d.id, d.name, d.size_bytes::bigint, d.mime_type, d.storage_path, f.added_by, luma.person_name(f.added_by), f.created_at
+    from luma.work_task_files f join luma.documents d on d.id = f.document_id where f.task_id = p_task order by f.created_at desc;
+end;
+$$;
+revoke execute on function luma.work_task_files_of(uuid) from public, anon;
+grant execute on function luma.work_task_files_of(uuid) to authenticated;
+
+-- comments with the writer's name
+create or replace function luma.work_task_comments_of(p_task uuid)
+returns table (id uuid, user_id uuid, name text, body text, created_at timestamptz)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v_proj uuid;
+begin
+  select t.project_id into v_proj from luma.work_tasks t where t.id = p_task;
+  if v_proj is null or luma.work_role(v_proj, auth.uid()) is null then raise exception 'Not allowed'; end if;
+  return query select c.id, c.user_id, luma.person_name(c.user_id), c.body, c.created_at from luma.work_task_comments c where c.task_id = p_task order by c.created_at;
+end;
+$$;
+revoke execute on function luma.work_task_comments_of(uuid) from public, anon;
+grant execute on function luma.work_task_comments_of(uuid) to authenticated;
+
+-- when a task or a project goes, the sharing of its files goes with it
+create or replace function luma.work_task_cleanup_files()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_doc uuid; v_u uuid;
+begin
+  for v_doc in delete from luma.work_task_files where task_id = old.id returning document_id loop
+    for v_u in select luma.work_people(old.project_id) loop perform luma.unshare_doc(v_doc, v_u, null, null); end loop;
+  end loop;
+  return old;
+end;
+$$;
+drop trigger if exists work_tasks_cleanup_files on luma.work_tasks;
+create trigger work_tasks_cleanup_files before delete on luma.work_tasks for each row execute function luma.work_task_cleanup_files();
+
+create or replace function luma.work_project_cleanup_files()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_doc uuid; v_u uuid;
+begin
+  for v_doc in delete from luma.work_task_files where project_id = old.id returning document_id loop
+    for v_u in select luma.work_people(old.id) loop perform luma.unshare_doc(v_doc, v_u, null, null); end loop;
+  end loop;
+  return old;
+end;
+$$;
+drop trigger if exists work_projects_cleanup_files on luma.work_projects;
+create trigger work_projects_cleanup_files before delete on luma.work_projects for each row execute function luma.work_project_cleanup_files();
+
+-- joining shares the project's files with you; leaving or being removed takes that away again
+create or replace function luma.work_respond(p_project uuid, p_accept boolean)
+returns text
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_owner uuid; v_name text; v_doc uuid;
+begin
+  update luma.work_project_members set status = case when p_accept then 'accepted' else 'declined' end where project_id = p_project and user_id = auth.uid() and status = 'pending';
+  if not found then raise exception 'No invitation found'; end if;
+  select owner_id, name into v_owner, v_name from luma.work_projects where id = p_project;
+  if p_accept then for v_doc in select document_id from luma.work_task_files where project_id = p_project loop perform luma.share_doc(v_doc, auth.uid()); end loop; end if;
+  perform luma.notify(v_owner, 'work_reply', (case when p_accept then '✅ ' else '❌ ' end) || luma.person_name(auth.uid()) || (case when p_accept then ' joined ' else ' declined ' end) || v_name, 'Open Work → Projects.', 'work', p_project);
+  return case when p_accept then 'accepted' else 'declined' end;
+end;
+$$;
+revoke execute on function luma.work_respond(uuid, boolean) from public, anon;
+grant execute on function luma.work_respond(uuid, boolean) to authenticated;
+
+create or replace function luma.work_remove_member(p_project uuid, p_user uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_doc uuid;
+begin
+  if not (p_user = auth.uid() or exists (select 1 from luma.work_projects where id = p_project and owner_id = auth.uid())) then raise exception 'Not allowed'; end if;
+  delete from luma.work_project_members where project_id = p_project and user_id = p_user;
+  update luma.work_tasks set assignee_ids = array_remove(assignee_ids, p_user) where project_id = p_project and p_user = any (assignee_ids);
+  for v_doc in select document_id from luma.work_task_files where project_id = p_project loop perform luma.unshare_doc(v_doc, p_user, null, null); end loop;
+end;
+$$;
+revoke execute on function luma.work_remove_member(uuid, uuid) from public, anon;
+grant execute on function luma.work_remove_member(uuid, uuid) to authenticated;
+
+
+-- ################################################################
+-- 076_work_time.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 076: Work time tracking.
+--   • work_time_entries: your own hours. An entry is for a task, for a project, or "general" (not tied to a project: meetings, admin…),
+--     always under a company. Projects other people shared with you can be logged too (those entries have no company of yours).
+--   • A running timer is an entry with running_since set (one per person, works across devices). Stopping it saves the minutes.
+--   • Rules: up to 24 hours per entry and per day; nothing can be logged for an archived company, for a viewer-only project, or without the Work add-on.
+--   • work_time_summary(project): minutes per task for everyone on the project (totals only; each person's own entries stay private).
+-- Depends on 071–075. Safe to re-run.
+-- ============================================================
+
+create table if not exists luma.work_time_entries (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  company_id    uuid references luma.work_companies (id) on delete cascade,
+  project_id    uuid references luma.work_projects (id) on delete set null,
+  task_id       uuid references luma.work_tasks (id) on delete set null,
+  project_name  text,
+  task_title    text,
+  work_date     date not null default (now() at time zone 'Asia/Kuala_Lumpur')::date,
+  minutes       integer not null default 0 check (minutes between 0 and 1440),
+  note          text not null default '' check (length(note) <= 200),
+  running_since timestamptz,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index if not exists work_time_user_idx on luma.work_time_entries (user_id, work_date desc);
+create index if not exists work_time_task_idx on luma.work_time_entries (task_id);
+create index if not exists work_time_project_idx on luma.work_time_entries (project_id);
+create unique index if not exists work_time_one_timer on luma.work_time_entries (user_id) where running_since is not null;
+
+alter table luma.work_time_entries enable row level security;
+drop policy if exists work_time_read on luma.work_time_entries;
+drop policy if exists work_time_insert on luma.work_time_entries;
+drop policy if exists work_time_update on luma.work_time_entries;
+drop policy if exists work_time_delete on luma.work_time_entries;
+create policy work_time_read on luma.work_time_entries for select to authenticated using (user_id = auth.uid());
+create policy work_time_insert on luma.work_time_entries for insert to authenticated with check (user_id = auth.uid() and luma.has_my_addon('work'));
+create policy work_time_update on luma.work_time_entries for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid() and luma.has_my_addon('work'));
+create policy work_time_delete on luma.work_time_entries for delete to authenticated using (user_id = auth.uid());
+revoke all on luma.work_time_entries from anon, authenticated;
+grant select, insert, update, delete on luma.work_time_entries to authenticated;
+
+create or replace function luma.work_time_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_proj record; v_task record; v_co record; v_other integer; v_stop boolean := tg_op = 'UPDATE' and ((old.running_since is not null and new.running_since is null)
+    or (old.project_id is not null and new.project_id is null) or (old.task_id is not null and new.task_id is null and new.project_id is not distinct from old.project_id));   -- stopping a timer, or a task / project being deleted
+begin
+  if tg_op = 'INSERT' and (select count(*) from luma.work_time_entries where user_id = new.user_id) >= 20000 then raise exception 'You can keep up to 20,000 time entries'; end if;
+  if not v_stop then
+  if new.task_id is not null then
+    select id, title, project_id into v_task from luma.work_tasks where id = new.task_id;
+    if not found then raise exception 'Task not found'; end if;
+    new.project_id := v_task.project_id; new.task_title := v_task.title;
+  end if;
+  if new.project_id is not null then
+    select id, name, owner_id, company_id into v_proj from luma.work_projects where id = new.project_id;
+    if not found then raise exception 'Project not found'; end if;
+    if not luma.work_can_edit(new.project_id) then raise exception 'You can only log time on projects you can change (not as a viewer, and not in an archived company)'; end if;
+    new.project_name := v_proj.name;
+    new.company_id := case when v_proj.owner_id = new.user_id then v_proj.company_id else null end;
+  else
+    new.project_name := null; new.task_title := null;
+    if new.company_id is null then raise exception 'Choose a company or a project'; end if;
+    select owner_id, archived_at into v_co from luma.work_companies where id = new.company_id;
+    if not found or v_co.owner_id <> new.user_id then raise exception 'That is not your company'; end if;
+    if v_co.archived_at is not null then raise exception 'This company is archived: restore it to log time'; end if;
+  end if;
+  end if;   -- (stopping a timer, or a task / project being deleted, always works: nothing can get stuck)
+  new.note := btrim(new.note);
+  if new.running_since is not null then new.minutes := 0; end if;
+  select coalesce(sum(minutes), 0) into v_other from luma.work_time_entries where user_id = new.user_id and work_date = new.work_date and id is distinct from new.id;
+  if v_other + new.minutes > 1440 then raise exception 'A day can not have more than 24 hours logged'; end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists work_time_guard on luma.work_time_entries;
+create trigger work_time_guard before insert or update on luma.work_time_entries for each row execute function luma.work_time_guard();
+
+-- timer: starting one stops the one that was running
+create or replace function luma.work_timer_stop()
+returns luma.work_time_entries
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v luma.work_time_entries; v_min integer; v_room integer;
+begin
+  select * into v from luma.work_time_entries where user_id = auth.uid() and running_since is not null;
+  if not found then return null; end if;
+  v_min := least(greatest(1, ceil(extract(epoch from now() - v.running_since) / 60)::integer), 720);   -- a forgotten timer counts at most 12 hours
+  select 1440 - coalesce(sum(minutes), 0) into v_room from luma.work_time_entries where user_id = auth.uid() and work_date = v.work_date and id <> v.id;
+  update luma.work_time_entries set minutes = greatest(least(v_min, v_room), 0), running_since = null where id = v.id returning * into v;
+  return v;
+end;
+$$;
+revoke execute on function luma.work_timer_stop() from public, anon;
+grant execute on function luma.work_timer_stop() to authenticated;
+
+create or replace function luma.work_timer_start(p_project uuid, p_task uuid, p_company uuid, p_note text)
+returns luma.work_time_entries
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v luma.work_time_entries;
+begin
+  if not luma.has_my_addon('work') then raise exception 'The Work add-on is needed to track time'; end if;
+  perform luma.work_timer_stop();
+  insert into luma.work_time_entries (project_id, task_id, company_id, note, running_since, minutes)
+    values (p_project, p_task, p_company, coalesce(p_note, ''), now(), 0) returning * into v;
+  return v;
+end;
+$$;
+revoke execute on function luma.work_timer_start(uuid, uuid, uuid, text) from public, anon;
+grant execute on function luma.work_timer_start(uuid, uuid, uuid, text) to authenticated;
+
+-- minutes per task (everyone's time added up) for the people on a project
+create or replace function luma.work_time_summary(p_project uuid)
+returns table (task_id uuid, minutes bigint)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  if luma.work_role(p_project, auth.uid()) is null then raise exception 'Not allowed'; end if;
+  return query select e.task_id, sum(e.minutes)::bigint from luma.work_time_entries e where e.project_id = p_project group by e.task_id;
+end;
+$$;
+revoke execute on function luma.work_time_summary(uuid) from public, anon;
+grant execute on function luma.work_time_summary(uuid) to authenticated;
+
+
+-- ################################################################
+-- 077_work_reminders_limits.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 077: Work due-date reminders and limits per plan.
+--   • People given a Work task are reminded before it is due (the day before and on the day, at the hour they chose in Settings → Reminders),
+--     and get a daily nudge for a week once it is overdue. Tasks that are done, or in an archived company, are left alone.
+--   • The Work limits depend on the plan of the person who owns the project / company (the Work add-on works on every plan):
+--       Dawn:   2 companies · 5 projects · 3 people per project · 200 tasks per project
+--       Glow:   5 companies · 20 projects · 8 people per project · 600 tasks per project
+--       Zenith: 20 companies · 60 projects · 15 people per project · 1,500 tasks per project
+--     (change the numbers in luma.plan_limits keys work_companies / work_projects / work_people / work_tasks). Going over after a downgrade
+--     keeps what exists; it only stops adding more.
+-- Depends on 071–076, 033 (plan_limits), 031 (reminder_prefs). Safe to re-run.
+-- ============================================================
+
+insert into luma.plan_limits (plan, key, value) values
+  ('dawn', 'work_companies', 2), ('glow', 'work_companies', 5), ('zenith', 'work_companies', 20),
+  ('dawn', 'work_projects', 5), ('glow', 'work_projects', 20), ('zenith', 'work_projects', 60),
+  ('dawn', 'work_people', 3), ('glow', 'work_people', 8), ('zenith', 'work_people', 15),
+  ('dawn', 'work_tasks', 200), ('glow', 'work_tasks', 600), ('zenith', 'work_tasks', 1500)
+on conflict (plan, key) do update set value = excluded.value;
+
+alter table luma.reminder_prefs add column if not exists work_on boolean not null default true;
+alter table luma.reminder_prefs add column if not exists work_hour integer not null default 9 check (work_hour between 0 and 23);
+alter table luma.reminder_prefs add column if not exists work_days integer not null default 1 check (work_days between 1 and 14);
+
+create or replace function luma.work_company_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_max integer;
+begin
+  if tg_op = 'INSERT' then
+    v_max := coalesce(luma.limit_of(new.owner_id, 'work_companies'), 20);
+    if (select count(*) from luma.work_companies where owner_id = new.owner_id) >= v_max then raise exception 'Your plan allows up to % companies in total (active and archived both count)', v_max; end if;
+  end if;
+  if tg_op = 'UPDATE' and new.owner_id <> old.owner_id then raise exception 'A company can not change owner'; end if;
+  new.name := btrim(new.name); new.position := btrim(new.position);
+  -- archiving stamps the end date; restoring clears it
+  if new.archived_at is not null and (tg_op = 'INSERT' or old.archived_at is null) and new.end_date is null then new.end_date := (new.archived_at at time zone 'Asia/Kuala_Lumpur')::date; end if;
+  if new.archived_at is null and tg_op = 'UPDATE' and old.archived_at is not null then new.end_date := null; end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create or replace function luma.work_project_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_arch timestamptz; v_owner uuid; v_max integer;
+begin
+  if tg_op = 'INSERT' then
+    v_max := coalesce(luma.limit_of(new.owner_id, 'work_projects'), 60);
+    if (select count(*) from luma.work_projects where owner_id = new.owner_id) >= v_max then raise exception 'Your plan allows up to % projects', v_max; end if;
+    if new.company_id is null then
+      select id into new.company_id from luma.work_companies where owner_id = new.owner_id and archived_at is null order by created_at limit 1;
+      if new.company_id is null then insert into luma.work_companies (owner_id, name) values (new.owner_id, 'My company') returning id into new.company_id; end if;
+    end if;
+  elsif new.company_id is distinct from old.company_id then raise exception 'A project can not move to another company';
+  end if;
+  select archived_at, owner_id into v_arch, v_owner from luma.work_companies where id = new.company_id;
+  if v_owner is distinct from new.owner_id then raise exception 'That is not your company'; end if;
+  if v_arch is not null then raise exception 'This company is archived: restore it to change its projects'; end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create or replace function luma.work_task_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_a uuid; v_max integer;
+begin
+  if tg_op = 'INSERT' then
+    v_max := coalesce(luma.limit_of((select owner_id from luma.work_projects where id = new.project_id), 'work_tasks'), 1500);
+    if (select count(*) from luma.work_tasks where project_id = new.project_id) >= v_max then raise exception 'Your plan allows up to % tasks in a project', v_max; end if;
+  end if;
+  new.assignee_ids := coalesce((select array_agg(distinct x) from unnest(new.assignee_ids) x), '{}'::uuid[]);
+  foreach v_a in array new.assignee_ids loop
+    if luma.work_role(new.project_id, v_a) is null then raise exception 'That person is not on this project'; end if;
+  end loop;
+  if tg_op = 'UPDATE' and new.project_id <> old.project_id then raise exception 'A task can not move to another project'; end if;
+  new.updated_at := now();
+  if new.status = 'done' and (tg_op = 'INSERT' or old.status <> 'done') then new.completed_at := now();
+  elsif new.status <> 'done' then new.completed_at := null; end if;
+  return new;
+end;
+$$;
+
+create or replace function luma.work_invite(p_project uuid, p_users uuid[], p_role text default 'member')
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_name text; v_user uuid; v_count int := 0; v_total int; v_old text; v_max int;
+begin
+  if p_role not in ('member', 'viewer') then raise exception 'Unknown role'; end if;
+  select name into v_name from luma.work_projects where id = p_project and owner_id = auth.uid();
+  if not found then raise exception 'Only the project owner can invite people'; end if;
+  if not luma.has_my_addon('work') then raise exception 'The Work add-on is needed to invite people'; end if;
+  v_max := coalesce(luma.limit_of(auth.uid(), 'work_people'), 15);
+  select count(*) into v_total from luma.work_project_members where project_id = p_project and status <> 'declined';
+  foreach v_user in array coalesce(p_users, '{}'::uuid[]) loop
+    continue when v_user = auth.uid();
+    if not luma.is_contact(auth.uid(), v_user) then raise exception 'You can only invite people in your contacts'; end if;
+    select status into v_old from luma.work_project_members where project_id = p_project and user_id = v_user;
+    continue when found and v_old <> 'declined';
+    if v_total >= v_max then raise exception 'Your plan allows up to % people on a project', v_max; end if;
+    insert into luma.work_project_members (project_id, user_id, role, status, invited_by) values (p_project, v_user, p_role, 'pending', auth.uid())
+      on conflict (project_id, user_id) do update set role = p_role, status = 'pending', invited_by = auth.uid(), created_at = now();
+    v_total := v_total + 1; v_count := v_count + 1;
+    perform luma.notify(v_user, 'work_invite', '💼 ' || luma.person_name(auth.uid()) || ' added you to a project', v_name || '. Open Work to accept.', 'work', p_project);
+  end loop;
+  return v_count;
+end;
+$$;
+revoke execute on function luma.work_invite(uuid, uuid[], text) from public, anon;
+grant execute on function luma.work_invite(uuid, uuid[], text) to authenticated;
+
+-- ---------- due-date reminders ----------
+create or replace function luma.run_work_reminders()
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  r record; u uuid;
+  v_now timestamp; v_today date; v_on boolean; v_hour int; v_days int; v_off int; v_late int; v_title text; v_send boolean;
+  v_count int := 0;
+begin
+  for r in
+    select t.id, t.title, t.due_date, t.assignee_ids, p.name as pname
+    from luma.work_tasks t
+    join luma.work_projects p on p.id = t.project_id
+    left join luma.work_companies c on c.id = p.company_id
+    where t.status <> 'done' and t.due_date is not null and cardinality(t.assignee_ids) > 0
+      and t.due_date between current_date - 8 and current_date + 16
+      and c.archived_at is null
+  loop
+    foreach u in array r.assignee_ids loop
+      continue when not luma.has_addon(u, 'work');
+      select coalesce(bool_and(x.work_on), true), coalesce(max(x.work_hour), 9), coalesce(max(x.work_days), 1) into v_on, v_hour, v_days from luma.reminder_prefs x where x.user_id = u;
+      continue when not v_on;
+      v_now := timezone(luma.user_tz(u), now()); v_today := v_now::date; v_late := v_today - r.due_date;
+      v_title := null; v_send := false;
+      if v_late > 0 then
+        if v_late <= 7 and extract(hour from v_now)::int = v_hour then
+          v_title := '⚠️ ' || r.title || ' is overdue by ' || v_late || ' day' || case when v_late = 1 then '' else 's' end; v_send := true;
+        end if;
+      else
+        foreach v_off in array array[v_days, 1, 0] loop
+          continue when r.due_date <> v_today + v_off;
+          v_send := extract(hour from v_now)::int = v_hour;
+          v_title := '📌 ' || r.title || case when v_off = 0 then ' is due today' else ' is due ' || luma.days_text(v_off, 'in') end;
+          exit;
+        end loop;
+      end if;
+      continue when not v_send or v_title is null;
+      continue when exists (select 1 from luma.notifications n where n.user_id = u and n.type = 'reminder_work' and n.ref = r.id and n.title = v_title and n.created_at > now() - interval '12 hours');
+      insert into luma.notifications (user_id, type, title, body, link, ref) values (u, 'reminder_work', v_title, r.pname, 'work', r.id);
+      v_count := v_count + 1;
+    end loop;
+  end loop;
+  return v_count;
+end;
+$$;
+revoke execute on function luma.run_work_reminders() from public, anon, authenticated;
+
+do $$
+begin
+  create extension if not exists pg_cron;
+  if exists (select 1 from cron.job where jobname = 'luma-work-reminders') then perform cron.unschedule('luma-work-reminders'); end if;
+  perform cron.schedule('luma-work-reminders', '0 * * * *', 'select luma.run_work_reminders()');
+exception when others then
+  raise notice 'Could not schedule the Work reminder job (%). Enable pg_cron under Database → Extensions, then re-run this file.', sqlerrm;
+end $$;
+
+
+-- ################################################################
+-- 078_work_edit_move_team.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 078: Work comments can be edited (with history), tasks and projects can be moved, owners see their team's time.
+--   • A comment's writer can edit it; every earlier wording is kept and can be looked at ("edited" → history). Up to 50 edits are kept.
+--   • work_move_task(task, project): move a task to another project you can change (its checklist, comments, files and logged time come
+--     along; assignees who aren't on the new project are dropped; the phase / folder is cleared). It can be in another company.
+--   • work_move_project(project, company): the owner moves a project to another active company of theirs (their logged time follows).
+--   • work_project_time(project, from, to): the project OWNER can see the hours everyone logged on that project. People are told this on
+--     the Time tab. Everything else about time stays private to each person.
+-- Depends on 071–077, 058. Safe to re-run.
+-- ============================================================
+
+-- ---------- editing comments, with history ----------
+alter table luma.work_task_comments add column if not exists edited_at timestamptz;
+create table if not exists luma.work_comment_edits (
+  id         uuid primary key default gen_random_uuid(),
+  comment_id uuid not null references luma.work_task_comments (id) on delete cascade,
+  old_body   text not null,
+  edited_at  timestamptz not null default now()
+);
+create index if not exists work_comment_edits_idx on luma.work_comment_edits (comment_id, edited_at);
+alter table luma.work_comment_edits enable row level security;
+revoke all on luma.work_comment_edits from anon, authenticated;
+
+drop policy if exists work_comments_update on luma.work_task_comments;
+create policy work_comments_update on luma.work_task_comments for update to authenticated using (user_id = auth.uid() and luma.work_can_edit(project_id)) with check (user_id = auth.uid() and luma.work_can_edit(project_id));
+grant update (body) on luma.work_task_comments to authenticated;
+
+create or replace function luma.work_comment_edit_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if new.task_id <> old.task_id or new.user_id <> old.user_id or (new.project_id <> old.project_id and coalesce(current_setting('luma.moving', true), '') <> '1') then raise exception 'Only the wording can change'; end if;
+  if new.body is not distinct from old.body then return new; end if;
+  if (select count(*) from luma.work_comment_edits where comment_id = old.id) >= 50 then raise exception 'A comment can be edited up to 50 times'; end if;
+  insert into luma.work_comment_edits (comment_id, old_body) values (old.id, old.body);
+  new.edited_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists work_comments_edit on luma.work_task_comments;
+create trigger work_comments_edit before update on luma.work_task_comments for each row execute function luma.work_comment_edit_guard();
+
+create or replace function luma.work_comment_history(p_comment uuid)
+returns table (body text, edited_at timestamptz, is_current boolean)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v_proj uuid;
+begin
+  select c.project_id into v_proj from luma.work_task_comments c where c.id = p_comment;
+  if v_proj is null or luma.work_role(v_proj, auth.uid()) is null then raise exception 'Not allowed'; end if;
+  return query
+    select c.body, coalesce(c.edited_at, c.created_at), true from luma.work_task_comments c where c.id = p_comment
+    union all select e.old_body, e.edited_at, false from luma.work_comment_edits e where e.comment_id = p_comment
+    order by 2 desc;
+end;
+$$;
+revoke execute on function luma.work_comment_history(uuid) from public, anon;
+grant execute on function luma.work_comment_history(uuid) to authenticated;
+
+-- the list of comments now says whether one was edited
+drop function if exists luma.work_task_comments_of(uuid);
+create or replace function luma.work_task_comments_of(p_task uuid)
+returns table (id uuid, user_id uuid, name text, body text, created_at timestamptz, edited_at timestamptz)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v_proj uuid;
+begin
+  select t.project_id into v_proj from luma.work_tasks t where t.id = p_task;
+  if v_proj is null or luma.work_role(v_proj, auth.uid()) is null then raise exception 'Not allowed'; end if;
+  return query select c.id, c.user_id, luma.person_name(c.user_id), c.body, c.created_at, c.edited_at from luma.work_task_comments c where c.task_id = p_task order by c.created_at;
+end;
+$$;
+revoke execute on function luma.work_task_comments_of(uuid) from public, anon;
+grant execute on function luma.work_task_comments_of(uuid) to authenticated;
+
+-- ---------- moving ----------
+-- the guards let a move through only while a move function is running
+create or replace function luma.work_task_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_a uuid; v_max integer;
+begin
+  if tg_op = 'INSERT' then
+    v_max := coalesce(luma.limit_of((select owner_id from luma.work_projects where id = new.project_id), 'work_tasks'), 1500);
+    if (select count(*) from luma.work_tasks where project_id = new.project_id) >= v_max then raise exception 'Your plan allows up to % tasks in a project', v_max; end if;
+  end if;
+  new.assignee_ids := coalesce((select array_agg(distinct x) from unnest(new.assignee_ids) x), '{}'::uuid[]);
+  foreach v_a in array new.assignee_ids loop
+    if luma.work_role(new.project_id, v_a) is null then raise exception 'That person is not on this project'; end if;
+  end loop;
+  if tg_op = 'UPDATE' and new.project_id <> old.project_id and coalesce(current_setting('luma.moving', true), '') <> '1' then raise exception 'Use Move to put a task in another project'; end if;
+  new.updated_at := now();
+  if new.status = 'done' and (tg_op = 'INSERT' or old.status <> 'done') then new.completed_at := now();
+  elsif new.status <> 'done' then new.completed_at := null; end if;
+  return new;
+end;
+$$;
+
+create or replace function luma.work_project_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_arch timestamptz; v_owner uuid; v_max integer;
+begin
+  if tg_op = 'INSERT' then
+    v_max := coalesce(luma.limit_of(new.owner_id, 'work_projects'), 60);
+    if (select count(*) from luma.work_projects where owner_id = new.owner_id) >= v_max then raise exception 'Your plan allows up to % projects', v_max; end if;
+    if new.company_id is null then
+      select id into new.company_id from luma.work_companies where owner_id = new.owner_id and archived_at is null order by created_at limit 1;
+      if new.company_id is null then insert into luma.work_companies (owner_id, name) values (new.owner_id, 'My company') returning id into new.company_id; end if;
+    end if;
+  elsif new.company_id is distinct from old.company_id and coalesce(current_setting('luma.moving', true), '') <> '1' then raise exception 'Use Move to put a project in another company';
+  end if;
+  select archived_at, owner_id into v_arch, v_owner from luma.work_companies where id = new.company_id;
+  if v_owner is distinct from new.owner_id then raise exception 'That is not your company'; end if;
+  if v_arch is not null then raise exception 'This company is archived: restore it to change its projects'; end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+create or replace function luma.work_move_task(p_task uuid, p_project uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_t record; v_u uuid; v_doc uuid; v_max integer;
+begin
+  select * into v_t from luma.work_tasks where id = p_task;
+  if not found then raise exception 'Task not found'; end if;
+  if v_t.project_id = p_project then return; end if;
+  if not luma.work_can_edit(v_t.project_id) or not luma.work_can_edit(p_project) then raise exception 'You can only move a task between projects you can change'; end if;
+  v_max := coalesce(luma.limit_of((select owner_id from luma.work_projects where id = p_project), 'work_tasks'), 1500);
+  if (select count(*) from luma.work_tasks where project_id = p_project) >= v_max then raise exception 'That project is full (up to % tasks on its owner''s plan)', v_max; end if;
+  perform set_config('luma.moving', '1', true);
+  update luma.work_tasks set project_id = p_project, folder_id = null,
+    assignee_ids = coalesce((select array_agg(x) from unnest(v_t.assignee_ids) x where luma.work_role(p_project, x) is not null), '{}'::uuid[]) where id = p_task;
+  update luma.work_task_comments set project_id = p_project where task_id = p_task;
+  update luma.work_task_files set project_id = p_project where task_id = p_task;
+  update luma.work_time_entries e set project_id = p_project where e.task_id = p_task;
+  -- the files are now shared with the new project's people, and no longer with the old ones (unless something else still links them)
+  for v_doc in select document_id from luma.work_task_files where task_id = p_task loop
+    for v_u in select luma.work_people(v_t.project_id) loop perform luma.unshare_doc(v_doc, v_u, null, null); end loop;
+    for v_u in select luma.work_people(p_project) loop perform luma.share_doc(v_doc, v_u); end loop;
+  end loop;
+  perform set_config('luma.moving', '', true);
+  update luma.work_projects set updated_at = now() where id in (v_t.project_id, p_project);
+end;
+$$;
+revoke execute on function luma.work_move_task(uuid, uuid) from public, anon;
+grant execute on function luma.work_move_task(uuid, uuid) to authenticated;
+
+create or replace function luma.work_move_project(p_project uuid, p_company uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_p record; v_c record;
+begin
+  select * into v_p from luma.work_projects where id = p_project and owner_id = auth.uid();
+  if not found then raise exception 'Only the project owner can move it'; end if;
+  if not luma.has_my_addon('work') then raise exception 'The Work add-on is needed'; end if;
+  if v_p.company_id = p_company then return; end if;
+  select * into v_c from luma.work_companies where id = p_company and owner_id = auth.uid();
+  if not found then raise exception 'That is not your company'; end if;
+  if v_c.archived_at is not null then raise exception 'That company is archived: restore it first'; end if;
+  perform set_config('luma.moving', '1', true);
+  update luma.work_projects set company_id = p_company where id = p_project;
+  perform set_config('luma.moving', '', true);
+  -- the owner's own logged time on this project follows it (other people's entries have no company of yours)
+  update luma.work_time_entries set company_id = p_company where project_id = p_project and user_id = auth.uid();
+end;
+$$;
+revoke execute on function luma.work_move_project(uuid, uuid) from public, anon;
+grant execute on function luma.work_move_project(uuid, uuid) to authenticated;
+
+-- ---------- the owner sees the team's hours on their project ----------
+create or replace function luma.work_project_time(p_project uuid, p_from date, p_to date)
+returns table (user_id uuid, name text, work_date date, minutes integer, task_title text, note text)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  if not exists (select 1 from luma.work_projects p where p.id = p_project and p.owner_id = auth.uid()) then raise exception 'Only the project owner can see the team''s time'; end if;
+  return query select e.user_id, luma.person_name(e.user_id), e.work_date, e.minutes, e.task_title, e.note
+    from luma.work_time_entries e where e.project_id = p_project and e.running_since is null and e.work_date between p_from and p_to order by e.work_date, e.created_at;
+end;
+$$;
+revoke execute on function luma.work_project_time(uuid, date, date) from public, anon;
+grant execute on function luma.work_project_time(uuid, date, date) to authenticated;
+
+
+-- ################################################################
+-- 079_work_time_label.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 079: a name you type for general Work time ("Client call", "Team meeting"…).
+--   • work_time_entries.label (up to 100 characters). Only used for general time (not tied to a project); it shows instead of "General"
+--     in the Time tab and the timesheet. Time on a project or task keeps using that project / task, plus the note.
+--   • work_timer_start gets an optional label.
+-- Depends on 076. Safe to re-run.
+-- ============================================================
+
+alter table luma.work_time_entries add column if not exists label text not null default '';
+alter table luma.work_time_entries drop constraint if exists work_time_label_check;
+alter table luma.work_time_entries add constraint work_time_label_check check (length(label) <= 100);
+
+create or replace function luma.work_time_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_proj record; v_task record; v_co record; v_other integer; v_stop boolean := tg_op = 'UPDATE' and ((old.running_since is not null and new.running_since is null)
+    or (old.project_id is not null and new.project_id is null) or (old.task_id is not null and new.task_id is null and new.project_id is not distinct from old.project_id));   -- stopping a timer, or a task / project being deleted
+begin
+  if tg_op = 'INSERT' and (select count(*) from luma.work_time_entries where user_id = new.user_id) >= 20000 then raise exception 'You can keep up to 20,000 time entries'; end if;
+  if not v_stop then
+  if new.task_id is not null then
+    select id, title, project_id into v_task from luma.work_tasks where id = new.task_id;
+    if not found then raise exception 'Task not found'; end if;
+    new.project_id := v_task.project_id; new.task_title := v_task.title;
+  end if;
+  if new.project_id is not null then
+    select id, name, owner_id, company_id into v_proj from luma.work_projects where id = new.project_id;
+    if not found then raise exception 'Project not found'; end if;
+    if not luma.work_can_edit(new.project_id) then raise exception 'You can only log time on projects you can change (not as a viewer, and not in an archived company)'; end if;
+    new.project_name := v_proj.name; new.label := '';
+    new.company_id := case when v_proj.owner_id = new.user_id then v_proj.company_id else null end;
+  else
+    new.project_name := null; new.task_title := null;
+    if new.company_id is null then raise exception 'Choose a company or a project'; end if;
+    select owner_id, archived_at into v_co from luma.work_companies where id = new.company_id;
+    if not found or v_co.owner_id <> new.user_id then raise exception 'That is not your company'; end if;
+    if v_co.archived_at is not null then raise exception 'This company is archived: restore it to log time'; end if;
+  end if;
+  end if;   -- (stopping a timer, or a task / project being deleted, always works: nothing can get stuck)
+  new.note := btrim(new.note); new.label := btrim(coalesce(new.label, ''));
+  if new.running_since is not null then new.minutes := 0; end if;
+  select coalesce(sum(minutes), 0) into v_other from luma.work_time_entries where user_id = new.user_id and work_date = new.work_date and id is distinct from new.id;
+  if v_other + new.minutes > 1440 then raise exception 'A day can not have more than 24 hours logged'; end if;
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop function if exists luma.work_timer_start(uuid, uuid, uuid, text);
+create or replace function luma.work_timer_start(p_project uuid, p_task uuid, p_company uuid, p_note text, p_label text default '')
+returns luma.work_time_entries
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v luma.work_time_entries;
+begin
+  if not luma.has_my_addon('work') then raise exception 'The Work add-on is needed to track time'; end if;
+  perform luma.work_timer_stop();
+  insert into luma.work_time_entries (project_id, task_id, company_id, note, label, running_since, minutes)
+    values (p_project, p_task, p_company, coalesce(p_note, ''), left(coalesce(p_label, ''), 100), now(), 0) returning * into v;
+  return v;
+end;
+$$;
+revoke execute on function luma.work_timer_start(uuid, uuid, uuid, text, text) from public, anon;
+grant execute on function luma.work_timer_start(uuid, uuid, uuid, text, text) to authenticated;
+
+
+-- ################################################################
+-- 080_work_links_budget_mentions.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 080: Work task links, time budgets, @mentions, and Work figures for the admin report.
+--   • work_task_links: "this task can start once that one is done". Set with work_set_dependencies (same project, up to 10 per task,
+--     no loops). They are drawn as arrows on the Gantt chart and warned about in the task window.
+--   • work_tasks.budget_minutes: the time a task is expected to take. work_time_totals() gives the minutes logged per task; the people on the
+--     project are told once when a task goes over its budget.
+--   • work_task_comments.mentions: people tagged with @ in a comment. They get their own notification (and not the general one).
+--   • admin_work_stats(): figures for the Work add-on (admins only).
+-- Depends on 071–079. Safe to re-run.
+-- ============================================================
+
+-- ---------- links between tasks ----------
+create table if not exists luma.work_task_links (
+  task_id    uuid not null references luma.work_tasks (id) on delete cascade,
+  depends_on uuid not null references luma.work_tasks (id) on delete cascade,
+  project_id uuid not null references luma.work_projects (id) on delete cascade,
+  primary key (task_id, depends_on),
+  check (task_id <> depends_on)
+);
+create index if not exists work_task_links_dep_idx on luma.work_task_links (depends_on);
+create index if not exists work_task_links_project_idx on luma.work_task_links (project_id);
+alter table luma.work_task_links enable row level security;
+drop policy if exists work_links_read on luma.work_task_links;
+create policy work_links_read on luma.work_task_links for select to authenticated using (luma.work_role(project_id, auth.uid()) is not null);
+revoke all on luma.work_task_links from anon, authenticated;
+grant select on luma.work_task_links to authenticated;
+
+create or replace function luma.work_set_dependencies(p_task uuid, p_depends uuid[])
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_proj uuid; v_d uuid; v_list uuid[];
+begin
+  select project_id into v_proj from luma.work_tasks where id = p_task;
+  if v_proj is null or not luma.work_can_edit(v_proj) then raise exception 'You can not change this task'; end if;
+  v_list := coalesce((select array_agg(distinct x) from unnest(coalesce(p_depends, '{}'::uuid[])) x where x <> p_task), '{}'::uuid[]);
+  if cardinality(v_list) > 10 then raise exception 'A task can wait for up to 10 other tasks'; end if;
+  foreach v_d in array v_list loop
+    if not exists (select 1 from luma.work_tasks where id = v_d and project_id = v_proj) then raise exception 'A task can only wait for a task in the same project'; end if;
+    -- no loops: p_task must not already be (indirectly) waiting for v_d's... i.e. v_d must not depend on p_task
+    if exists (with recursive up as (select depends_on from luma.work_task_links where task_id = v_d union select l.depends_on from luma.work_task_links l join up on l.task_id = up.depends_on)
+               select 1 from up where depends_on = p_task) then raise exception 'That would make a loop: the other task already waits for this one'; end if;
+  end loop;
+  delete from luma.work_task_links where task_id = p_task;
+  insert into luma.work_task_links (task_id, depends_on, project_id) select p_task, x, v_proj from unnest(v_list) x;
+end;
+$$;
+revoke execute on function luma.work_set_dependencies(uuid, uuid[]) from public, anon;
+grant execute on function luma.work_set_dependencies(uuid, uuid[]) to authenticated;
+
+-- moving a task to another project drops its links (they only make sense inside one project)
+create or replace function luma.work_move_task(p_task uuid, p_project uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_t record; v_u uuid; v_doc uuid; v_max integer;
+begin
+  select * into v_t from luma.work_tasks where id = p_task;
+  if not found then raise exception 'Task not found'; end if;
+  if v_t.project_id = p_project then return; end if;
+  if not luma.work_can_edit(v_t.project_id) or not luma.work_can_edit(p_project) then raise exception 'You can only move a task between projects you can change'; end if;
+  v_max := coalesce(luma.limit_of((select owner_id from luma.work_projects where id = p_project), 'work_tasks'), 1500);
+  if (select count(*) from luma.work_tasks where project_id = p_project) >= v_max then raise exception 'That project is full (up to % tasks on its owner''s plan)', v_max; end if;
+  perform set_config('luma.moving', '1', true);
+  delete from luma.work_task_links where task_id = p_task or depends_on = p_task;
+  update luma.work_tasks set project_id = p_project, folder_id = null,
+    assignee_ids = coalesce((select array_agg(x) from unnest(v_t.assignee_ids) x where luma.work_role(p_project, x) is not null), '{}'::uuid[]) where id = p_task;
+  update luma.work_task_comments set project_id = p_project where task_id = p_task;
+  update luma.work_task_files set project_id = p_project where task_id = p_task;
+  update luma.work_time_entries e set project_id = p_project where e.task_id = p_task;
+  for v_doc in select document_id from luma.work_task_files where task_id = p_task loop
+    for v_u in select luma.work_people(v_t.project_id) loop perform luma.unshare_doc(v_doc, v_u, null, null); end loop;
+    for v_u in select luma.work_people(p_project) loop perform luma.share_doc(v_doc, v_u); end loop;
+  end loop;
+  perform set_config('luma.moving', '', true);
+  update luma.work_projects set updated_at = now() where id in (v_t.project_id, p_project);
+end;
+$$;
+revoke execute on function luma.work_move_task(uuid, uuid) from public, anon;
+grant execute on function luma.work_move_task(uuid, uuid) to authenticated;
+
+-- ---------- time budget ----------
+alter table luma.work_tasks add column if not exists budget_minutes integer;
+alter table luma.work_tasks drop constraint if exists work_tasks_budget_check;
+alter table luma.work_tasks add constraint work_tasks_budget_check check (budget_minutes is null or budget_minutes between 1 and 60000);
+
+-- minutes logged per task (everyone's time) across every project the person is on
+create or replace function luma.work_time_totals()
+returns table (task_id uuid, project_id uuid, minutes bigint)
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select e.task_id, e.project_id, sum(e.minutes)::bigint from luma.work_time_entries e
+  where e.task_id is not null and e.running_since is null and luma.work_role(e.project_id, auth.uid()) is not null
+  group by e.task_id, e.project_id;
+$$;
+revoke execute on function luma.work_time_totals() from public, anon;
+grant execute on function luma.work_time_totals() to authenticated;
+
+-- told once when the logged time crosses the budget
+create or replace function luma.work_budget_watch()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_t record; v_total bigint; v_before bigint; v_u uuid;
+begin
+  if new.task_id is null or new.running_since is not null then return null; end if;
+  if tg_op = 'UPDATE' and new.minutes = old.minutes and old.running_since is null then return null; end if;
+  select id, title, project_id, budget_minutes, assignee_ids, created_by into v_t from luma.work_tasks where id = new.task_id;
+  if v_t.budget_minutes is null then return null; end if;
+  select coalesce(sum(minutes), 0) into v_total from luma.work_time_entries where task_id = new.task_id and running_since is null;
+  v_before := v_total - new.minutes + case when tg_op = 'UPDATE' and old.running_since is null then old.minutes else 0 end;
+  if v_before <= v_t.budget_minutes and v_total > v_t.budget_minutes then
+    for v_u in select distinct x from unnest(v_t.assignee_ids || array[(select owner_id from luma.work_projects where id = v_t.project_id), v_t.created_by]) x where x is not null and x <> new.user_id loop
+      if luma.work_role(v_t.project_id, v_u) is not null then
+        perform luma.notify(v_u, 'work_budget', '⏱ ' || v_t.title || ' is over its time budget', round(v_total / 60.0, 1) || ' h logged of ' || round(v_t.budget_minutes / 60.0, 1) || ' h', 'work', v_t.id);
+      end if;
+    end loop;
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists work_time_budget on luma.work_time_entries;
+create trigger work_time_budget after insert or update on luma.work_time_entries for each row execute function luma.work_budget_watch();
+
+-- ---------- @mentions ----------
+alter table luma.work_task_comments add column if not exists mentions uuid[] not null default '{}';
+grant update (body, mentions) on luma.work_task_comments to authenticated;
+
+create or replace function luma.work_comment_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  select project_id into new.project_id from luma.work_tasks where id = new.task_id;
+  if new.project_id is null then raise exception 'Task not found'; end if;
+  if (select count(*) from luma.work_task_comments where task_id = new.task_id) >= 500 then raise exception 'A task can have up to 500 comments'; end if;
+  new.mentions := coalesce((select array_agg(distinct x) from unnest(new.mentions) x where x <> new.user_id and luma.work_role(new.project_id, x) is not null), '{}'::uuid[]);
+  if cardinality(new.mentions) > 10 then new.mentions := new.mentions[1:10]; end if;
+  return new;
+end;
+$$;
+
+create or replace function luma.work_comment_edit_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if new.task_id <> old.task_id or new.user_id <> old.user_id or (new.project_id <> old.project_id and coalesce(current_setting('luma.moving', true), '') <> '1') then raise exception 'Only the wording can change'; end if;
+  new.mentions := coalesce((select array_agg(distinct x) from unnest(new.mentions) x where x <> new.user_id and luma.work_role(new.project_id, x) is not null), '{}'::uuid[]);
+  if new.body is not distinct from old.body then new.mentions := old.mentions; return new; end if;
+  if (select count(*) from luma.work_comment_edits where comment_id = old.id) >= 50 then raise exception 'A comment can be edited up to 50 times'; end if;
+  insert into luma.work_comment_edits (comment_id, old_body) values (old.id, old.body);
+  new.edited_at := now();
+  return new;
+end;
+$$;
+
+create or replace function luma.work_comment_notify()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_t record; v_u uuid; v_new uuid[];
+begin
+  select title, assignee_ids, created_by into v_t from luma.work_tasks where id = new.task_id;
+  -- people tagged with @ (only the ones not tagged before, when a comment was edited)
+  v_new := case when tg_op = 'UPDATE' then coalesce((select array_agg(x) from unnest(new.mentions) x where x <> all (old.mentions)), '{}'::uuid[]) else new.mentions end;
+  foreach v_u in array v_new loop
+    perform luma.notify(v_u, 'work_mention', '@ ' || luma.person_name(new.user_id) || ' mentioned you on ' || v_t.title, left(new.body, 120), 'work', new.task_id);
+  end loop;
+  if tg_op = 'UPDATE' then return null; end if;
+  for v_u in select distinct x from unnest(v_t.assignee_ids || coalesce(array[v_t.created_by], '{}'::uuid[])) x where x is not null and x <> new.user_id and x <> all (new.mentions) loop
+    if luma.work_role(new.project_id, v_u) is not null then
+      perform luma.notify(v_u, 'work_comment', '💬 ' || luma.person_name(new.user_id) || ' commented on ' || v_t.title, left(new.body, 120), 'work', new.task_id);
+    end if;
+  end loop;
+  return null;
+end;
+$$;
+drop trigger if exists work_comments_notify on luma.work_task_comments;
+create trigger work_comments_notify after insert on luma.work_task_comments for each row execute function luma.work_comment_notify();
+drop trigger if exists work_comments_notify_edit on luma.work_task_comments;
+create trigger work_comments_notify_edit after update of mentions on luma.work_task_comments for each row when (new.mentions is distinct from old.mentions) execute function luma.work_comment_notify();
+
+drop function if exists luma.work_task_comments_of(uuid);
+create or replace function luma.work_task_comments_of(p_task uuid)
+returns table (id uuid, user_id uuid, name text, body text, created_at timestamptz, edited_at timestamptz, mentions uuid[])
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v_proj uuid;
+begin
+  select t.project_id into v_proj from luma.work_tasks t where t.id = p_task;
+  if v_proj is null or luma.work_role(v_proj, auth.uid()) is null then raise exception 'Not allowed'; end if;
+  return query select c.id, c.user_id, luma.person_name(c.user_id), c.body, c.created_at, c.edited_at, c.mentions from luma.work_task_comments c where c.task_id = p_task order by c.created_at;
+end;
+$$;
+revoke execute on function luma.work_task_comments_of(uuid) from public, anon;
+grant execute on function luma.work_task_comments_of(uuid) to authenticated;
+
+-- ---------- figures for the admin report ----------
+create or replace function luma.admin_work_stats()
+returns jsonb
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v_now jsonb; v_months jsonb;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  select jsonb_build_object(
+    'users_with_work', (select count(*) from luma.user_addons a where a.addon = 'work' and (a.expires_at is null or a.expires_at > now())),
+    'on_trial', (select count(*) from luma.user_addons a where a.addon = 'work' and a.source = 'trial' and a.expires_at > now()),
+    'paid_or_granted', (select count(*) from luma.user_addons a where a.addon = 'work' and a.source <> 'trial' and (a.expires_at is null or a.expires_at > now())),
+    'trials_started', (select count(*) from luma.user_addons a where a.addon = 'work' and a.trial_started_at is not null),
+    'companies', (select count(*) from luma.work_companies), 'archived_companies', (select count(*) from luma.work_companies where archived_at is not null),
+    'projects', (select count(*) from luma.work_projects), 'shared_projects', (select count(distinct project_id) from luma.work_project_members where status = 'accepted'),
+    'tasks', (select count(*) from luma.work_tasks), 'tasks_done', (select count(*) from luma.work_tasks where status = 'done'),
+    'people_invited', (select count(*) from luma.work_project_members where status = 'accepted'),
+    'hours_logged', (select coalesce(round(sum(minutes) / 60.0, 1), 0) from luma.work_time_entries),
+    'active_30d', (select count(distinct u) from (select created_by u from luma.work_tasks where created_at > now() - interval '30 days' union select user_id from luma.work_time_entries where created_at > now() - interval '30 days' union select user_id from luma.work_task_comments where created_at > now() - interval '30 days') x where u is not null)
+  ) into v_now;
+  select coalesce(jsonb_agg(jsonb_build_object('period', m.d, 'projects', (select count(*) from luma.work_projects p where date_trunc('month', p.created_at) = m.d),
+      'tasks', (select count(*) from luma.work_tasks t where date_trunc('month', t.created_at) = m.d),
+      'hours', (select coalesce(round(sum(e.minutes) / 60.0, 1), 0) from luma.work_time_entries e where date_trunc('month', e.created_at) = m.d),
+      'new_users', (select count(*) from luma.user_addons a where a.addon = 'work' and date_trunc('month', a.started_at) = m.d)) order by m.d), '[]'::jsonb)
+    into v_months from (select generate_series(date_trunc('month', now()) - interval '11 months', date_trunc('month', now()), interval '1 month') d) m;
+  return v_now || jsonb_build_object('months', v_months);
+end;
+$$;
+revoke execute on function luma.admin_work_stats() from public, anon;
+grant execute on function luma.admin_work_stats() to authenticated;
+
+
+-- ################################################################
+-- 081_feedback.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 081: feedback to the developer.
+--   • luma.feedback: what a person sends from the new Feedback page: the module and the part of it, what kind (bug / idea / question / praise),
+--     their comments, an optional picture, and a little context (page, version, mode, screen). Nothing else about them is attached
+--     except a snapshot of their name and email so a reply is possible even if they later delete their account.
+--   • At most 10 messages per person per day. People can read their own; administrators can read everything and set a status + a note
+--     (admin_feedback_update); the person is told when the status becomes Planned or Done. Every administrator is told about new feedback.
+--   • Private storage bucket luma-feedback (5 MB, images only), one folder per person; administrators can open any picture.
+-- Depends on 036 (admin), 008 (notify), 048 (person_name). Safe to re-run.
+-- ============================================================
+
+create table if not exists luma.feedback (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid default auth.uid() references auth.users (id) on delete set null,
+  user_label  text not null default '',
+  kind        text not null default 'idea' check (kind in ('bug', 'idea', 'question', 'praise')),
+  module      text not null check (length(btrim(module)) between 1 and 60),
+  part        text not null default '' check (length(part) <= 80),
+  message     text not null check (length(btrim(message)) between 3 and 4000),
+  image_path  text check (image_path is null or length(image_path) <= 300),
+  context     jsonb not null default '{}'::jsonb check (length(context::text) <= 2000),
+  status      text not null default 'new' check (status in ('new', 'seen', 'planned', 'done', 'wontfix')),
+  admin_note  text not null default '' check (length(admin_note) <= 1000),
+  handled_by  uuid references auth.users (id) on delete set null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index if not exists feedback_status_idx on luma.feedback (status, created_at desc);
+create index if not exists feedback_user_idx on luma.feedback (user_id, created_at desc);
+
+alter table luma.feedback enable row level security;
+drop policy if exists feedback_read on luma.feedback;
+drop policy if exists feedback_insert on luma.feedback;
+create policy feedback_read on luma.feedback for select to authenticated using (user_id = auth.uid() or luma.is_admin());
+create policy feedback_insert on luma.feedback for insert to authenticated with check (user_id = auth.uid());
+revoke all on luma.feedback from anon, authenticated;
+grant select, insert on luma.feedback to authenticated;
+
+create or replace function luma.feedback_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_label text;
+begin
+  if new.user_id is null then raise exception 'Not signed in'; end if;
+  if (select count(*) from luma.feedback where user_id = new.user_id and created_at > now() - interval '24 hours') >= 10 then raise exception 'You can send up to 10 messages a day. Please try again tomorrow.'; end if;
+  if new.image_path is not null and new.image_path not like new.user_id::text || '/%' then raise exception 'That picture is not yours'; end if;
+  select btrim(coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) || ' <' || coalesce(p.email, '') || '>' into v_label from luma.profiles p where p.id = new.user_id;
+  new.user_label := left(coalesce(v_label, ''), 200);
+  new.message := btrim(new.message); new.part := btrim(new.part); new.status := 'new'; new.admin_note := ''; new.handled_by := null;
+  return new;
+end;
+$$;
+drop trigger if exists feedback_guard on luma.feedback;
+create trigger feedback_guard before insert on luma.feedback for each row execute function luma.feedback_guard();
+
+-- every administrator is told (up to 20)
+create or replace function luma.feedback_notify_admins()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_a uuid;
+begin
+  for v_a in select a.user_id from luma.admin_users a where a.user_id <> new.user_id limit 20 loop
+    perform luma.notify(v_a, 'feedback', '💡 New feedback: ' || new.module || case when new.part <> '' then ' › ' || new.part else '' end, left(new.message, 120), 'adminfeedback', new.id);
+  end loop;
+  return null;
+end;
+$$;
+drop trigger if exists feedback_notify on luma.feedback;
+create trigger feedback_notify after insert on luma.feedback for each row execute function luma.feedback_notify_admins();
+
+create or replace function luma.admin_feedback_update(p_id uuid, p_status text, p_note text)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_f record;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_status not in ('new', 'seen', 'planned', 'done', 'wontfix') then raise exception 'Unknown status'; end if;
+  select * into v_f from luma.feedback where id = p_id;
+  if not found then raise exception 'Not found'; end if;
+  update luma.feedback set status = p_status, admin_note = left(coalesce(p_note, ''), 1000), handled_by = auth.uid(), updated_at = now() where id = p_id;
+  if v_f.user_id is not null and p_status in ('planned', 'done') and p_status <> v_f.status then
+    perform luma.notify(v_f.user_id, 'feedback_reply', case when p_status = 'done' then '✅ Your feedback was done: ' else '🗓 Your feedback is planned: ' end || v_f.module, coalesce(nullif(btrim(p_note), ''), left(v_f.message, 100)), 'feedback', p_id);
+  end if;
+end;
+$$;
+revoke execute on function luma.admin_feedback_update(uuid, text, text) from public, anon;
+grant execute on function luma.admin_feedback_update(uuid, text, text) to authenticated;
+
+create or replace function luma.admin_feedback_delete(p_id uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  delete from luma.feedback where id = p_id;
+end;
+$$;
+revoke execute on function luma.admin_feedback_delete(uuid) from public, anon;
+grant execute on function luma.admin_feedback_delete(uuid) to authenticated;
+
+-- ---------- pictures ----------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('luma-feedback', 'luma-feedback', false, 5242880, array['image/png', 'image/jpeg', 'image/webp', 'image/gif'])
+on conflict (id) do update set public = false, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Users upload feedback pictures to their own folder" on storage.objects;
+create policy "Users upload feedback pictures to their own folder" on storage.objects for insert to authenticated
+  with check (bucket_id = 'luma-feedback' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists "Users and administrators read feedback pictures" on storage.objects;
+create policy "Users and administrators read feedback pictures" on storage.objects for select to authenticated
+  using (bucket_id = 'luma-feedback' and ((storage.foldername(name))[1] = auth.uid()::text or luma.is_admin()));
+drop policy if exists "Users delete their own feedback pictures" on storage.objects;
+create policy "Users delete their own feedback pictures" on storage.objects for delete to authenticated
+  using (bucket_id = 'luma-feedback' and ((storage.foldername(name))[1] = auth.uid()::text or luma.is_admin()));
+
+
+-- ################################################################
+-- 082_busy_push_limits_admin.sql
+-- ################################################################
+
+-- LUMA — 082: "tomorrow is packed" notification, and an admin screen for plan limits.
+--
+--   • luma.run_busy_alerts() runs every hour. At 6 pm in each person's own time zone it looks at tomorrow (events, tasks and bills due,
+--     Work tasks they are on, Study deadlines and classes) and, if the day is busy or packed, adds a notification (which also sends a push).
+--     It uses the same numbers as the app (Settings → Preferences → "How easily a day counts as busy": sensitive / normal / relaxed) and
+--     respects the "Busy-day alerts" and "Tell me the evening before" switches (profile preferences busy_alerts / busy_push / busy_level).
+--   • luma.admin_plan_limits() / luma.admin_set_plan_limit() let an administrator read and change the numbers in luma.plan_limits
+--     (value NULL = unlimited) without writing SQL. Only rows that already exist can be changed.
+--
+-- Depends on 001 (profiles.preferences), 028 (user_tz), 033 (plan_limits), 045 (study), 071–077 (Work), has_addon. Safe to re-run.
+
+create or replace function luma.busy_day_stats(p_user uuid, p_day date)
+returns table (n numeric, hours numeric, clashes integer)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare
+  v_n numeric := 0; v_h numeric := 0; v_c int := 0; v_x numeric;
+begin
+  -- events that fall on the day (repeats handled)
+  select count(*) into v_x from luma.events e
+  where e.user_id = p_user and e.event_date <= p_day and (
+    e.event_date = p_day
+    or e.repeats = 'daily'
+    or (e.repeats = 'weekly' and extract(dow from e.event_date) = extract(dow from p_day))
+    or (e.repeats = 'monthly' and extract(day from e.event_date) = extract(day from p_day))
+    or (e.repeats = 'yearly' and to_char(e.event_date, 'MM-DD') = to_char(p_day, 'MM-DD')));
+  v_n := v_n + v_x;
+  -- timed events: hours booked and overlaps
+  select coalesce(sum(t.e - t.s), 0) / 60.0, coalesce(sum(case when t.s < t.prev_end then 1 else 0 end), 0)
+    into v_h, v_c
+  from (
+    select q.s, q.e, max(q.e) over (order by q.s, q.e rows between unbounded preceding and 1 preceding) as prev_end
+    from (
+      select (substr(e.start_time, 1, 2)::int * 60 + substr(e.start_time, 4, 2)::int) as s,
+             greatest(substr(e.start_time, 1, 2)::int * 60 + substr(e.start_time, 4, 2)::int + 15,
+                      coalesce(substr(e.end_time, 1, 2)::int * 60 + substr(e.end_time, 4, 2)::int, substr(e.start_time, 1, 2)::int * 60 + substr(e.start_time, 4, 2)::int + 60)) as e
+      from luma.events e
+      where e.user_id = p_user and e.start_time is not null and e.event_date <= p_day and not e.all_day and (
+        e.event_date = p_day or e.repeats = 'daily'
+        or (e.repeats = 'weekly' and extract(dow from e.event_date) = extract(dow from p_day))
+        or (e.repeats = 'monthly' and extract(day from e.event_date) = extract(day from p_day))
+        or (e.repeats = 'yearly' and to_char(e.event_date, 'MM-DD') = to_char(p_day, 'MM-DD')))
+    ) q
+  ) t;
+  -- tasks and bills due
+  select count(*) into v_x from luma.tasks t where t.user_id = p_user and t.status <> 'done' and t.due_date = p_day and luma.live_item(t.semester_id);
+  v_n := v_n + v_x;
+  select count(*) into v_x from luma.bills b where b.user_id = p_user and b.due_date = p_day;
+  v_n := v_n + v_x;
+  -- Work tasks on the day (spanning tasks count on every day), only for people with the add-on
+  if luma.has_addon(p_user, 'work') then
+    select count(*) into v_x from luma.work_tasks t join luma.work_projects p on p.id = t.project_id left join luma.work_companies c on c.id = p.company_id
+    where t.status <> 'done' and c.archived_at is null and (p.owner_id = p_user or p_user = any (t.assignee_ids))
+      and coalesce(t.start_date, t.due_date) <= p_day and coalesce(t.due_date, t.start_date) >= p_day;
+    v_n := v_n + v_x;
+  end if;
+  -- Study deadlines (1 each) and classes (half each)
+  if luma.has_addon(p_user, 'study') then
+    select count(*) into v_x from luma.study_tasks t where t.user_id = p_user and t.status <> 'done' and t.due_date = p_day;
+    v_n := v_n + v_x;
+    select count(*) * 0.5 into v_x from luma.study_classes k where k.user_id = p_user and k.weekday = extract(dow from p_day)::int;
+    v_n := v_n + v_x;
+  end if;
+  return query select v_n, round(v_h, 1), v_c;
+end;
+$$;
+revoke execute on function luma.busy_day_stats(uuid, date) from public, anon, authenticated;
+
+create or replace function luma.run_busy_alerts()
+returns integer
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  r record; s record; v_now timestamp; v_day date; v_lv text; v_n numeric[]; v_h numeric[]; v_c int[]; v_level int; v_title text; v_body text;
+  v_count int := 0;
+begin
+  for r in select p.id as user_id, p.preferences as pr from luma.profiles p
+           where coalesce(p.preferences ->> 'busy_alerts', 'true') <> 'false' and coalesce(p.preferences ->> 'busy_push', 'true') <> 'false' loop
+    v_now := timezone(luma.user_tz(r.user_id), now());
+    continue when extract(hour from v_now)::int <> 18;
+    continue when exists (select 1 from luma.notifications x where x.user_id = r.user_id and x.type = 'busy_day' and x.created_at > now() - interval '20 hours');
+    v_day := v_now::date + 1;
+    select * into s from luma.busy_day_stats(r.user_id, v_day);
+    v_lv := coalesce(r.pr ->> 'busy_level', 'normal');
+    if v_lv = 'sensitive' then v_n := array[4, 6]; v_h := array[4, 6]; v_c := array[1, 2];
+    elsif v_lv = 'relaxed' then v_n := array[8, 12]; v_h := array[8, 12]; v_c := array[2, 4];
+    else v_n := array[6, 9]; v_h := array[6, 9]; v_c := array[1, 3]; end if;
+    v_level := case when s.n >= v_n[2] or s.hours >= v_h[2] or s.clashes >= v_c[2] then 2
+                    when s.n >= v_n[1] or s.hours >= v_h[1] or s.clashes >= v_c[1] then 1 else 0 end;
+    continue when v_level = 0;
+    v_title := case when v_level = 2 then '🔥 Tomorrow is packed' else '⚠️ Tomorrow is busy' end;
+    v_body := trim(trailing '.' from s.n::numeric(6,1)::text) || ' things'
+      || case when s.hours >= 3 then ' · ' || s.hours || ' h booked' else '' end
+      || case when s.clashes > 0 then ' · ' || s.clashes || ' clash' || case when s.clashes = 1 then '' else 'es' end else '' end
+      || case when v_level = 2 then '. Think about moving something.' else '. Open your calendar to plan it.' end;
+    v_body := replace(v_body, '.0 things', ' things');
+    insert into luma.notifications (user_id, type, title, body, link) values (r.user_id, 'busy_day', v_title, v_body, 'calendar');
+    v_count := v_count + 1;
+  end loop;
+  return v_count;
+end;
+$$;
+revoke execute on function luma.run_busy_alerts() from public, anon, authenticated;
+
+do $$
+begin
+  create extension if not exists pg_cron;
+  if exists (select 1 from cron.job where jobname = 'luma-busy-alerts') then perform cron.unschedule('luma-busy-alerts'); end if;
+  perform cron.schedule('luma-busy-alerts', '5 * * * *', 'select luma.run_busy_alerts()');
+exception when others then
+  raise notice 'Could not schedule the busy-day job (%). Enable pg_cron under Database → Extensions, then re-run this file.', sqlerrm;
+end $$;
+
+-- ---------- plan limits editor (admins only) ----------
+create or replace function luma.admin_plan_limits()
+returns table (plan text, key text, value integer)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  return query select l.plan, l.key, l.value from luma.plan_limits l order by l.key, case l.plan when 'dawn' then 1 when 'glow' then 2 else 3 end;
+end;
+$$;
+revoke execute on function luma.admin_plan_limits() from public, anon;
+grant execute on function luma.admin_plan_limits() to authenticated;
+
+create or replace function luma.admin_set_plan_limit(p_plan text, p_key text, p_value integer)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_value is not null and p_value < 0 then raise exception 'A limit can not be negative'; end if;
+  update luma.plan_limits set value = p_value where plan = p_plan and key = p_key;
+  if not found then raise exception 'There is no limit called % for the % plan', p_key, p_plan; end if;
+end;
+$$;
+revoke execute on function luma.admin_set_plan_limit(text, text, integer) from public, anon;
+grant execute on function luma.admin_set_plan_limit(text, text, integer) to authenticated;
+
+
+-- ################################################################
+-- 083_work_tiers.sql
+-- ################################################################
+
+-- LUMA — 083: two sizes of the Work add-on — "Work" and "Work Pro".
+--
+--   Before this, how many companies / projects / people / tasks Work allowed depended on the person's *plan* (Dawn, Glow, Zenith), so
+--   someone on Dawn who paid for Work was still stuck with 2 companies. Now the Work add-on sets those limits, and the plan has no say:
+--
+--                                Work    Work Pro
+--     companies                    5        20
+--     projects                    20        60
+--     people on a project          8        15
+--     tasks in a project         600      1500
+--
+--   • luma.user_addons.tier ('standard' | 'pro') says which size a person has (only used for Work). Free trials and gifts are "standard".
+--   • The numbers live in luma.plan_limits under the plan names 'work' and 'work_pro' (Admin → Plan limits edits them).
+--   • luma.limit_of(user, 'work_…') now looks at the Work size of the person who owns the project / company (no add-on = the Work size).
+--   • luma.my_limits() returns those numbers as 'work_…' keys and the size in addon_info.work.tier.
+--   • luma.admin_set_addon(…, p_tier) sets the size; luma.admin_list_users() also returns addon_tier.
+--
+-- Depends on 033, 044, 062, 065, 077, 082. Safe to re-run.
+
+alter table luma.user_addons add column if not exists tier text not null default 'standard' check (tier in ('standard', 'pro'));
+
+alter table luma.plan_limits drop constraint if exists plan_limits_plan_check;
+alter table luma.plan_limits add constraint plan_limits_plan_check check (plan in ('dawn', 'glow', 'zenith', 'work', 'work_pro'));
+
+delete from luma.plan_limits where key like 'work\_%' and plan in ('dawn', 'glow', 'zenith');
+insert into luma.plan_limits (plan, key, value) values
+  ('work',     'work_companies', 5),  ('work',     'work_projects', 20), ('work',     'work_people', 8),  ('work',     'work_tasks', 600),
+  ('work_pro', 'work_companies', 20), ('work_pro', 'work_projects', 60), ('work_pro', 'work_people', 15), ('work_pro', 'work_tasks', 1500)
+on conflict (plan, key) do nothing;
+
+-- which Work size does this person have right now? (without the add-on: the normal size)
+create or replace function luma.work_tier_plan(p_user uuid)
+returns text
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select case when exists (select 1 from luma.user_addons a where a.user_id = p_user and a.addon = 'work' and a.tier = 'pro'
+                           and (a.expires_at is null or a.expires_at > now())) then 'work_pro' else 'work' end;
+$$;
+revoke execute on function luma.work_tier_plan(uuid) from public, anon, authenticated;
+
+create or replace function luma.limit_of(p_user uuid, p_key text)
+returns integer
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select l.value from luma.plan_limits l
+  where l.key = p_key and l.plan = case when p_key like 'work\_%' then luma.work_tier_plan(p_user) else luma.plan_of(p_user) end;
+$$;
+revoke execute on function luma.limit_of(uuid, text) from public, anon, authenticated;
+
+create or replace function luma.my_limits()
+returns jsonb
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select jsonb_build_object(
+    'plan', luma.plan_of(auth.uid()),
+    'plan_expires_at', (select p.plan_expires_at from luma.profiles p where p.id = auth.uid()),
+    'limits', coalesce((select jsonb_object_agg(l.key, l.value) from luma.plan_limits l where l.plan = luma.plan_of(auth.uid()) and l.key not like 'work\_%'), '{}'::jsonb)
+           || coalesce((select jsonb_object_agg(l.key, l.value) from luma.plan_limits l where l.plan = luma.work_tier_plan(auth.uid()) and l.key like 'work\_%'), '{}'::jsonb),
+    'addons', coalesce((select jsonb_agg(a.addon order by a.addon) from luma.user_addons a
+                        where a.user_id = auth.uid() and (a.expires_at is null or a.expires_at > now())), '[]'::jsonb),
+    'addon_info', coalesce((select jsonb_object_agg(a.addon, jsonb_build_object('source', a.source, 'expires_at', a.expires_at, 'tier', a.tier)) from luma.user_addons a
+                            where a.user_id = auth.uid() and (a.expires_at is null or a.expires_at > now())), '{}'::jsonb),
+    'trials_used', coalesce((select jsonb_agg(a.addon order by a.addon) from luma.user_addons a
+                             where a.user_id = auth.uid() and a.trial_started_at is not null), '[]'::jsonb));
+$$;
+revoke execute on function luma.my_limits() from public, anon;
+grant execute on function luma.my_limits() to authenticated;
+
+-- ---------- admin: give an add-on, now with the Work size ----------
+drop function if exists luma.admin_set_addon(uuid, text, boolean, integer, date, boolean);
+create or replace function luma.admin_set_addon(p_user uuid, p_addon text, p_on boolean, p_months integer default null, p_until date default null, p_extend boolean default false, p_tier text default null)
+returns jsonb
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_old timestamptz; v_active boolean; v_end timestamptz; v_base timestamptz; v_tier text; v_name text;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_addon not in ('work', 'study') then raise exception 'Unknown add-on'; end if;
+  if p_tier is not null and p_tier not in ('standard', 'pro') then raise exception 'Unknown size'; end if;
+  if not exists (select 1 from luma.profiles where id = p_user) then raise exception 'No such user'; end if;
+  if p_on then
+    select expires_at, (expires_at is null or expires_at > now()), tier into v_old, v_active, v_tier from luma.user_addons where user_id = p_user and addon = p_addon;
+    v_tier := case when p_addon <> 'work' then 'standard' else coalesce(p_tier, v_tier, 'standard') end;
+    if p_until is not null then v_end := ((p_until + 1)::timestamp at time zone luma.user_tz(p_user));
+    elsif p_months is not null then
+      v_base := case when p_extend and coalesce(v_active, false) and v_old is not null then v_old else now() end;
+      v_end := v_base + make_interval(months => greatest(p_months, 1));
+    else v_end := null; end if;
+    insert into luma.user_addons as ua (user_id, addon, source, started_at, expires_at, granted_by, tier) values (p_user, p_addon, 'admin', now(), v_end, auth.uid(), v_tier)
+      on conflict (user_id, addon) do update set source = 'admin', started_at = case when p_extend and coalesce(v_active, false) then ua.started_at else now() end, granted_by = auth.uid(), expires_at = v_end, tier = v_tier;
+    v_name := initcap(p_addon) || case when v_tier = 'pro' then ' Pro' else '' end;
+    if p_user <> auth.uid() then
+      perform luma.notify(p_user, 'system', '🎉 ' || v_name || ' mode is on',
+        'The ' || v_name || ' add-on is active' || case when v_end is null then '.' else ' until ' || to_char(v_end at time zone luma.user_tz(p_user), 'FMDD Mon YYYY') || '.' end || ' Switch to it at the top of the menu.', 'dashboard');
+    end if;
+  else
+    update luma.user_addons set expires_at = now() where user_id = p_user and addon = p_addon and (expires_at is null or expires_at > now());
+    v_end := now();
+  end if;
+  return jsonb_build_object('addon', p_addon, 'on', p_on, 'expires_at', v_end, 'tier', v_tier);
+end;
+$$;
+revoke execute on function luma.admin_set_addon(uuid, text, boolean, integer, date, boolean, text) from public, anon;
+grant execute on function luma.admin_set_addon(uuid, text, boolean, integer, date, boolean, text) to authenticated;
+
+-- ---------- admin list: also the Work size ----------
+drop function if exists luma.admin_list_users(text, integer);
+create or replace function luma.admin_list_users(p_search text default '', p_limit integer default 200)
+returns table (
+  id uuid, email text, first_name text, last_name text, plan text, country text,
+  created_at timestamptz, last_sign_in_at timestamptz, email_confirmed_at timestamptz, is_admin boolean, addons text[],
+  plan_expires_at timestamptz, addon_expiry jsonb, disabled_at timestamptz, disabled_reason text, trials_used text[], addon_source jsonb, addon_tier jsonb
+)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  return query
+    select p.id, p.email, p.first_name, p.last_name, p.plan, to_jsonb(p) ->> 'country',
+           p.created_at, u.last_sign_in_at, u.email_confirmed_at,
+           exists (select 1 from luma.admin_users a where a.user_id = p.id),
+           coalesce((select array_agg(x.addon order by x.addon) from luma.user_addons x
+                     where x.user_id = p.id and (x.expires_at is null or x.expires_at > now())), '{}'::text[]),
+           p.plan_expires_at,
+           coalesce((select jsonb_object_agg(x.addon, x.expires_at) from luma.user_addons x
+                     where x.user_id = p.id and (x.expires_at is null or x.expires_at > now())), '{}'::jsonb),
+           p.disabled_at, p.disabled_reason,
+           coalesce((select array_agg(x.addon order by x.addon) from luma.user_addons x where x.user_id = p.id and x.trial_started_at is not null), '{}'::text[]),
+           coalesce((select jsonb_object_agg(x.addon, x.source) from luma.user_addons x
+                     where x.user_id = p.id and (x.expires_at is null or x.expires_at > now())), '{}'::jsonb),
+           coalesce((select jsonb_object_agg(x.addon, x.tier) from luma.user_addons x
+                     where x.user_id = p.id and (x.expires_at is null or x.expires_at > now())), '{}'::jsonb)
+    from luma.profiles p
+    join auth.users u on u.id = p.id
+    where coalesce(p_search, '') = ''
+       or p.email ilike '%' || p_search || '%'
+       or (coalesce(p.first_name, '') || ' ' || coalesce(p.last_name, '')) ilike '%' || p_search || '%'
+    order by p.created_at desc
+    limit least(coalesce(p_limit, 200), 500);
+end;
+$$;
+revoke execute on function luma.admin_list_users(text, integer) from public, anon;
+grant execute on function luma.admin_list_users(text, integer) to authenticated;
+
+-- ---------- limits editor: the two Work sizes show up as columns ----------
+create or replace function luma.admin_plan_limits()
+returns table (plan text, key text, value integer)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  return query select l.plan, l.key, l.value from luma.plan_limits l
+    order by l.key, case l.plan when 'dawn' then 1 when 'glow' then 2 when 'zenith' then 3 when 'work' then 4 else 5 end;
+end;
+$$;
+revoke execute on function luma.admin_plan_limits() from public, anon;
+grant execute on function luma.admin_plan_limits() to authenticated;
+
+
+-- ################################################################
+-- 084_work_teams.sql
+-- ################################################################
+
+-- LUMA — 084: teams in Work (departments, squads, "Finance", "Design"…).
+--
+--   • A team belongs to one of YOUR companies and is a named list of people from your contacts (and you). Only you manage your teams.
+--   • A task can be "for" a team (work_tasks.team_id). Picking a team in the task window ticks all its members as assignees (the app does
+--     that), and you can still add or remove single people, including people who are not in the team.
+--   • Someone can only be assigned if they are on the project. From a project you can add a whole team in one go (that is work_invite
+--     with the team's people); people who have not accepted yet can be assigned once they do.
+--   • People who work on your projects can see a team's name on a task (not its member list; that is for the owner).
+--   • Limit: work_teams in plan_limits (Work 5, Work Pro 20). A team holds up to 50 people.
+--
+-- Depends on 071–083. Safe to re-run.
+
+create table if not exists luma.work_teams (
+  id         uuid primary key default gen_random_uuid(),
+  owner_id   uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  company_id uuid not null references luma.work_companies (id) on delete cascade,
+  name       text not null check (length(btrim(name)) between 1 and 60),
+  note       text not null default '' check (length(note) <= 140),
+  color      text not null default '#fb923c' check (color ~ '^#[0-9a-fA-F]{6}$'),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create unique index if not exists work_teams_name_uq on luma.work_teams (owner_id, company_id, lower(btrim(name)));
+create index if not exists work_teams_company_idx on luma.work_teams (company_id);
+
+create table if not exists luma.work_team_members (
+  team_id  uuid not null references luma.work_teams (id) on delete cascade,
+  user_id  uuid not null references auth.users (id) on delete cascade,
+  added_at timestamptz not null default now(),
+  primary key (team_id, user_id)
+);
+create index if not exists work_team_members_user_idx on luma.work_team_members (user_id);
+
+alter table luma.work_teams enable row level security;
+alter table luma.work_team_members enable row level security;
+revoke all on luma.work_teams, luma.work_team_members from anon, authenticated;
+grant select on luma.work_teams, luma.work_team_members to authenticated;   -- writing goes through work_set_team / work_delete_team
+drop policy if exists work_teams_owner_read on luma.work_teams;
+create policy work_teams_owner_read on luma.work_teams for select to authenticated using (owner_id = auth.uid());
+drop policy if exists work_team_members_owner_read on luma.work_team_members;
+create policy work_team_members_owner_read on luma.work_team_members for select to authenticated
+  using (exists (select 1 from luma.work_teams t where t.id = team_id and t.owner_id = auth.uid()));
+
+alter table luma.work_tasks add column if not exists team_id uuid references luma.work_teams (id) on delete set null;
+create index if not exists work_tasks_team_idx on luma.work_tasks (team_id);
+
+-- a task can only be for a team that belongs to the project's owner (moving it to someone else's project just clears it)
+create or replace function luma.work_task_team_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if new.team_id is null then return new; end if;
+  if tg_op = 'UPDATE' and new.team_id is not distinct from old.team_id and new.project_id = old.project_id then return new; end if;
+  if exists (select 1 from luma.work_teams t join luma.work_projects p on p.id = new.project_id where t.id = new.team_id and t.owner_id = p.owner_id) then return new; end if;
+  if tg_op = 'UPDATE' and new.project_id <> old.project_id then new.team_id := null; return new; end if;
+  raise exception 'That team does not belong to this project''s owner';
+end;
+$$;
+drop trigger if exists work_tasks_team_guard on luma.work_tasks;
+create trigger work_tasks_team_guard before insert or update on luma.work_tasks for each row execute function luma.work_task_team_guard();
+
+insert into luma.plan_limits (plan, key, value) values ('work', 'work_teams', 5), ('work_pro', 'work_teams', 20) on conflict (plan, key) do nothing;
+
+-- ---------- create or change a team (and its people) in one go ----------
+create or replace function luma.work_set_team(p_id uuid, p_company uuid, p_name text, p_note text, p_color text, p_members uuid[])
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_id uuid := p_id; v_name text := btrim(coalesce(p_name, '')); v_users uuid[]; v_u uuid; v_max int; v_comp uuid;
+begin
+  if auth.uid() is null then raise exception 'Not signed in'; end if;
+  if not luma.has_my_addon('work') then raise exception 'The Work add-on is needed to manage teams'; end if;
+  if length(v_name) = 0 then raise exception 'Give the team a name'; end if;
+  select array_agg(distinct x) into v_users from unnest(coalesce(p_members, '{}'::uuid[])) x where x is not null;
+  v_users := coalesce(v_users, '{}'::uuid[]);
+  if cardinality(v_users) > 50 then raise exception 'A team can have up to 50 people'; end if;
+  foreach v_u in array v_users loop
+    if v_u <> auth.uid() and not luma.is_contact(auth.uid(), v_u) then raise exception 'You can only add people from your contacts'; end if;
+  end loop;
+  if v_id is null then
+    if not exists (select 1 from luma.work_companies c where c.id = p_company and c.owner_id = auth.uid()) then raise exception 'Pick one of your companies'; end if;
+    if exists (select 1 from luma.work_companies c where c.id = p_company and c.archived_at is not null) then raise exception 'This company is archived: restore it to change its teams'; end if;
+    v_max := coalesce(luma.limit_of(auth.uid(), 'work_teams'), 20);
+    if (select count(*) from luma.work_teams where owner_id = auth.uid()) >= v_max then raise exception 'Your plan allows up to % teams', v_max; end if;
+    begin
+      insert into luma.work_teams (owner_id, company_id, name, note, color) values (auth.uid(), p_company, v_name, left(coalesce(p_note, ''), 140), coalesce(nullif(p_color, ''), '#fb923c')) returning id into v_id;
+    exception when unique_violation then raise exception 'You already have a team called "%" in this company', v_name; end;
+  else
+    select company_id into v_comp from luma.work_teams where id = v_id and owner_id = auth.uid();
+    if not found then raise exception 'Only the owner can change a team'; end if;
+    if exists (select 1 from luma.work_companies c where c.id = v_comp and c.archived_at is not null) then raise exception 'This company is archived: restore it to change its teams'; end if;
+    begin
+      update luma.work_teams set name = v_name, note = left(coalesce(p_note, ''), 140), color = coalesce(nullif(p_color, ''), color), updated_at = now() where id = v_id;
+    exception when unique_violation then raise exception 'You already have a team called "%" in this company', v_name; end;
+  end if;
+  delete from luma.work_team_members where team_id = v_id and not (user_id = any (v_users));
+  insert into luma.work_team_members (team_id, user_id) select v_id, x from unnest(v_users) x on conflict do nothing;
+  return v_id;
+end;
+$$;
+revoke execute on function luma.work_set_team(uuid, uuid, text, text, text, uuid[]) from public, anon;
+grant execute on function luma.work_set_team(uuid, uuid, text, text, text, uuid[]) to authenticated;
+
+create or replace function luma.work_delete_team(p_team uuid)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_comp uuid;
+begin
+  select company_id into v_comp from luma.work_teams where id = p_team and owner_id = auth.uid();
+  if not found then raise exception 'Only the owner can delete a team'; end if;
+  if exists (select 1 from luma.work_companies c where c.id = v_comp and c.archived_at is not null) then raise exception 'This company is archived: restore it to change its teams'; end if;
+  delete from luma.work_teams where id = p_team;   -- tasks keep their people; they just lose the team label
+end;
+$$;
+revoke execute on function luma.work_delete_team(uuid) from public, anon;
+grant execute on function luma.work_delete_team(uuid) to authenticated;
+
+-- ---------- the teams I can see: my own (with people), and the owners' teams on projects I am on (names only) ----------
+create or replace function luma.my_work_teams()
+returns jsonb
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', t.id, 'owner_id', t.owner_id, 'company_id', t.company_id, 'name', t.name, 'note', t.note, 'color', t.color,
+    'mine', t.owner_id = auth.uid(),
+    'count', (select count(*) from luma.work_team_members m where m.team_id = t.id),
+    'members', case when t.owner_id = auth.uid()
+      then coalesce((select jsonb_agg(jsonb_build_object('user_id', m.user_id, 'name', luma.person_name(m.user_id)) order by luma.person_name(m.user_id)) from luma.work_team_members m where m.team_id = t.id), '[]'::jsonb)
+      else '[]'::jsonb end
+  ) order by t.name), '[]'::jsonb)
+  from luma.work_teams t
+  where t.owner_id = auth.uid()
+     or exists (select 1 from luma.work_projects p join luma.work_project_members pm on pm.project_id = p.id
+                where p.owner_id = t.owner_id and pm.user_id = auth.uid() and pm.status = 'accepted');
+$$;
+revoke execute on function luma.my_work_teams() from public, anon;
+grant execute on function luma.my_work_teams() to authenticated;
+
+
+-- ################################################################
+-- 085_work_team_notify.sql
+-- ################################################################
+
+-- LUMA — 085: people are told when they are added to a team, and can see the teams they are in.
+--
+--   • luma.work_set_team now sends a notification ("X added you to the team Design") to each person who was just added
+--     (not to you, and not to people who were already in the team).
+--   • luma.my_work_teams also returns the teams you are a member of (so the Teams tab can list them), with 'im_in' and 'owner_name'.
+--
+-- Depends on 084. Safe to re-run.
+
+create or replace function luma.work_set_team(p_id uuid, p_company uuid, p_name text, p_note text, p_color text, p_members uuid[])
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_id uuid := p_id; v_name text := btrim(coalesce(p_name, '')); v_users uuid[]; v_u uuid; v_max int; v_comp uuid; v_old uuid[] := '{}'::uuid[]; v_co text;
+begin
+  if auth.uid() is null then raise exception 'Not signed in'; end if;
+  if not luma.has_my_addon('work') then raise exception 'The Work add-on is needed to manage teams'; end if;
+  if length(v_name) = 0 then raise exception 'Give the team a name'; end if;
+  select array_agg(distinct x) into v_users from unnest(coalesce(p_members, '{}'::uuid[])) x where x is not null;
+  v_users := coalesce(v_users, '{}'::uuid[]);
+  if cardinality(v_users) > 50 then raise exception 'A team can have up to 50 people'; end if;
+  foreach v_u in array v_users loop
+    if v_u <> auth.uid() and not luma.is_contact(auth.uid(), v_u) then raise exception 'You can only add people from your contacts'; end if;
+  end loop;
+  if v_id is null then
+    if not exists (select 1 from luma.work_companies c where c.id = p_company and c.owner_id = auth.uid()) then raise exception 'Pick one of your companies'; end if;
+    if exists (select 1 from luma.work_companies c where c.id = p_company and c.archived_at is not null) then raise exception 'This company is archived: restore it to change its teams'; end if;
+    v_max := coalesce(luma.limit_of(auth.uid(), 'work_teams'), 20);
+    if (select count(*) from luma.work_teams where owner_id = auth.uid()) >= v_max then raise exception 'Your plan allows up to % teams', v_max; end if;
+    begin
+      insert into luma.work_teams (owner_id, company_id, name, note, color) values (auth.uid(), p_company, v_name, left(coalesce(p_note, ''), 140), coalesce(nullif(p_color, ''), '#fb923c')) returning id into v_id;
+    exception when unique_violation then raise exception 'You already have a team called "%" in this company', v_name; end;
+  else
+    select company_id into v_comp from luma.work_teams where id = v_id and owner_id = auth.uid();
+    if not found then raise exception 'Only the owner can change a team'; end if;
+    if exists (select 1 from luma.work_companies c where c.id = v_comp and c.archived_at is not null) then raise exception 'This company is archived: restore it to change its teams'; end if;
+    begin
+      update luma.work_teams set name = v_name, note = left(coalesce(p_note, ''), 140), color = coalesce(nullif(p_color, ''), color), updated_at = now() where id = v_id;
+    exception when unique_violation then raise exception 'You already have a team called "%" in this company', v_name; end;
+  end if;
+  select coalesce(array_agg(user_id), '{}'::uuid[]) into v_old from luma.work_team_members where team_id = v_id;
+  delete from luma.work_team_members where team_id = v_id and not (user_id = any (v_users));
+  insert into luma.work_team_members (team_id, user_id) select v_id, x from unnest(v_users) x on conflict do nothing;
+  -- tell the people who were just added (not yourself, not people who were already in the team)
+  select c.name into v_co from luma.work_teams t join luma.work_companies c on c.id = t.company_id where t.id = v_id;
+  foreach v_u in array v_users loop
+    continue when v_u = auth.uid() or v_u = any (v_old);
+    perform luma.notify(v_u, 'work_team', '👥 ' || luma.person_name(auth.uid()) || ' added you to the team "' || v_name || '"', coalesce(v_co, '') || '. Open Work to see it.', 'work', v_id);
+  end loop;
+  return v_id;
+end;
+$$;
+revoke execute on function luma.work_set_team(uuid, uuid, text, text, text, uuid[]) from public, anon;
+grant execute on function luma.work_set_team(uuid, uuid, text, text, text, uuid[]) to authenticated;
+
+create or replace function luma.my_work_teams()
+returns jsonb
+language sql
+stable
+security definer set search_path = ''
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', t.id, 'owner_id', t.owner_id, 'company_id', t.company_id, 'name', t.name, 'note', t.note, 'color', t.color,
+    'mine', t.owner_id = auth.uid(), 'owner_name', luma.person_name(t.owner_id),
+    'im_in', exists (select 1 from luma.work_team_members m where m.team_id = t.id and m.user_id = auth.uid()),
+    'count', (select count(*) from luma.work_team_members m where m.team_id = t.id),
+    'members', case when t.owner_id = auth.uid()
+      then coalesce((select jsonb_agg(jsonb_build_object('user_id', m.user_id, 'name', luma.person_name(m.user_id)) order by luma.person_name(m.user_id)) from luma.work_team_members m where m.team_id = t.id), '[]'::jsonb)
+      else '[]'::jsonb end
+  ) order by t.name), '[]'::jsonb)
+  from luma.work_teams t
+  where t.owner_id = auth.uid()
+     or exists (select 1 from luma.work_team_members m where m.team_id = t.id and m.user_id = auth.uid())
+     or exists (select 1 from luma.work_projects p join luma.work_project_members pm on pm.project_id = p.id
+                where p.owner_id = t.owner_id and pm.user_id = auth.uid() and pm.status = 'accepted');
+$$;
+revoke execute on function luma.my_work_teams() from public, anon;
+grant execute on function luma.my_work_teams() to authenticated;

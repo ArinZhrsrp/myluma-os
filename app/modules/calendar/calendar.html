@@ -13,10 +13,12 @@
                 <span data-v="day">Day</span><span data-v="week">Week</span><span data-v="month"
                   class="active">Month</span><span data-v="year">Year</span>
               </div>
+              <button type="button" class="np-btn cal-export" id="calExport" title="Save your calendar as a file for Google, Apple or Outlook Calendar"><i class="fa-solid fa-file-export"></i> <span class="exp-l">Export</span></button>
               <button class="create-btn" id="calCreate"><i class="fa-solid fa-plus"></i> <span class="l1">Create
                 </span>Event</button>
             </div>
 
+            <div id="calBusy" style="display:none"></div>
             <div class="weekday-row" id="calWd">
               <div>SUN</div>
               <div>MON</div>

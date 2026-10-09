@@ -25,6 +25,72 @@
 
     // Themed calendar date picker. The real <input type=date> stays in the DOM, hidden, as the source of
     // truth (value, min, max, "change" event); call input._luDateRefresh() after setting .value from code.
+    // The same popup opens from anywhere with luDatePopup(anchor, { value, min, max, onPick(key) }): the month arrows,
+    // a tap on the month name for a month and year (the year can be typed), and a box to type a whole date.
+    function luDatePopup(anchor, o) {
+      let pop = null, vy = 0, vm = 0, mode = 'days', err = '';
+      const keyOf = d => d.toISOString().slice(0, 10), todayK = () => mytDayKey(Date.now());
+      const ymin = o.min ? +o.min.slice(0, 4) : 1900, ymax = o.max ? +o.max.slice(0, 4) : 2100;
+      const pad = n => String(n).padStart(2, '0');
+      const close = () => { if (!pop) return; pop.remove(); pop = null; anchor.classList && anchor.classList.remove('open'); if (o.onClose) o.onClose(); document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', onKey, true); document.removeEventListener('scroll', onScroll, true); window.removeEventListener('resize', close); };
+      const outside = e => { if (pop && !pop.contains(e.target) && !anchor.contains(e.target)) close(); };
+      const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+      const onScroll = e => { if (pop && !pop.contains(e.target)) close(); };
+      const pick = k => { close(); o.onPick(k); };
+      // "25/12/2026", "25-12-2026", "25.12.26" or "2026-12-25"
+      const parse = t => { t = String(t || '').trim(); let y, m, d, x;
+        if ((x = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t))) { y = +x[1]; m = +x[2]; d = +x[3]; }
+        else if ((x = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/.exec(t))) { d = +x[1]; m = +x[2]; y = x[3].length === 2 ? 2000 + +x[3] : +x[3]; }
+        else return null;
+        const dt = new Date(Date.UTC(y, m - 1, d)); return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d ? keyOf(dt) : null; };
+      const ok = k => !((o.max && k > o.max) || (o.min && k < o.min));
+      const draw = () => {
+        const max = o.max || '', min = o.min || '', foot = `<div class="lu-cal-foot"><button type="button" data-today ${max && todayK() > max ? 'disabled' : ''}>Today</button><button type="button" data-close>Close</button></div>`;
+        if (mode === 'ym') {
+          const names = Array.from({ length: 12 }, (_, i) => new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'short' }).format(new Date(Date.UTC(2000, i, 1))));
+          pop.innerHTML = `<div class="lu-cal-head"><button type="button" class="lu-cal-title" data-back title="Back to the days"><i class="fa-solid fa-chevron-left"></i> Month and year</button><div class="lu-cal-nav"><button type="button" data-yr="-1" ${vy <= ymin ? 'disabled' : ''} title="Previous year"><i class="fa-solid fa-angles-left"></i></button><button type="button" data-yr="1" ${vy >= ymax ? 'disabled' : ''} title="Next year"><i class="fa-solid fa-angles-right"></i></button></div></div>
+            <div class="lu-cal-yr"><label>Year</label><input type="number" class="lu-cal-year" inputmode="numeric" min="${ymin}" max="${ymax}" value="${vy}" aria-label="Year"></div>
+            <div class="lu-cal-months">${names.map((n, i) => { const f = `${vy}-${pad(i + 1)}-01`, l = keyOf(new Date(Date.UTC(vy, i + 1, 0))); return `<button type="button" class="${i === vm ? 'sel' : ''}" data-mo="${i}" ${(max && f > max) || (min && l < min) ? 'disabled' : ''}>${n}</button>`; }).join('')}</div>
+            <div class="lu-cal-type"><label>Or type the date</label><div><input type="text" class="lu-cal-typed" placeholder="DD/MM/YYYY" inputmode="numeric" autocomplete="off" aria-label="Type a date"><button type="button" data-go>Go</button></div><div class="lu-cal-err">${err}</div></div>${foot}`;
+          return;
+        }
+        const first = new Date(Date.UTC(vy, vm, 1)), offset = (first.getUTCDay() + 6) % 7; // weeks start on Monday
+        const title = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(first);
+        let cells = '';
+        for (let i = 0; i < 42; i++) {
+          const d = new Date(Date.UTC(vy, vm, 1 - offset + i)), k = keyOf(d), out = d.getUTCMonth() !== vm;
+          cells += `<button type="button" class="lu-cal-day ${out ? 'out' : ''} ${k === todayK() ? 'today' : ''} ${k === o.value ? 'sel' : ''}" data-k="${k}" ${ok(k) ? '' : 'disabled'}>${d.getUTCDate()}</button>`;
+        }
+        const nextFirst = keyOf(new Date(Date.UTC(vy, vm + 1, 1))), prevLast = keyOf(new Date(Date.UTC(vy, vm, 0)));
+        pop.innerHTML = `<div class="lu-cal-head"><button type="button" class="lu-cal-title" data-ym title="Choose a month and year">${title} <i class="fa-solid fa-caret-down"></i></button><div class="lu-cal-nav">
+            <button type="button" data-nav="-1" ${min && prevLast < min ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>
+            <button type="button" data-nav="1" ${max && nextFirst > max ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button></div></div>
+          <div class="lu-cal-grid">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(w => `<div class="lu-cal-wd">${w}</div>`).join('')}${cells}</div>${foot}`;
+      };
+      const place = () => { const r = anchor.getBoundingClientRect(), h = pop.offsetHeight; pop.style.left = Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left)) + 'px'; pop.style.top = Math.max(8, window.innerHeight - r.bottom < h + 12 && r.top > h + 12 ? r.top - h - 8 : r.bottom + 8) + 'px'; };
+      const yearNow = () => { const i = pop.querySelector('.lu-cal-year'); const y = i ? parseInt(i.value, 10) : vy; return y >= ymin && y <= ymax ? y : vy; };
+      const base = o.value ? new Date(o.value + 'T00:00:00Z') : new Date(todayK() + 'T00:00:00Z');
+      vy = base.getUTCFullYear(); vm = base.getUTCMonth();
+      pop = document.createElement('div'); pop.className = 'lu-cal'; document.body.appendChild(pop); anchor.classList && anchor.classList.add('open'); draw(); place();
+      pop.onclick = e => {
+        const day = e.target.closest('.lu-cal-day'), nav = e.target.closest('[data-nav]');
+        if (day && !day.disabled) return pick(day.dataset.k);
+        if (nav) { const t = new Date(Date.UTC(vy, vm + (+nav.dataset.nav), 1)); vy = t.getUTCFullYear(); vm = t.getUTCMonth(); return draw(); }
+        if (e.target.closest('[data-ym]')) { mode = 'ym'; err = ''; draw(); place(); const yi = pop.querySelector('.lu-cal-year'); if (yi) yi.select(); return; }
+        if (e.target.closest('[data-back]')) { vy = yearNow(); mode = 'days'; draw(); place(); return; }
+        const yr = e.target.closest('[data-yr]'); if (yr) { vy = Math.min(ymax, Math.max(ymin, yearNow() + (+yr.dataset.yr))); return draw(); }
+        const mo = e.target.closest('[data-mo]'); if (mo && !mo.disabled) { vy = yearNow(); vm = +mo.dataset.mo; mode = 'days'; draw(); place(); return; }
+        if (e.target.closest('[data-go]')) return go();
+        if (e.target.closest('[data-today]')) { const t = todayK(); if (ok(t)) pick(t); }
+        if (e.target.closest('[data-close]')) close();
+      };
+      const go = () => { const i = pop.querySelector('.lu-cal-typed'), k = parse(i && i.value); const set = m => { err = m; const el = pop.querySelector('.lu-cal-err'); if (el) el.textContent = m; };
+        if (!k) return set(/^\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\s*$|^\s*\d{4}-\d{1,2}-\d{1,2}\s*$/.test(i && i.value) ? 'That date does not exist.' : 'Type it like 25/12/2026.'); if (!ok(k)) return set('That date is not allowed here.'); pick(k); };
+      pop.addEventListener('keydown', e => { if (e.key !== 'Enter') return; if (e.target.classList.contains('lu-cal-typed')) { e.preventDefault(); go(); } else if (e.target.classList.contains('lu-cal-year')) { e.preventDefault(); vy = yearNow(); draw(); const yi = pop.querySelector('.lu-cal-year'); if (yi) yi.focus(); } });
+      pop.addEventListener('change', e => { if (e.target.classList.contains('lu-cal-year')) { vy = yearNow(); draw(); const yi = pop.querySelector('.lu-cal-year'); if (yi) yi.focus(); } });
+      document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', onKey, true); document.addEventListener('scroll', onScroll, true); window.addEventListener('resize', close);
+      return { close };
+    }
     function skinDate(input) {
       if (input._luDate) return; input._luDate = true;
       input.style.display = 'none';
@@ -34,52 +100,18 @@
       const fmt = k => new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(k + 'T00:00:00Z'));
       const label = () => { btn.innerHTML = `<span>${input.value ? fmt(input.value) : 'Select date'}</span><i class="fa-regular fa-calendar"></i>`; };
       input._luDateRefresh = label; label();
-      let pop = null, vy = 0, vm = 0;
-      const keyOf = d => d.toISOString().slice(0, 10);
-      const close = () => { if (!pop) return; pop.remove(); pop = null; wrap.classList.remove('open'); document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', onKey, true); document.removeEventListener('scroll', onScroll, true); };
-      const outside = e => { if (pop && !pop.contains(e.target) && !wrap.contains(e.target)) close(); };
-      const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
-      const onScroll = e => { if (pop && !pop.contains(e.target)) close(); };
-      const pick = k => { const changed = input.value !== k; input.value = k; label(); close(); if (changed) input.dispatchEvent(new Event('change', { bubbles: true })); };
-      const draw = () => {
-        const todayK = mytDayKey(Date.now()), max = input.max || '', min = input.min || '';
-        const first = new Date(Date.UTC(vy, vm, 1)), offset = (first.getUTCDay() + 6) % 7; // weeks start on Monday
-        const title = new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(first);
-        let cells = '';
-        for (let i = 0; i < 42; i++) {
-          const d = new Date(Date.UTC(vy, vm, 1 - offset + i)), k = keyOf(d), out = d.getUTCMonth() !== vm;
-          const dis = (max && k > max) || (min && k < min);
-          cells += `<button type="button" class="lu-cal-day ${out ? 'out' : ''} ${k === todayK ? 'today' : ''} ${k === input.value ? 'sel' : ''}" data-k="${k}" ${dis ? 'disabled' : ''}>${d.getUTCDate()}</button>`;
-        }
-        const nextFirst = keyOf(new Date(Date.UTC(vy, vm + 1, 1))), prevLast = keyOf(new Date(Date.UTC(vy, vm, 0)));
-        pop.innerHTML = `<div class="lu-cal-head"><div class="lu-cal-title">${title}</div><div class="lu-cal-nav">
-            <button type="button" data-nav="-1" ${min && prevLast < min ? 'disabled' : ''}><i class="fa-solid fa-chevron-left"></i></button>
-            <button type="button" data-nav="1" ${max && nextFirst > max ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i></button></div></div>
-          <div class="lu-cal-grid">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(w => `<div class="lu-cal-wd">${w}</div>`).join('')}${cells}</div>
-          <div class="lu-cal-foot"><button type="button" data-today ${max && todayK > max ? 'disabled' : ''}>Today</button><button type="button" data-close>Close</button></div>`;
-      };
+      let h = null;
       btn.onclick = () => {
-        if (pop) return close();
-        const base = input.value ? new Date(input.value + 'T00:00:00Z') : new Date(mytDayKey(Date.now()) + 'T00:00:00Z');
-        vy = base.getUTCFullYear(); vm = base.getUTCMonth();
-        pop = document.createElement('div'); pop.className = 'lu-cal'; document.body.appendChild(pop); wrap.classList.add('open'); draw();
-        const r = btn.getBoundingClientRect(), h = pop.offsetHeight;
-        pop.style.left = Math.max(8, Math.min(window.innerWidth - pop.offsetWidth - 8, r.left)) + 'px';
-        pop.style.top = (window.innerHeight - r.bottom < h + 12 && r.top > h + 12 ? r.top - h - 8 : r.bottom + 8) + 'px';
-        pop.onclick = e => {
-          const day = e.target.closest('.lu-cal-day'), nav = e.target.closest('[data-nav]');
-          if (day && !day.disabled) return pick(day.dataset.k);
-          if (nav) { const t = new Date(Date.UTC(vy, vm + (+nav.dataset.nav), 1)); vy = t.getUTCFullYear(); vm = t.getUTCMonth(); return draw(); }
-          if (e.target.closest('[data-today]')) { const t = mytDayKey(Date.now()); if (!(input.max && t > input.max)) pick(t); }
-          if (e.target.closest('[data-close]')) close();
-        };
-        document.addEventListener('mousedown', outside, true); document.addEventListener('keydown', onKey, true); document.addEventListener('scroll', onScroll, true);
+        if (h) { h.close(); return; }
+        h = luDatePopup(wrap, { value: input.value, min: input.min, max: input.max, onClose: () => { h = null; },
+          onPick: k => { const changed = input.value !== k; input.value = k; label(); if (changed) input.dispatchEvent(new Event('change', { bubbles: true })); } });
       };
     }
     skinDate(document.getElementById('hDate'));
     skinDate(document.getElementById('goalDeadline'));
     skinDate(document.getElementById('billDue'));
     skinDate(document.getElementById('spDate'));
+    skinDate(document.getElementById('admBulkUntil'));
     skinDate(document.getElementById('mEntryDate'));
     skinDate(document.getElementById('tkDue'));
     skinDate(document.getElementById('calEvDate'));
@@ -91,6 +123,12 @@
     skinDate(document.getElementById('sdProjDue'));
     skinDate(document.getElementById('admPlanUntil'));
     skinDate(document.getElementById('sdProjTaskDue'));
+    skinDate(document.getElementById('wkTaskStart'));
+    skinDate(document.getElementById('wkTaskDue'));
+    skinDate(document.getElementById('wkProjDeadline'));
+    skinDate(document.getElementById('wkCoStart'));
+    skinDate(document.getElementById('wkCoEnd'));
+    skinDate(document.getElementById('wkTimeDate'));
     skinDate(document.getElementById('sdClassSkipDate'));
     skinDate(document.getElementById('sdBreakFrom'));
     skinDate(document.getElementById('sdBreakTo'));

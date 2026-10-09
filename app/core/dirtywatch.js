@@ -1,7 +1,7 @@
 // LUMA — core: dirtywatch
     // ----- edit popups: "Save" stays disabled until something has actually changed -----
     (function initDirtyWatch() {
-      const sig = m => JSON.stringify([[...m.querySelectorAll('input,select,textarea')].map(el => el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value), [...m.querySelectorAll('.on,.sel,.active,.selected')].map(el => el.id + '|' + el.textContent.trim().slice(0, 30))]);
+      const sig = m => JSON.stringify([[...m.querySelectorAll('input,select,textarea')].map(el => el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value), [...m.querySelectorAll('.on,.sel,.active,.selected,.tk-item.done')].map(el => el.id + '|' + el.textContent.trim().slice(0, 30))]);
       const shown = id => { const e = document.getElementById(id); return !!e && e.style.display !== 'none'; };
       [
         ['calEventOverlay', 'calEvSave', () => shown('calEvDelete')],

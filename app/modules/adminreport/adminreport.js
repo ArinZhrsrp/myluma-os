@@ -23,7 +23,7 @@
       const opts = i => all.map((r, k) => `<option value="${k}" ${k === i ? 'selected' : ''}>${lbl(r.period)}</option>`).join('');
       root.innerHTML = `<div class="ar-bar"><div class="ar-chips" id="arChips">${[[3, 'Last 3 months'], [6, 'Last 6 months'], [12, 'Last 12 months'], [36, 'All']].map(([n, l]) => `<button type="button" data-n="${n}">${l}</button>`).join('')}</div>
           <div class="ar-range"><label><span>From</span><select id="arFrom"></select></label><label><span>To</span><select id="arTo"></select></label></div></div>
-        <div id="arTiles"></div><div id="arChartCard"></div><div id="arTableCard"></div>`;
+        <div id="arTiles"></div><div id="arChartCard"></div><div id="arTableCard"></div><div id="arWorkCard"></div>`;
       const selFrom = root.querySelector('#arFrom'), selTo = root.querySelector('#arTo');
       const fill = () => { selFrom.innerHTML = opts(from); selTo.innerHTML = opts(to); skinSelect(selFrom); skinSelect(selTo); };
       const paint = () => {
@@ -56,6 +56,18 @@
         const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), a = document.createElement('a'); a.href = url; a.download = `luma-plan-report-${all[from].period.slice(0, 7)}-to-${all[to].period.slice(0, 7)}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
       };
       fill(); paint();
+      loadAdminWork(root.querySelector('#arWorkCard'));
+    }
+
+    // the Work add-on: how many have it, and how much it is used (migration 080)
+    async function loadAdminWork(box) {
+      if (!box) return; box.innerHTML = card('<div class="section-title"><i class="fa-solid fa-briefcase"></i> Work add-on</div><div class="ls">Loading…</div>');
+      const { data: w, error } = await LumaAuth.client.schema('luma').rpc('admin_work_stats');
+      if (error || !w) { box.innerHTML = card(`<div class="section-title"><i class="fa-solid fa-briefcase"></i> Work add-on</div><div class="ls">${/admin_work_stats|schema cache|does not exist/i.test(error ? error.message : '') ? 'Run <b>supabase/migrations/080_work_links_budget_mentions.sql</b> to see the Work figures.' : escapeHtml(error ? error.message : 'No data')}</div>`); return; }
+      const tile = (l, v, c) => `<div class="adm-stat"><div class="l">${c ? `<span class="ar-dot" style="background:${c}"></span>` : ''}${l}</div><div class="v">${v}</div></div>`, lbl = d => new Date(d).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+      const months = (w.months || []).slice().reverse(), mx = k => Math.max(1, ...months.map(m => Number(m[k]) || 0));
+      box.innerHTML = card(`<div class="section-title"><i class="fa-solid fa-briefcase"></i> Work add-on</div><div class="adm-stats ar-tiles">${tile('Have Work now', w.users_with_work, '#fb923c')}${tile('On a free trial', w.on_trial, '#60a5fa')}${tile('Paid or given', w.paid_or_granted, '#34d399')}${tile('Trials ever started', w.trials_started)}${tile('Active in 30 days', w.active_30d, '#fbbf24')}${tile('Companies', w.companies + (w.archived_companies ? ` <small>(${w.archived_companies} archived)</small>` : ''))}${tile('Projects', w.projects + (w.shared_projects ? ` <small>(${w.shared_projects} shared)</small>` : ''))}${tile('Tasks', `${w.tasks_done} / ${w.tasks} <small>done</small>`)}${tile('People on projects', w.people_invited)}${tile('Hours logged', w.hours_logged)}</div>
+        <div class="adm-tbl-wrap" style="margin-top:12px"><table class="adm-tbl"><thead><tr><th>Month</th><th>New Work users</th><th>Projects made</th><th>Tasks made</th><th>Hours logged</th></tr></thead><tbody>${months.map(m => `<tr><td>${lbl(m.period)}</td><td>${m.new_users}</td><td>${m.projects}</td><td>${m.tasks}</td><td>${m.hours}</td></tr>`).join('')}</tbody></table></div>`);
     }
 
 

@@ -73,6 +73,8 @@
 
     function paintDashboard() {
       if (!document.getElementById('dashChips')) return;
+      if (typeof wkPaintDashCard === 'function') wkPaintDashCard();
+      luPaintBusy('dashBusy');
       const today = hToday(), T = dashTasks, open = T.filter(t => t.status !== 'done');
       const overdue = open.filter(t => t.due_date && t.due_date < today), dueToday = open.filter(t => t.due_date === today);
       const hid = [...cHidden]; cHidden.clear(); // the calendar's category filter shouldn't hide things here
@@ -91,7 +93,7 @@
         dashChip('fa-solid fa-fire', '#fca5a5', urgent ? `${urgent} task${urgent > 1 ? 's' : ''} due or overdue` : 'No tasks due today', 'tasks'),
         dashChip('fa-regular fa-calendar', '#93c5fd', events.length ? `${events.length} event${events.length > 1 ? 's' : ''} today` : 'No events today', 'calendar'),
         budget ? dashChip('fa-solid fa-wallet', left < 0 ? '#fca5a5' : '#6ee7b7', left < 0 ? `${bRM(-left)} over budget` : `${bRM(left)} left to spend`, 'money') : dashChip('fa-solid fa-wallet', '#6ee7b7', `${bRM(spent)} spent this month`, 'money'),
-        dashAddonChip()
+        dashAddonChip() + dashInstallChip()
       ].join(''));
 
       // suggestion
@@ -149,7 +151,13 @@
     const DASH_SPACES = { work: ['Work', 'fa-briefcase'], study: ['Study', 'fa-graduation-cap'] };
     const dashAddonChip = () => Object.keys(DASH_SPACES).filter(k => LumaPlan.hasAddon(k) && !prefOn('show_' + k + '_personal', false) && !prefOn(k + '_note_dismissed', false))
       .map(k => `<span class="dash-addon" title="${DASH_SPACES[k][0]} items are kept out of Personal until you show them"><i class="fa-solid ${DASH_SPACES[k][1]}"></i> ${DASH_SPACES[k][0]} is hidden here<button type="button" data-addon-show="${k}">Show</button><button type="button" class="x" data-addon-dismiss="${k}" title="Don\'t show this again" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button></span>`).join('');
+    // on a phone or tablet: offer to add LUMA to the home screen (until it is installed or the person closes it)
+    const dashInstallChip = () => { let gone = false; try { gone = !!localStorage.getItem('luma_install_dismissed'); } catch (e) { }
+      return window.LumaInstall && LumaInstall.isMobile() && !LumaInstall.installed() && !gone ? `<span class="dash-addon dash-install"><i class="fa-solid fa-mobile-screen-button"></i> Add LUMA to your home screen<button type="button" data-install-go>${LumaInstall.canPrompt() ? 'Install' : 'How'}</button><button type="button" class="x" data-install-dismiss title="Not now" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button></span>` : ''; };
+    document.addEventListener('luma-install', () => { if (document.getElementById('page-dashboard') && typeof paintDashboard === 'function') paintDashboard(); });
     document.getElementById('page-dashboard').addEventListener('click', async e => {
+      if (e.target.closest('[data-install-go]')) return lumaInstallNow();
+      if (e.target.closest('[data-install-dismiss]')) { try { localStorage.setItem('luma_install_dismissed', '1'); } catch (x) { } return paintDashboard(); }
       const no = e.target.closest('[data-addon-dismiss]'); if (no) { await setLumaPref(no.dataset.addonDismiss + '_note_dismissed', true); return paintDashboard(); }
       const yes = e.target.closest('[data-addon-show]'); if (!yes) return;
       const k = yes.dataset.addonShow; await setLumaPref('show_' + k + '_personal', true); if (k === 'study') await sdEnsureLoaded(); await loadDashboard().catch(() => { });

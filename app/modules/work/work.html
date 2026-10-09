@@ -1,0 +1,185 @@
+<!--@modals-->
+  <!-- a project -->
+  <div class="modal-overlay confirm-overlay" id="wkProjOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:540px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="wkProjHead">New project</div>
+        <button class="x" id="wkProjClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="wkProjError"></div>
+      <div class="pem-body">
+        <div class="pem-field" id="wkProjCoBox"><label>Company</label><select id="wkProjCompany"></select><div class="ls" id="wkProjCoNote" style="font-size:0.72rem;margin-top:6px"></div></div>
+        <div class="pem-field"><label>Project name <span style="color:#fca5a5">*</span></label><input id="wkProjName" type="text" maxlength="80" placeholder="e.g. Website redesign" autocomplete="off"></div>
+        <div class="pem-field"><label>Client <span class="wk-dim">(optional)</span></label><input id="wkProjClient" type="text" maxlength="80" placeholder="e.g. Acme Sdn Bhd" autocomplete="off"></div>
+        <div class="pem-field" id="wkProjKindBox"><label>Type</label><div class="h-tpls" id="wkProjKind"></div><div class="ls" id="wkProjKindNote" style="font-size:0.72rem;margin-top:6px"></div></div>
+        <div class="pem-field"><label>Status</label><div class="h-tpls" id="wkProjStatus"></div></div>
+        <div class="pem-field"><label>Deadline <span class="wk-dim">(optional)</span></label><input id="wkProjDeadline" type="date"></div>
+        <div class="pem-field"><label>Colour</label><div class="sd-colors" id="wkProjColors"></div></div>
+        <div class="pem-field"><label>Notes <span class="wk-dim">(optional)</span></label><textarea id="wkProjDesc" maxlength="2000" style="min-height:80px" placeholder="What is this project about?"></textarea></div>
+        <div class="pem-field" id="wkTeamBox" style="display:none"><label>People on this project <span class="wk-dim">(from your contacts, who have LUMA)</span></label>
+          <div class="wk-team" id="wkTeamList"></div>
+          <div class="wk-team-add"><button type="button" class="np-btn" id="wkTeamAdd"><i class="fa-solid fa-user-plus"></i> Add people</button><span class="ls" style="font-size:0.72rem;line-height:1.4">People without the Work add-on can only look at this project.</span></div>
+          <div class="wk-grp-pj" id="wkProjGrpBox" style="display:none"><select id="wkProjGrp"></select><button type="button" class="np-btn" id="wkProjGrpBtn"><i class="fa-solid fa-people-group"></i> Add team</button></div>
+        </div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="wkProjDelete" title="Delete project" aria-label="Delete project" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="wkProjSave" style="flex:1">Save project</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- a company: add or rename -->
+  <div class="modal-overlay confirm-overlay" id="wkCoOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:440px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="wkCoHead">New company</div>
+        <button class="x" id="wkCoClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="wkCoError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>Company name <span style="color:#fca5a5">*</span></label><input id="wkCoName" type="text" maxlength="80" placeholder="e.g. Acme Sdn Bhd" autocomplete="off"><div class="ls" style="font-size:0.72rem;margin-top:6px">Changing the name keeps all its projects and tasks.</div></div>
+        <div class="pem-field"><label>Your position <span class="wk-dim">(optional)</span></label><input id="wkCoPos" type="text" maxlength="80" placeholder="e.g. Project manager" autocomplete="off"></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>Start date <span class="wk-dim">(optional)</span></label><input id="wkCoStart" type="date"></div>
+          <div class="pem-field"><label>End date <span class="wk-dim">(optional)</span></label><input id="wkCoEnd" type="date"></div>
+        </div>
+        <div class="ls" style="font-size:0.72rem;line-height:1.5">If you leave the end date empty it is filled in with the day you archive the company. <span id="wkCoLimitNote"></span></div>
+      </div>
+      <div class="pem-actions" style="gap:10px"><button class="confirm-btn save" id="wkCoSave" style="flex:1">Save</button></div>
+    </div>
+  </div>
+
+  <!-- time: add or change an entry -->
+  <div class="modal-overlay confirm-overlay" id="wkTimeOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="wkTimeHead">Log time</div>
+        <button class="x" id="wkTimeClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="wkTimeError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>What did you work on? <span style="color:#fca5a5">*</span></label><select id="wkTimeFor"></select></div>
+        <div class="pem-field" id="wkTimeNameBox" style="display:none"><label>Name <span class="wk-dim">(optional, e.g. Client call)</span></label><input id="wkTimeName" type="text" maxlength="100" placeholder="What was it?" autocomplete="off"></div>
+        <div class="wk-ro" id="wkTimeShare" style="display:none"></div>
+        <div class="pem-field"><label>Date</label><input id="wkTimeDate" type="date"></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>Hours</label><input id="wkTimeH" type="number" min="0" max="24" step="1" inputmode="numeric" placeholder="0"></div>
+          <div class="pem-field"><label>Minutes</label><input id="wkTimeM" type="number" min="0" max="59" step="5" inputmode="numeric" placeholder="0"></div>
+        </div>
+        <div class="pem-field"><label>Note <span class="wk-dim">(optional)</span></label><input id="wkTimeNote" type="text" maxlength="200" placeholder="What did you do?" autocomplete="off"></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="wkTimeDelete" title="Delete entry" aria-label="Delete entry" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="wkTimeSave" style="flex:1">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- the earlier wordings of a comment -->
+  <div class="modal-overlay confirm-overlay" id="wkHistOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head"><div class="pem-title">History of changes</div><button class="x" id="wkHistClose"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="pem-msg error" id="wkHistError"></div>
+      <div class="pem-body"><div id="wkHistList"></div></div>
+    </div>
+  </div>
+
+  <!-- the team's hours on a project (the owner only) -->
+  <div class="modal-overlay confirm-overlay" id="wkTeamOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:640px;max-width:100%">
+      <div class="pem-head"><div class="pem-title" id="wkTeamHead">Team time</div><button class="x" id="wkTeamClose"><i class="fa-solid fa-xmark"></i></button></div>
+      <div class="pem-msg error" id="wkTeamError"></div>
+      <div class="pem-body"><div id="wkTeamBody"></div></div>
+    </div>
+  </div>
+
+  <!-- a phase or folder: its name and notes -->
+  <div class="modal-overlay confirm-overlay" id="wkFolderOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:560px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="wkFolderHead">Folder</div>
+        <button class="x" id="wkFolderClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="wkFolderError"></div>
+      <div class="pem-body">
+        <div class="wk-ro" id="wkFolderRo" style="display:none"><i class="fa-solid fa-eye"></i> View only.</div>
+        <div class="pem-field"><label>Name</label><input id="wkFolderName" type="text" maxlength="80" placeholder="e.g. Policies" autocomplete="off"></div>
+        <div class="pem-field"><label>Notes and documentation <span class="wk-dim">(optional)</span></label><textarea id="wkFolderNotes" maxlength="8000" style="min-height:220px" placeholder="Write the documentation, decisions, links or meeting notes for this part here."></textarea></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="wkFolderDelete" title="Delete folder" aria-label="Delete folder" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="wkFolderSave" style="flex:1">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- a task -->
+  <div class="modal-overlay confirm-overlay" id="wkTaskOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:560px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="wkTaskHead">New task</div>
+        <button class="x" id="wkTaskClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="wkTaskError"></div>
+      <div class="pem-body">
+        <div class="wk-ro" id="wkTaskRo" style="display:none"><i class="fa-solid fa-eye"></i> View only. <span id="wkTaskRoWhy"></span></div>
+        <div class="pem-field"><label>Task <span style="color:#fca5a5">*</span></label><input id="wkTaskTitle" type="text" maxlength="140" placeholder="What needs doing?" autocomplete="off"></div>
+        <div class="pem-field"><label>Project <span style="color:#fca5a5">*</span></label><select id="wkTaskProject"></select></div>
+        <div class="wk-ro" id="wkTaskMoveNote" style="display:none"><i class="fa-solid fa-right-left"></i> Saving moves the task to this project, with its comments, files and logged time. People who are not on it are taken off the task and the phase is cleared.</div>
+        <div class="pem-field" id="wkTaskFolderBox"><label id="wkTaskFolderL">Phase</label><select id="wkTaskFolder"></select></div>
+        <div class="pem-field"><label>Status</label><div class="h-tpls" id="wkTaskStatus"></div></div>
+        <div class="pem-row">
+          <div class="pem-field"><label>Start date <span class="wk-dim">(optional)</span></label><input id="wkTaskStart" type="date"></div>
+          <div class="pem-field"><label>End date <span class="wk-dim">(optional)</span></label><input id="wkTaskDue" type="date"></div>
+        </div>
+        <div class="pem-field" id="wkTaskBudgetBox"><label>Time budget <span class="wk-dim">(hours, optional)</span></label><div class="wk-budrow"><input id="wkTaskBudget" type="number" min="0" max="1000" step="0.5" inputmode="decimal" placeholder="e.g. 8"><div class="wk-budbar" id="wkTaskLogged"></div></div></div>
+        <div class="pem-field" id="wkTaskDepsBox"><label>Waits for <span class="wk-dim">(tasks that must finish first)</span></label><div class="h-tpls" id="wkTaskDeps"></div><select id="wkTaskDepAdd"></select><div class="wk-ro" id="wkTaskDepWarn" style="display:none"></div></div>
+        <div class="pem-field" id="wkTaskGrpBox" style="display:none"><label>Team <span class="wk-dim">(optional: its people get ticked below)</span></label><select id="wkTaskGrp"></select><div class="ls wk-grp-note" id="wkTaskGrpNote"></div></div>
+        <div class="pem-field"><label>Assigned to <span class="wk-dim">(pick one or more, in the team or not)</span></label><div class="h-tpls" id="wkTaskAssignees"></div></div>
+        <div class="pem-field"><label>Priority</label><div class="h-tpls" id="wkTaskPrio"></div></div>
+        <div class="pem-field"><label>Details <span class="wk-dim">(optional)</span></label><textarea id="wkTaskDesc" maxlength="4000" style="min-height:90px" placeholder="Notes, links, what “done” looks like…"></textarea></div>
+        <div class="pem-field"><label>Checklist <span class="wk-dim">(optional)</span></label>
+          <div class="tk-list" id="wkTaskChecklist"></div>
+          <div class="tk-add"><input id="wkTaskCheckNew" type="text" maxlength="120" placeholder="Add a step…" autocomplete="off"><button type="button" class="np-btn" id="wkTaskCheckAdd"><i class="fa-solid fa-plus"></i></button></div>
+        </div>
+        <div id="wkTaskMore" style="display:none">
+          <div class="pem-field"><label>Time</label><div class="wk-ttime" id="wkTaskTime"></div></div>
+          <div class="pem-field"><label>Files <span class="wk-dim">(everyone on the project can open them)</span></label><div id="wkTaskFiles"></div>
+            <button type="button" class="np-btn" id="wkTaskAttach" style="margin-top:8px"><i class="fa-solid fa-paperclip"></i> Attach a file</button><input type="file" id="wkTaskFile" style="display:none"></div>
+          <div class="pem-field"><label>Discussion</label>
+            <div class="sd-cmt-add" id="wkTaskCmtAdd"><div class="wk-mnwrap"><textarea id="wkTaskCmtText" maxlength="2000" placeholder="Write a comment… type @ to tag someone"></textarea><div class="wk-mn" id="wkMention" style="display:none"></div></div><button type="button" class="np-btn" id="wkTaskCmtSend" title="Send the comment" aria-label="Send the comment"><i class="fa-solid fa-paper-plane"></i></button></div>
+            <div class="pem-msg error" id="wkTaskCmtErr" style="margin:0 0 8px"></div>
+            <div id="wkTaskComments"></div></div>
+        </div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="wkTaskDelete" title="Delete task" aria-label="Delete task" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="wkTaskSave" style="flex:1">Save task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- a team of people (departments, squads…) -->
+  <div class="modal-overlay confirm-overlay" id="wkGrpOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:520px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="wkGrpHead">New team</div>
+        <button class="x" id="wkGrpClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="wkGrpError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>Team name <span style="color:#fca5a5">*</span></label><input id="wkGrpName" type="text" maxlength="60" placeholder="e.g. Design, Finance, Night shift" autocomplete="off"></div>
+        <div class="pem-field"><label>About <span class="wk-dim">(optional)</span></label><input id="wkGrpNote" type="text" maxlength="140" placeholder="e.g. Brand and UI" autocomplete="off"></div>
+        <div class="pem-field"><label>Colour</label><div class="sd-colors" id="wkGrpColors"></div></div>
+        <div class="pem-field"><label>People <span class="wk-dim" id="wkGrpCount">0 / 50</span></label>
+          <div class="wk-grp-ppl" id="wkGrpMembers"></div>
+          <div class="wk-team-add"><button type="button" class="np-btn" id="wkGrpAdd"><i class="fa-solid fa-user-plus"></i> Add people</button><button type="button" class="sp-chip" id="wkGrpMe"><i class="fa-solid fa-user"></i> Include me</button></div>
+          <div class="ls" style="font-size:0.72rem;line-height:1.4;margin-top:6px">People come from your contacts. Being in a team does not give access to a project: add the team to a project from its Edit window.</div></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="wkGrpDelete" title="Delete team" aria-label="Delete team" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="wkGrpSave" style="flex:1">Save team</button>
+      </div>
+    </div>
+  </div>

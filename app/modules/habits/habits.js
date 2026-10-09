@@ -374,6 +374,8 @@
       pg.querySelector('#goneHabitBtn').addEventListener('click', openGone);
       pg.querySelector('#selectHabitBtn').addEventListener('click', () => { hSelecting = !hSelecting; hSel.clear(); paintHabits(); });
       pg.querySelector('#habitsRoot').addEventListener('click', async e => {
+        const hj = e.target.closest('.h-daynav .lbl'); if (hj) { const t0 = hToday(); return void luDatePopup(hj, { value: hDay || t0, min: hKeyAdd(t0, -H_BACK), max: t0, onPick: k => { hDay = k === t0 ? null : k; hResetScroll = true; paintHabits(); } }); }
+        const hm = e.target.closest('.h-mnav > span'); if (hm && hm.previousElementSibling && hm.previousElementSibling.classList.contains('h-mprev')) { const t0 = hToday(); return void luDatePopup(hm, { value: hMonth || hFirstOfMonth(t0), max: t0, onPick: k => { hMonth = hFirstOfMonth(k); if (hMonth === hFirstOfMonth(t0)) hMonth = null; paintHabits(); } }); }
         if (e.target.closest('.h-dprev') || e.target.closest('.h-dnext') || e.target.closest('.h-dtoday')) {
           const t0 = hToday(), cur = hDay || t0;
           hDay = e.target.closest('.h-dtoday') ? null : (e.target.closest('.h-dprev') ? hKeyAdd(cur, -1) : hKeyAdd(cur, 1));

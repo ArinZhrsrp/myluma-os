@@ -10,11 +10,65 @@
         <div class="ls" id="admPlanWho" style="margin-bottom:12px;line-height:1.5"></div>
         <div class="pem-field" id="admPlanPlanF"><label>Plan</label><div class="h-tpls" id="admPlanPlan"></div></div>
         <div class="pem-field" id="admPlanOnF"><label>Add-on</label><div class="h-tpls" id="admPlanOn"></div></div>
+        <div class="pem-field" id="admPlanTierF" style="display:none"><label>Work size</label><div class="h-tpls" id="admPlanTier"></div></div>
+        <div class="pem-field" id="admPlanTypeF"><label>Type</label><div class="h-tpls" id="admPlanType"></div></div>
+        <div id="admPlanTrialW" style="display:none;margin-bottom:12px"><div class="ls" id="admPlanTrialNote" style="line-height:1.5;margin-bottom:8px"></div><button type="button" class="np-btn" id="admPlanResetTrial"><i class="fa-solid fa-rotate-left"></i> Let them use the free trial again</button></div>
         <div class="pem-field" id="admPlanDurF"><label>For how long</label><div class="h-tpls" id="admPlanDur"></div>
           <div id="admPlanUntilW" style="margin-top:8px;display:none"><input id="admPlanUntil" type="text"></div></div>
         <div class="pem-field" id="admPlanExtF" style="display:none"><label>Time they already have</label><div class="h-tpls" id="admPlanExt"></div></div>
         <div class="adm-prev" id="admPlanPrev"></div>
       </div>
       <div class="pem-actions"><button class="confirm-btn save" id="admPlanSave" style="flex:1">Apply</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="admBulkOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Give free access</div>
+        <button class="x" id="admBulkClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="admBulkError"></div>
+      <div class="pem-body">
+        <div class="ls" id="admBulkWho" style="margin-bottom:12px;line-height:1.5"></div>
+        <div class="pem-field"><label>Add-on</label><div class="h-tpls" id="admBulkAddon"></div></div>
+        <div class="pem-field"><label>When does it start?</label><div class="h-tpls" id="admBulkWhen"></div></div>
+        <div class="pem-field"><label>For how long</label><div class="h-tpls" id="admBulkDur"></div>
+          <div id="admBulkUntilW" style="margin-top:8px;display:none"><input id="admBulkUntil" type="text"></div></div>
+        <div class="pem-field" id="admBulkClaimF" style="display:none"><label>They can start it until</label><div class="h-tpls" id="admBulkClaim"></div></div>
+        <div class="pem-field"><label>People who already have it</label><div class="h-tpls" id="admBulkExt"></div></div>
+        <div class="pem-field"><label>Message <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional, sent with the notification)</span></label><input id="admBulkNote" type="text" maxlength="120" placeholder="e.g. Thank you for testing LUMA" autocomplete="off"></div>
+        <div class="adm-prev" id="admBulkPrev"></div>
+        <div class="ls" style="margin-top:8px;font-size:0.72rem;line-height:1.5">A gift never uses up anyone's own 7-day free trial. “They choose when” sends a gift they see under Settings and start with “Use now”; nothing runs out until they do (each person can hold up to 3 unused gifts).</div>
+      </div>
+      <div class="pem-actions"><button class="confirm-btn save" id="admBulkSave" style="flex:1">Give access</button></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay confirm-overlay" id="admAcctOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="admAcctTitle">Account</div>
+        <button class="x" id="admAcctClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="admAcctError"></div>
+      <div class="pem-body">
+        <div class="ls" id="admAcctWho" style="margin-bottom:12px;line-height:1.6"></div>
+        <div id="admAcctRole" class="adm-role">
+          <button type="button" class="np-btn adm-wide" id="admAcctRoleBtn"></button>
+          <div class="ls adm-note" id="admAcctRoleNote"></div>
+        </div>
+        <div id="admAcctDeact">
+          <div class="pem-field" id="admAcctReasonF"><label>Reason <span style="color:rgba(255,255,255,0.35);font-weight:400">(only you see this)</span></label><input id="admAcctReason" type="text" maxlength="200" placeholder="e.g. Abuse, requested by the owner" autocomplete="off"></div>
+          <button type="button" class="np-btn adm-wide" id="admAcctToggle"></button>
+          <div class="ls adm-note" id="admAcctToggleNote"></div>
+        </div>
+        <div class="adm-danger" id="admAcctDanger">
+          <div class="adm-danger-t"><i class="fa-solid fa-triangle-exclamation"></i> Delete account</div>
+          <div class="ls" style="line-height:1.55">Permanently removes this person's account and everything in it: tasks, notes, files, Study data, money, and their sign-in. This can't be undone. To keep the data but stop them using LUMA, deactivate instead.</div>
+          <div class="pem-field" style="margin-top:10px"><label>Type their email to confirm</label><input id="admAcctConfirm" type="text" autocomplete="off" placeholder="name@example.com"></div>
+          <button type="button" class="np-btn adm-wide adm-del" id="admAcctDelete" disabled><i class="fa-regular fa-trash-can"></i> Delete this account forever</button>
+        </div>
+      </div>
     </div>
   </div>

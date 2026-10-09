@@ -213,7 +213,22 @@
 
 
     // ---------- open the thing a notification is about: go to its page, scroll to it and flash it ----------
-    const LU_TARGET_TABS = { reminder_study: 'assignments', reminder_class: 'timetable', reminder_project: 'groups', project_invite: 'groups' }; // Study opens on the tab that holds the item
+    const LU_TARGET_TABS = { reminder_study: 'assignments', reminder_class: 'timetable', reminder_project: 'groups', project_invite: 'groups', project_reply: 'groups', project_task: 'groups', project_comment: 'groups', note_share: 'notes' }; // Study opens on the tab that holds the item
+    const LU_FOCUS_HOOKS = {}; // a page can get to the right place first (the right month, say); called every 150 ms while the thing is not on screen yet
+    // what a ref points at: an item id, or "#css selector" (optionally "|text:a;b" to keep elements containing that text, "|closest:.x" to use their parent)
+    function luTargets(pg, ref, type) {
+      let r = String(ref);
+      if (!r.startsWith('#')) { const sel = ['data-id', 'data-task', 'data-cls', 'data-note', 'data-shared', 'data-sem', 'data-proj', 'data-contact-id'].map(a => `[${a}="${r.replace(/"/g, '')}"]`).join(','); const all = [...pg.querySelectorAll(sel)]; if (!all.length) return [];
+        // a repeating event shows on many days: a reminder is about TODAY's one, not the first one in the month
+        if (all.length > 1 && /^reminder_/.test(type || '')) { const today = typeof mytDayKey === 'function' ? mytDayKey(Date.now()) : ''; const hit = all.find(e => e.dataset.d === today); if (hit) return [hit]; }
+        return [all[0]]; }
+      let text = null, closest = null;
+      r = r.replace(/\|text:([^|]*)/, (m, t) => { text = t; return ''; }).replace(/\|closest:([^|]*)/, (m, c) => { closest = c; return ''; });
+      let els = []; try { els = [...document.querySelectorAll(r)]; } catch (e) { return []; }
+      if (text) { const w = text.split(';'); els = els.filter(e => w.some(x => e.textContent.includes(x))); }
+      if (closest) els = els.map(e => e.closest(closest)).filter(Boolean);
+      return [...new Set(els)].slice(0, 12);
+    }
     // scroll ONLY the list the item is in (scrollIntoView would also push the whole app frame around)
     function luScrollTo(el) {
       let sc = el.parentElement;
@@ -222,20 +237,65 @@
       const top = el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - (sc.clientHeight - el.offsetHeight) / 2;
       sc.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }
-    function luFocusItem(key, ref) {
+    function luFocusItem(key, ref, type) {
       if (!ref) return;
       const pg = document.getElementById('page-' + key); if (!pg) return;
-      const sel = ['data-id', 'data-task', 'data-cls', 'data-note', 'data-sem'].map(a => `[${a}="${String(ref).replace(/"/g, '')}"]`).join(',');
       let tries = 0;
       const t = setInterval(() => { // the page may still be loading its data: look for up to ~5 seconds
-        tries++; const el = pg.querySelector(sel);
-        if (el) { clearInterval(t); luScrollTo(el); el.classList.remove('luma-flash'); void el.offsetWidth; el.classList.add('luma-flash'); setTimeout(() => el.classList.remove('luma-flash'), 4800); }
-        else if (tries > 33) clearInterval(t);
+        tries++; const els = luTargets(pg, ref, type);
+        if (els.length) { clearInterval(t); luScrollTo(els[0]); els.forEach(el => { el.classList.remove('luma-flash'); void el.offsetWidth; el.classList.add('luma-flash'); setTimeout(() => el.classList.remove('luma-flash'), 4800); }); return; }
+        try { if (LU_FOCUS_HOOKS[key]) LU_FOCUS_HOOKS[key](ref, type, tries); } catch (e) { /* the page is not ready yet */ }
+        if (tries > 33) clearInterval(t);
       }, 150);
     }
-    function luOpenTarget(key, ref, type) {
+    // notifications whose ref is an item that belongs to Personal, Work or Study (the "space" column, migration 050)
+    const LU_ITEM_TABLE = { reminder_event: 'events', reminder_task: 'tasks', reminder_bill: 'bills', reminder_habit: 'habits', reminder_goal: 'goals', reminder_custom: 'reminders', reminder: 'reminders' };
+    async function luOpenTarget(key, ref, type) {
       if (!key || !titles[key]) return;
+      // a reminder about something made in another mode (a Work event while you are in Study, or in Personal with "Show Work in Personal" off)
+      // is not on screen in this one: go to the mode it belongs to first, or the page opens with nothing to show
+      const tbl = LU_ITEM_TABLE[type];
+      if (tbl && ref && window.LumaSpace && LumaSpace.ready && typeof switchMode === 'function') {
+        const sp = await LumaSpace.spaceOf(tbl, ref);
+        if (sp && !LumaSpace.allowed().includes(sp) && (sp === 'personal' || (typeof lumaModeOpen === 'function' && lumaModeOpen(sp)))) { try { switchMode(sp); } catch (e) { } }
+      }
       if (key === 'study' && LU_TARGET_TABS[type] && typeof SD !== 'undefined') { SD.tab = LU_TARGET_TABS[type]; SD.keepTab = true; }
       if (key === 'split' && ref && typeof SP !== 'undefined') SP.open.add(ref);   // the split opens up, too
-      goTo(key); luFocusItem(key, ref);
+      goTo(key); luFocusItem(key, ref, type);
+    }
+
+
+    // ---------- "Deleted. Undo": a small bar for a few seconds; Undo puts the thing back ----------
+    function luUndo(title, restore) {
+      document.querySelectorAll('.undo-toast').forEach(x => x.remove());
+      const t = document.createElement('div'); t.className = 'undo-toast'; t.setAttribute('role', 'status');
+      t.innerHTML = `<span>${escapeHtml(title)}</span><button type="button">Undo</button>`;
+      document.body.appendChild(t); requestAnimationFrame(() => t.classList.add('in'));
+      const done = () => { t.classList.remove('in'); setTimeout(() => t.remove(), 250); };
+      t.querySelector('button').onclick = async () => { done(); try { await restore(); flashToast('Restored', title.replace(/ deleted$/i, ''), 'fa-rotate-left', '#34d399'); } catch (e) { luAlert('Could not undo: ' + ((e && e.message) || e)); } };
+      setTimeout(done, 9000);
+    }
+
+
+    // "Install LUMA": the browser's own install box when there is one, otherwise the steps for this device
+    async function lumaInstallNow() {
+      if (!window.LumaInstall) return;
+      if (LumaInstall.installed()) return flashToast('Already installed', 'LUMA is on this device', 'fa-mobile-screen-button', '#34d399');
+      if (LumaInstall.canPrompt()) { const r = await LumaInstall.prompt(); if (r === 'accepted') flashToast('Installing…', 'LUMA is being added to this device', 'fa-mobile-screen-button', '#34d399'); return; }
+      luDialog({ title: 'Add LUMA to your ' + (LumaInstall.isMobile() ? 'home screen' : 'device'), message: LumaInstall.steps(), icon: 'fa-mobile-screen-button', tone: 'info', ok: 'Got it', showCancel: false });
+    }
+
+
+    // notifications with no item id of their own still point at the right spot: their plan row, the metric they are about, the tasks that are due...
+    function luNoticeTarget(link, title, body, type) {
+      const T = String(type || '');
+      if (T === 'reminder_task') return '#page-tasks [data-status="todo"] .kcard, #page-tasks [data-status="in_progress"] .kcard|text:Overdue;Today';
+      if (/^reminder_(water|steps|sleep|active)$/.test(T)) return '#healthRings .card|text:' + { water: 'Water ·', steps: 'Steps ·', sleep: 'Sleep ·', active: 'Active ·' }[T.slice(9)];
+      if (/^budget_/.test(T)) return '#page-money .card|text:Budget left';
+      if (T === 'note_share') return '#page-study [data-shared]';
+      if (T === 'project_invite') return '#page-study [data-gp-yes]|closest:[data-proj]';
+      if (T === 'contact_request') return '#page-contacts [data-accept]|closest:.lrow';
+      if (link !== 'settings') return null;
+      const t = (title || '') + ' ' + (body || ''), ad = /\b(work|study)\b/i.exec(title || '');
+      return ad ? `#planCard [data-pc="${ad[1].toLowerCase()}"]` : /plan/i.test(t) ? '#planCard [data-pc="plan"]' : /add-on|gift|trial/i.test(t) ? '#planCard' : null;
     }

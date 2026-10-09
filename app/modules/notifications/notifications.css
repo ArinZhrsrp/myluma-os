@@ -200,3 +200,8 @@
       gap: 10px;
       pointer-events: none;
     }
+/* the small notification panel: a little space between rows, and a thin line so unread rows don't merge */
+.notif-item + .notif-item { margin-top: 6px; }
+.notif-item.unread { border: 1px solid rgba(59, 130, 246, 0.22); }
+.notif-item:not(.unread) { border: 1px solid transparent; }
+#notifList .notif-item + .notif-item { margin-top: 0; }

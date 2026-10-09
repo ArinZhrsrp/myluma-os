@@ -38,11 +38,12 @@
     }
     // renew: the same kind of WhatsApp request as an upgrade, saying what is being renewed and when it ends
     function requestRenew(what) {
-      const [kind, id] = what.split(':'), num = String(window.LUMA_WHATSAPP || '').replace(/\D/g, '');
+      const [kind, id, size] = what.split(':'), num = String(window.LUMA_WHATSAPP || '').replace(/\D/g, '');
       if (!num) return luAlert('The WhatsApp number for requests isn\'t set up yet. Please email aeinscape@gmail.com to renew.', 'Almost there');
-      const item = kind === 'plan' ? PLANS.find(x => x.id === id) : ADDONS[id], endIso = kind === 'plan' ? LumaPlan.planExpires : (LumaPlan.addonInfo[id] || {}).expires_at; if (!item) return;
+      let item = kind === 'plan' ? PLANS.find(x => x.id === id) : ADDONS[id]; const cur = LumaPlan.workTier(), pick = id === 'work' && WORK_SIZES[size] ? size : cur; if (kind === 'addon' && id === 'work' && item) item = { ...item, ...WORK_SIZES[pick] };
+      const endIso = kind === 'plan' ? LumaPlan.planExpires : (LumaPlan.addonInfo[id] || {}).expires_at; if (!item) return;
       const end = endIso ? new Date(endIso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'no end date';
-      const msg = `Hi LUMA! I'd like to renew.\n\nName: ${lumaFullName()}\nEmail: ${lumaEmail()}\nCurrent plan: ${LumaPlan.name()}\nRenew: ${kind === 'plan' ? item.name + ' plan' : item.name + ' add-on'}\nEnds: ${end}\nPrice: ${item.price}`;
+      const msg = `Hi LUMA! I'd like to renew.\n\nName: ${lumaFullName()}\nEmail: ${lumaEmail()}\nCurrent plan: ${LumaPlan.name()}\nRenew: ${kind === 'plan' ? item.name + ' plan' : item.name + ' add-on'}\n${id === 'work' && kind === 'addon' ? `${pick !== cur ? `Note: I have ${WORK_SIZES[cur].name} now and would like to renew as ${item.name} instead.\n` : ''}` : ''}Ends: ${end}\nPrice: ${item.price}`;
       window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
     }
     // Work / Study add-ons under the plans (not on the very first login, which is only about the plan)
@@ -53,14 +54,17 @@
       box.style.display = '';
       box.innerHTML = `<div class="pa-head"><div class="pa-t">Add-ons</div><div class="ls">Work and Study go on top of any plan.</div></div><div class="pa-grid">` + Object.keys(ADDONS).map(k => {
         const a = ADDONS[k], on = LumaPlan.hasAddon(k), info = LumaPlan.addonInfo[k] || {};
-        const status = on ? (info.source === 'trial' && info.expires_at ? `Trial until ${when(info.expires_at)}` : info.expires_at ? `Active until ${when(info.expires_at)}` : 'Active') : a.price;
+        const status = on && k === 'work' && LumaPlan.workTier() === 'pro' ? `Work Pro${info.expires_at ? ' · until ' + when(info.expires_at) : ''}` : on ? (info.source === 'trial' && info.expires_at ? `Trial until ${when(info.expires_at)}` : info.expires_at ? `Active until ${when(info.expires_at)}` : 'Active') : a.price;
         return `<div class="plan-card ${on ? 'cur' : ''}" style="--pc:${a.color}">
           ${on ? '<span class="pb">Active</span>' : ''}
           <div class="pn"><span class="pi"><i class="fa-solid ${a.icon}"></i></span>${a.name}</div><div class="pt">${a.tag}</div><div class="pp">${status}</div>
           <ul>${a.perks.slice(0, 3).map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('')}</ul>
+          ${k === 'work' ? `<div class="pa-lim">${['standard', 'pro'].map(z => { const w = WORK_SIZES[z], mine = on && LumaPlan.workTier() === z; return `<div class="pa-size ${mine ? 'mine' : ''}"><b>${w.name}</b> <em>${w.price}</em>${mine ? ' <span>· yours</span>' : ''}<br>Up to ${w.lim[0]} companies, ${w.lim[1]} projects, ${w.lim[2]} people on a project, ${w.lim[3]} tasks in a project and ${w.lim[4]} teams</div>`; }).join('')}<i>The same on every plan.</i></div>` : ''}
           ${on && info.expires_at ? planEndLine(info.expires_at) : ''}
-          ${on && info.expires_at ? `<button type="button" class="pbtn up" data-renew="addon:${k}"><i class="fa-brands fa-whatsapp"></i> Renew ${a.name}</button>` : ''}
-          ${on ? `<button type="button" class="pbtn" data-addon="${k}" data-open style="cursor:pointer">Open ${a.name} mode</button>` : `<button type="button" class="pbtn up" data-addon-buy="${k}"><i class="fa-brands fa-whatsapp"></i> Get ${a.name}</button><button type="button" class="pbtn" data-addon="${k}" style="cursor:pointer">See what's included</button>`}
+          ${k === 'work' && on && LumaPlan.workTier() === 'standard' ? `<button type="button" class="pbtn up" data-addon-buy="workpro"><i class="fa-brands fa-whatsapp"></i> Upgrade to Work Pro</button>` : ''}
+          ${on && info.expires_at ? `<button type="button" class="pbtn up" data-renew="addon:${k}${k === 'work' ? ':' + LumaPlan.workTier() : ''}"><i class="fa-brands fa-whatsapp"></i> Renew ${k === 'work' ? LumaPlan.addonName('work') + ' · ' + WORK_SIZES[LumaPlan.workTier()].price : a.name}</button>` : ''}
+          ${k === 'work' && on && info.expires_at && LumaPlan.workTier() === 'pro' ? `<button type="button" class="pbtn" data-renew="addon:work:standard" style="cursor:pointer"><i class="fa-brands fa-whatsapp"></i> Renew as Work instead · ${WORK_SIZES.standard.price}</button><div class="pa-lim"><i>Going back to Work deletes nothing. You just cannot add more than ${WORK_SIZES.standard.lim[0]} companies, ${WORK_SIZES.standard.lim[1]} projects or ${WORK_SIZES.standard.lim[3]} tasks in a project or ${WORK_SIZES.standard.lim[4]} teams until you are under that.</i></div>` : ''}
+          ${on ? `<button type="button" class="pbtn" data-addon="${k}" data-open style="cursor:pointer">Open ${a.name} mode</button>` : `<button type="button" class="pbtn up" data-addon-buy="${k}"><i class="fa-brands fa-whatsapp"></i> Get ${a.name}${k === 'work' ? ' · ' + WORK_SIZES.standard.price : ''}</button>${k === 'work' ? `<button type="button" class="pbtn up" data-addon-buy="workpro"><i class="fa-brands fa-whatsapp"></i> Get Work Pro · ${WORK_SIZES.pro.price}</button>` : ''}<button type="button" class="pbtn" data-addon="${k}" style="cursor:pointer">See what's included</button>`}
         </div>`;
       }).join('') + (!LumaPlan.hasAddon('work') && !LumaPlan.hasAddon('study') ? `<div class="plan-card ad-bundle" style="--pc:#34d399"><span class="pb">${ADDON_BUNDLE.save}</span><div class="pn"><span class="pi"><i class="fa-solid fa-layer-group"></i></span>${ADDON_BUNDLE.name}</div><div class="pt">Both add-ons together</div><div class="pp">${ADDON_BUNDLE.price}</div><button type="button" class="pbtn up" data-addon-buy="both"><i class="fa-brands fa-whatsapp"></i> Get both</button></div>` : '') + '</div>';
     }

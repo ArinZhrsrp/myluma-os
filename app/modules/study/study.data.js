@@ -31,7 +31,7 @@
   };
 
   window.LumaStudy = {
-    courses: table("study_courses", COURSE_BASE, "created_at", ["semester_id", "target_percent", "final_percent", "grade_scale"]),
+    courses: table("study_courses", COURSE_BASE, "created_at", ["semester_id", "target_percent", "final_percent", "grade_scale", "attendance_target"]),
     classes: table("study_classes", CLASS_BASE, "start_time", ["start_date", "end_date"]),
     tasks: table("study_tasks", TASK, "due_date", ["semester_id", "remind_at", "reminded_at"]),
     semesters: Object.assign(table("study_semesters", SEMESTER, "start_date", ["archived_at", "is_active", "remark", "grade_scale"]), {
@@ -77,6 +77,17 @@
       detach: (fileId) => db().rpc("detach_project_file", { p_file: fileId }),
       nudge: (id, user, task) => db().rpc("nudge_study_project_member", { p_project: id, p_user: user, p_task: task || null }),
     },
+    rpc: (name, args) => db().rpc(name, args),
+    // attendance per class and date (migration 067)
+    attendance: Object.assign(table("study_attendance", "id, class_id, course_id, att_date, status", "att_date", ["semester_id"]), {
+      set: (rows) => db().from("study_attendance").upsert(rows, { onConflict: "class_id,att_date" }).select("id, class_id, course_id, att_date, status"),
+      clear: (classId, date) => db().from("study_attendance").delete().eq("class_id", classId).eq("att_date", date),
+    }),
+    // flashcards (migration 067)
+    decks: table("study_decks", "id, course_id, title, created_at", "created_at", ["semester_id"]),
+    cards: Object.assign(table("study_cards", "id, deck_id, front, back, ease, interval_days, reps, lapses, due_on, last_reviewed_at, created_at", "created_at"), {
+      inDeck: (deckId) => db().from("study_cards").select("id, deck_id, front, back, ease, interval_days, reps, lapses, due_on, last_reviewed_at, created_at").eq("deck_id", deckId).order("created_at", { ascending: true }).limit(600),
+    }),
     // focus sessions tagged with a subject since a moment (for "study time")
     focusSince: (iso) => db().from("focus_sessions").select("minutes, course_id, started_at").gte("started_at", iso),
   };

@@ -151,6 +151,7 @@
       if (!await luConfirm({ title: 'Delete this reminder?', message: `"${r.title}" will stop reminding you.`, ok: 'Delete' })) return;
       const { error } = await LumaReminders.remove(id); if (error) return luAlert('Could not delete: ' + error.message);
       REMS = REMS.filter(x => x.id !== id); closeRemModal(); paintReminders();
+      luUndo('Reminder deleted', async () => { const { data, error } = await LumaReminders.add({ title: r.title, note: r.note, kind: r.kind, start_date: r.start_date, remind_time: r.remind_time, days: r.days || [], active: r.active }); if (error) throw error; REMS.push(data); paintReminders(); });
     }
 
     async function loadReminders(pg) {

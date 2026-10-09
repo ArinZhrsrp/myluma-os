@@ -59,7 +59,7 @@
       btn.disabled = false; return paintPushControls();
     }
     // a tapped push notification asks the open dashboard to go to the right page
-    if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'open-page' && e.data.link && titles[e.data.link]) luOpenTarget(e.data.link, e.data.ref, e.data.ntype); });
+    if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'open-page' && e.data.link && titles[e.data.link]) luOpenTarget(e.data.link, e.data.ref || luNoticeTarget(e.data.link, e.data.ntitle, e.data.nbody, e.data.ntype), e.data.ntype); });
     // keep the worker registered (so pushes can be received) for users who already turned it on
     // re-save this device's subscription after login so the server row comes back if it was ever dropped
     function resyncPush() {

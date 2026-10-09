@@ -68,6 +68,7 @@
   #page-contacts .c-actions { flex-wrap: wrap; gap: 8px !important; width: 100%; padding-left: 52px; }   /* under the name, lined up with it */
   .plan-grid, .adm-stats { grid-template-columns: minmax(0, 1fr); }
   .page > *, .fit-root > * { min-width: 0; }
+  .page .np-btn, .page .create-btn { max-width: 100%; white-space: normal; text-align: center; line-height: 1.25; }   /* a long label wraps instead of pushing the page sideways */
 
   /* the month calendar: a day with events shows small dots, tap the day to read them */
   .cal-cell .cchip { display: inline-flex; width: auto; margin: 3px 1px 0; padding: 0; background: none; }
@@ -123,3 +124,9 @@
 }
 @media (max-width: 560px) { .sd-week, .att-chips { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 420px) { .sd-tiles[style*="repeat(3"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+/* Study: eight tabs must fit the width of the smallest phones (icons only below 900px, so each just shares the row) */
+@media (max-width: 480px) {
+  #page-study .sd-tabs { gap: 2px; padding: 3px; max-width: 100%; }
+  #page-study .sd-tabs button { flex: 1 1 0; min-width: 0; padding: 9px 0; justify-content: center; }
+}

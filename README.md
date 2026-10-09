@@ -240,6 +240,10 @@ Lumi can add events / tasks / notes / expenses and log health; it can't delete a
    (or Dashboard → Edge Functions → Secrets). Optional: `LUMI_DAILY_LIMIT`, `LUMI_INSIGHTS_LIMIT`, `GEMINI_MODEL`, `GROQ_MODEL`.
 4. Deploy: `npx supabase functions deploy lumi` (leave JWT verification ON — it is how Lumi knows who is asking).
 
+### The account function (deleting accounts)
+Deleting an account (Admin → ⋯ on a person → Delete) removes their files and their sign-in as well as their data, so it runs as an Edge function with the service role:
+`npx supabase functions deploy account --project-ref <ref>` (JWT verification stays ON; the service role key is provided by Supabase). Only an administrator can delete someone else; administrators can not be deleted.
+
 ## Plans (Dawn / Glow / Zenith)
 
 New accounts start on **Dawn** (free); on the first login they are offered the plans once. Picking Glow or Zenith opens WhatsApp with
@@ -392,6 +396,10 @@ supabase/migrations/
   062_plan_expiry.sql          Plans and add-ons run for a period: end dates, automatic return to Dawn, admin sets or adds time
   063_purchase_history.sql     Purchase history: every plan and add-on change (trial, started, extended, removed, ended) kept per person
   064_split_expenses.sql       Split expenses (Zenith): shared bills, who paid, shares, mark-as-paid, your share in Money
+  065_admin_tools.sql          Admin: start or reset free trials, bulk free access (a gift), deactivate accounts, admin log
+  066_task_repeat_checklist.sql Repeating tasks (next one made when finished) and task checklists
+  067_study_attendance_cards.sql Study: attendance per class and date, flashcard decks and cards (spaced repetition)
+  068_admin_roles.sql          Admin: make someone an administrator or remove it (logged)
   042_backgrounds.sql          your uploaded wallpaper is saved with your account (private storage bucket)
   041_focus_sessions.sql       Focus mode: every completed focus session is saved
   040_admin_report.sql         Admin page: monthly report of people per plan + log of every plan change
@@ -450,3 +458,9 @@ module (Calendar, Bills, Habits, …) its own table in the `luma` schema, follow
 pattern as `profiles`: a table with `user_id references auth.users(id)`, RLS
 scoped to `auth.uid()`, and the corresponding module's JS swapped from
 reading its hardcoded mock array to querying Supabase.
+\n  069_addon_gifts.sql          Gifts from an admin that the person starts later ("Use now"), up to 3 unused, use-by date, reminders
+  070_notification_refs.sql    Notifications for shared files, contact requests, event invites, shared notes and group projects now say what they are about\n  071_work_projects.sql        Work add-on: projects, tasks, people on projects (guests without the add-on are read-only)\n  072_work_task_dates_assignees.sql  Work tasks: start date, several assignees\n  073_work_phases_folders.sql  Work: six phases for projects, folders for general projects, notes in each\n  074_work_companies.sql       Work: companies (several at once), archive / restore, projects belong to one\n  075_work_comments_files.sql  Work: comments and attached documents on tasks\n  076_work_time.sql            Work: time entries, running timer, per-task totals\n  077_work_reminders_limits.sql  Work: due-date reminders, limits per plan\n  078_work_edit_move_team.sql  Work: edit comments (history), move tasks / projects, owner sees team time\n  079_work_time_label.sql      Work: a name for general time entries\n  080_work_links_budget_mentions.sql  Work: links between tasks, time budgets, @mentions, admin Work figures\n  081_feedback.sql             Feedback to the developer (+ the luma-feedback picture bucket)
+  082_busy_push_limits_admin.sql  "Tomorrow is busy" notification at 6 pm, and an admin editor for plan limits
+  083_work_tiers.sql           Work and Work Pro: the add-on sets the Work limits, not the plan
+  084_work_teams.sql           Teams in Work: groups of people you can give a task to
+  085_work_team_notify.sql     People are told when they are added to a team

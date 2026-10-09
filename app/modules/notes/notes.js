@@ -219,7 +219,8 @@
           if (!await luConfirm({ title: 'Delete this note?', message: `“${n.title || 'Untitled note'}” will be deleted. Attached documents are kept.`, ok: 'Delete note' })) return;
           const { error } = await LumaNotes.remove(n.id);
           if (error) return luAlert('Could not delete: ' + error.message);
-          notes = notes.filter(x => x !== n); return render();
+          notes = notes.filter(x => x !== n); render();
+          return luUndo('Note deleted', async () => { const { data, error } = await LumaNotes.add({ title: n.title, body: n.body, tag: n.tag }); if (error) throw error; notes.unshift(data); render(); });
         }
         openView(n);
       };

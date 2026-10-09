@@ -112,7 +112,10 @@
       color: rgba(255, 255, 255, 0.12);
     }
 
-    .cal-cell.today .num {
+    .cal-cell .num { display: flex; align-items: center; gap: 6px; min-height: 24px; }
+    .cal-cell .num .dn { display: inline-flex; align-items: center; height: 24px; line-height: 1; }
+    .cal-cell .num .cal-ld { margin-left: 0; }
+    .cal-cell.today .num .dn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -1048,11 +1051,13 @@
         font-size: 0.6rem;
       }
 
-      .cal-cell.today .num {
+      .cal-cell.today .num .dn {
         width: 18px;
+        min-width: 18px;
         height: 18px;
         font-size: 0.6rem;
       }
+      .cal-cell .num .dn { height: 18px; }
     }
     /* invitations */
     .cchip.pend, .tg-ev.pend { outline:1.5px dashed rgba(167,139,250,0.75); outline-offset:-1.5px; opacity:0.85; }
@@ -1073,3 +1078,17 @@
     .cal-pick .av { width:34px; height:34px; border-radius:50%; display:grid; place-items:center; background:linear-gradient(135deg,#2563eb,#7c3aed); color:#fff; font-weight:700; flex:none; }
     .cal-pick .nm { color:#fff; font-size:0.85rem; display:flex; flex-direction:column; min-width:0; }
     .cal-pick .nm small { color:rgba(255,255,255,0.55); font-size:0.7rem; overflow:hidden; text-overflow:ellipsis; }
+
+    .cal-export { flex:none; }
+    @media (max-width:560px) { .cal-export .exp-l { display:none; } .cal-export { min-width:40px; justify-content:center; } }
+
+    #calTitle { cursor:pointer; } #calTitle:hover { text-decoration:underline; text-decoration-color:rgba(255,255,255,0.35); text-underline-offset:4px; }
+
+/* narrow month cells (a laptop window): drop the time so the title still shows, and keep "+N more" on one line */
+.cal-cell { container-type: inline-size; }
+@container (max-width: 150px) { .cal-cell .cchip .tm { display: none; } }
+.cal-cell .cal-more { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* upcoming list: room inside each row, so the highlight of an opened notification doesn't hug the text */
+#calUpcoming .upcoming-item { padding: 11px 12px; margin: 0 -12px; border-radius: 12px; }
+#calUpcoming .upcoming-item:last-child { padding-bottom: 11px; }

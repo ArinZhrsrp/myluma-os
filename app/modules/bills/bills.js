@@ -210,6 +210,7 @@
       pg.querySelector('#addBillBtn').addEventListener('click', () => openBillModal(null));
       pg.querySelector('#billsRoot').addEventListener('click', e => {
         const pre = e.target.closest('[data-bpreset]'); if (pre) return openBillModal(null, B_PRESETS[+pre.dataset.bpreset]);
+        const bj = e.target.closest('.h-mnav > span'); if (bj && bj.previousElementSibling && bj.previousElementSibling.classList.contains('b-mprev')) return void luDatePopup(bj, { value: bMonth || bFirst(mytDayKey(Date.now())), onPick: k => { bMonth = bFirst(k); if (bMonth === bFirst(mytDayKey(Date.now()))) bMonth = null; paintBills(); } });
         if (e.target.closest('.b-mprev') || e.target.closest('.b-mnext')) { bMonth = bAddMonths(bMonth || bFirst(mytDayKey(Date.now())), e.target.closest('.b-mprev') ? -1 : 1); if (bMonth === bFirst(mytDayKey(Date.now()))) bMonth = null; return paintBills(); }
         if (e.target.closest('.b-payall')) return payAllBills();
         const row = e.target.closest('.b-row'); if (!row) return;
@@ -223,3 +224,10 @@
 
 
     WIRE.bills = function (pg) { return loadBills(pg); };
+
+
+    // a bill reminder can be about next month's due date: if it is not in this month, look in the next one
+    LU_FOCUS_HOOKS.bills = (ref, type, tries) => {
+      if (!BILLS.length || tries !== 6 || document.querySelector(`#page-bills [data-id="${ref}"]`)) return;
+      bMonth = bAddMonths(bMonth || bFirst(mytDayKey(Date.now())), 1); paintBills();
+    };

@@ -21,6 +21,7 @@
     addons: cached && cached.addons ? cached.addons : [], // active add-ons: "work", "study" (migration 044)
     addonInfo: cached && cached.addonInfo ? cached.addonInfo : {}, // { work: { source: "trial"|"admin", expires_at } }
     trialsUsed: cached && cached.trialsUsed ? cached.trialsUsed : [],
+    gifts: [], // free access an administrator sent that is waiting to be used (migration 069): [{ id, addon, days, months, message, claim_by, state }]
     ready: !!cached,
     admin: false, // true for super-admin accounts (see supabase/migrations/036_admin.sql)
     // resolves once the plan has been fetched (or given up on) — pages that depend on it wait for this
@@ -31,6 +32,9 @@
     // days until a date (negative = past); null when there is no date
     daysTo(iso) { return iso ? Math.ceil((Date.parse(iso) - Date.now()) / 864e5) : null; },
     hasAddon(k) { return this.addons.indexOf(k) !== -1; },
+    // Work comes in two sizes (migration 083): "Work" and "Work Pro"; the size is in addonInfo.work.tier
+    workTier() { return (this.addonInfo.work && this.addonInfo.work.tier) === 'pro' ? 'pro' : 'standard'; },
+    addonName(k) { return k === 'work' && this.hasAddon('work') && this.workTier() === 'pro' ? 'Work Pro' : this.ADDON_NAMES[k]; },
     canTrial(k) { return !this.hasAddon(k) && this.trialsUsed.indexOf(k) === -1; },
     name() { return this.NAMES[this.plan] || "Dawn"; },
     // a numeric limit, or null when there is none (unlimited, or plans are not set up yet)
@@ -41,6 +45,14 @@
     },
     // for on/off features: true unless the plan explicitly has 0
     has(key) { const v = this.get(key); return v === null || v > 0; },
+    waitingGifts() { return this.gifts.filter((g) => g.state === "waiting"); },
+    // the gifts waiting for this person (and recent used / expired ones); the Settings menu gets a small dot while one is waiting
+    async loadGifts() {
+      const client = window.LumaAuth && window.LumaAuth.client; if (!client) return;
+      try { const { data, error } = await client.schema("luma").rpc("my_gifts"); this.gifts = !error && Array.isArray(data) ? data : []; } catch (e) { this.gifts = []; }
+      try { document.dispatchEvent(new Event("luma-gifts")); } catch (e) { /* nothing is listening yet */ }
+      try { const m = document.querySelector('.menu[data-page="settings"]'); if (m) m.classList.toggle("has-gift", this.waitingGifts().length > 0); } catch (e) { /* the menu is not drawn yet */ }
+    },
     async load() {
       const client = window.LumaAuth && window.LumaAuth.client;
       if (!client) { resolveLoaded(); return; }
@@ -67,6 +79,7 @@
       } catch (e) { this.admin = false; }
       this.loadedAt = Date.now();
       resolveLoaded();
+      this.loadGifts(); // after the plan is known; does not hold anything up
     },
   };
 })();

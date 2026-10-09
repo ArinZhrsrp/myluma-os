@@ -325,3 +325,79 @@
     </div>
   </div>
 
+
+  <!-- attendance for one subject -->
+  <div class="modal-overlay confirm-overlay" id="sdAttOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:560px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdAttTitle">Attendance</div>
+        <button class="x" id="sdAttClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdAttError"></div>
+      <div class="pem-body">
+        <div class="sx-sum" id="sdAttSum"></div>
+        <div class="pem-field"><label>Attendance goal (%)</label><div class="sx-inline"><input id="sdAttTarget" type="text" inputmode="numeric" maxlength="3" autocomplete="off"><button type="button" class="np-btn" id="sdAttTargetSave">Save goal</button></div></div>
+        <div class="pem-field"><label>Past classes <span style="color:rgba(255,255,255,0.35);font-weight:400">(tap to set; tap again to clear)</span></label><div class="sx-list" id="sdAttList"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- what if I score… -->
+  <div class="modal-overlay confirm-overlay" id="sdWifOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:560px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdWifTitle">What if…</div>
+        <button class="x" id="sdWifClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-body">
+        <div class="ls" style="margin-bottom:10px;line-height:1.5">Type the marks you expect for what is still to come. Nothing is saved: this is only to see where you would end up.</div>
+        <div id="sdWifBody"></div>
+        <div class="sx-out" id="sdWifOut"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- a flashcard deck: its name, subject and cards -->
+  <div class="modal-overlay confirm-overlay" id="sdDeckOverlay">
+    <div class="profile-edit-modal fixed-modal" style="width:600px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdDeckHead">New deck</div>
+        <button class="x" id="sdDeckClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-msg error" id="sdDeckError"></div>
+      <div class="pem-body">
+        <div class="pem-field"><label>Deck name <span style="color:#fca5a5">*</span></label><input id="sdDeckTitle" type="text" maxlength="80" placeholder="e.g. Databases: key terms" autocomplete="off"></div>
+        <div class="pem-field"><label>Subject <span style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><select id="sdDeckCourse"></select></div>
+        <div class="pem-field"><label>Cards <span class="ls" id="sdDeckCount"></span></label><div class="sx-cards" id="sdDeckCards"></div>
+          <div class="sx-addcard"><input id="sdDeckFront" type="text" maxlength="500" placeholder="Front: question or term" autocomplete="off"><input id="sdDeckBack" type="text" maxlength="1000" placeholder="Back: answer" autocomplete="off"><button type="button" class="np-btn" id="sdDeckAdd" title="Add card"><i class="fa-solid fa-plus"></i></button></div>
+        </div>
+        <div class="pem-field"><label>Paste many at once <span style="color:rgba(255,255,255,0.35);font-weight:400">(one card per line: front | back)</span></label><textarea id="sdDeckPaste" style="min-height:90px" placeholder="Primary key | Uniquely identifies a row&#10;Foreign key | Points to another table's primary key"></textarea><button type="button" class="np-btn" id="sdDeckPasteGo" style="margin-top:8px"><i class="fa-solid fa-paste"></i> Add these cards</button></div>
+      </div>
+      <div class="pem-actions" style="gap:10px">
+        <button type="button" class="h-del" id="sdDeckDelete" title="Delete deck" aria-label="Delete deck" style="display:none"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="confirm-btn save" id="sdDeckSave" style="flex:1">Save deck</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- studying a deck -->
+  <div class="modal-overlay confirm-overlay" id="sdRunOverlay">
+    <div class="profile-edit-modal fixed-modal sx-run" style="width:520px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title" id="sdRunTitle">Study</div>
+        <button class="x" id="sdRunClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="pem-body">
+        <div class="sx-prog"><i id="sdRunBar"></i></div>
+        <div class="sx-count" id="sdRunCount"></div>
+        <button type="button" class="sx-card" id="sdRunCard"><small id="sdRunSide">Question</small><div id="sdRunText"></div><span class="sx-tap" id="sdRunTap">Tap to show the answer</span></button>
+        <div class="sx-rate" id="sdRunRate" style="display:none">
+          <button type="button" data-rate="again" class="again"><b>Again</b><small>Today</small></button>
+          <button type="button" data-rate="hard" class="hard"><b>Hard</b><small id="sdRateHard"></small></button>
+          <button type="button" data-rate="good" class="good"><b>Good</b><small id="sdRateGood"></small></button>
+          <button type="button" data-rate="easy" class="easy"><b>Easy</b><small id="sdRateEasy"></small></button>
+        </div>
+        <div class="sx-done" id="sdRunDone" style="display:none"></div>
+      </div>
+    </div>
+  </div>
