@@ -13,6 +13,7 @@ Things that are intentionally not built, decisions that are provisional, and ite
 | Busy-day alerts | Three fixed sensitivities (Sensitive, Normal, Relaxed); no custom numbers. The 6 pm push counts events, tasks, bills, Work tasks and Study items for tomorrow only. |
 | Gifts, plans, add-ons | A Study or Work gift / trial always gives the normal Work size (Work Pro is granted by an administrator). |
 | Language | The interface is English only. |
+| Birthdays | A birthday is optional and typed by the person (Register, or Settings → Profile → Edit); people who sign up with Google or Apple have none until they add it. An administrator gifts by hand (the Plan / Work / Study buttons); there is no automatic gift, and no "gifted this year" mark apart from the admin log and the "Wished" button. |
 | Native apps | None; installable PWA only. |
 
 ## 2. Provisional decisions (the numbers can change without a release)
@@ -25,8 +26,10 @@ Things that are intentionally not built, decisions that are provisional, and ite
 | ID | Item | Where |
 |---|---|---|
 | F-OPS-1 | `scripts/deploy-functions.sh` deploys `lumi` and `send-push` but not the `account` function | `scripts/deploy-functions.sh` |
-| F-OPS-2 | Stylesheets are linked without a version in their address, so a browser can keep an older copy after an update (a hard refresh fixes it). Scripts are versioned. | `app/index.html` |
+| F-OPS-2 | (Fixed in 0.29.5 for the app: stylesheets now carry a changing `?v=`.) The standalone Login, Register, Verify-email and Reset-password pages still link their stylesheets without a version. | `login/`, `register/`, … |
 | F-OPS-3 | The automated checks are not part of a CI pipeline; they run by hand (`docs/test-automation/run_all.sh`). | — |
+| F-OPS-5 | Google and Apple sign-in need set-up in Google Cloud / Apple Developer and in each Supabase project (`docs/06-OPERATIONS.md`, section 5a). The Apple client secret expires within 6 months and must be renewed by hand. Google's consent screen needs real Terms and Privacy pages (the links on Register are placeholders, B-2). | Supabase dashboard |
+| F-OPS-6 | There is no separate development database: local screens, previews and staging all use the staging Supabase project, so a development migration cannot be tried on a screen without touching the testers' database. Create a third Supabase project for development when this starts to hurt. | `shared/supabase-config.js` |
 | F-OPS-4 | The main `README.md` still says that several modules are "mock / static UI"; they are all backed by Supabase now. Treat `docs/` and `CHANGELOG.md` as current. | `README.md` |
 
 ## 4. Reported but not reproduced

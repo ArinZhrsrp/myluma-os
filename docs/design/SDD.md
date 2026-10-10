@@ -116,6 +116,7 @@ flowchart LR
 | Database | Postgres, schema `luma`, exposed through the Data API; access by RLS and security-definer RPCs | [DATABASE.md](DATABASE.md) |
 | Storage | Buckets `luma-documents`, `luma-backgrounds`, `luma-feedback` (created in migrations 003, 042, 081) | module data files |
 | Realtime | `postgres_changes` on `luma.notifications` (live toasts, bell) and `luma.messages` (chat) | `notifications.data.js`, `contacts.data.js` |
+| Notification paging | `LumaNotifications.list(limit, before)` returns at most 50 rows per request (newest first, `created_at` then `id`, "at or before" the last row so rows with the same time are not skipped; the page drops ones it already has). The first 50 load at start-up; the Notifications page loads the next 50 when its end marker (`#notifMore`, an `IntersectionObserver` with a 300 px margin) scrolls into view. The page total and the badge come from `LumaNotifications.counts()` (two head count queries), refreshed after a change | `notifications.data.js`, `notifications.js` |
 | Server jobs | `pg_cron` calls `luma.run_*()` functions (reminders, weekly review, busy-day alerts, plan expiry, gift reminders and others) | [DATABASE.md](DATABASE.md) |
 | Push | Web Push with VAPID keys; the sender is the `send-push` Edge Function, called by a `pg_net` trigger on `luma.notifications` | `supabase/setup/push_webhook.sql`, `sw.js` |
 | AI | Edge Function `lumi` calls Gemini first and Groq as fallback | [EDGE-FUNCTIONS.md](EDGE-FUNCTIONS.md) |
@@ -1035,7 +1036,7 @@ The Work tiers are the model:
 4. Add an entry at the top of `CHANGELOG.md`: `## x.y.z — YYYY-MM-DD (staging)` with `### Added`, `### Changed`, `### Fixed` and, when relevant, `### Database` (name the migration and "run after NNN").
 5. If an Edge Function changed: `./scripts/deploy-functions.sh staging` (`lumi` keeps JWT verification; `send-push` is deployed with `--no-verify-jwt` and checks `x-webhook-secret`). New secrets go in `supabase/staging.env`, then `npx supabase secrets set --env-file ...`.
 6. Run the migration on the Supabase project (SQL Editor, or the staging setup steps in `docs/STAGING_SETUP.md`) **before or together with** the deploy; the front end tolerates a missing migration only where a fallback was written (3.10).
-7. Commit and push only when asked, to branch `staging` first (Vercel builds a preview / staging site). Production is branch `main`, after review.
+7. Commit and push only when asked: new work goes to branch `development` (tested locally; a preview link only), then `staging` (testers), then `main` (the live site, after review).
 8. Run the suites listed in `docs/test-automation/README.md` that apply.
 9. Tell the owner what is left to run (migrations, function deploys, secrets).
 

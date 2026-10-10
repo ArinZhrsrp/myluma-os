@@ -2177,6 +2177,15 @@ Setup: Lumi deployed with at least one AI key. Accounts Dawn, Glow and Zenith in
 - **Expected result:** Defaults of 15 questions and actions allowed are used.
 - **Automation:** Manual.
 
+#### TC-LUMI-032 — Lumi knows who I am (profile)
+- **Requirement:** FR-LUMI-036
+- **Type / Priority:** Functional · P2
+- **Preconditions:** Deployed `lumi` function. Account with Settings → Profile first name "Aina", last name "Tan", a Glow plan; sign-in (Google) name different, e.g. "A. T.".
+- **Test data:** Questions "Who am I?", "What is my name and plan?"; then set the birthday to today and ask "Hi".
+- **Steps:** 1. Ask "Who am I?" in the Lumi page. 2. Change the first name in Settings → Profile to "Ain" and ask again. 3. Set the birthday to today (Settings → Profile → Edit) and open a new conversation. 4. Remove the birthday; remove the last name. 5. Ask "What is my e-mail?".
+- **Expected result:** 1. Lumi uses "Aina" / "Aina Tan" (the profile, not the sign-in name) and says Glow. 2. The new name is used without signing out. 3. Lumi wishes a happy birthday once, briefly; not repeated on every reply. 4. No birthday wish; Lumi still answers normally. 5. Lumi does not know the e-mail address.
+- **Automation:** Manual.
+
 #### TC-LUMI-031 — Isolation and phone layout
 - **Requirement:** NFR-LUMI-001, NFR-LUMI-002, NFR-LUMI-003, NFR-LUMI-004
 - **Type / Priority:** Responsive · P1

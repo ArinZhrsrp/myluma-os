@@ -220,6 +220,31 @@ function sigOf(w, root, prefix, map) {
     ev("window.__fu=[]; LumaAuth.client.schema=(function(sc){return function(n){const o=sc.call(this,n); return {from:o.from, rpc:function(name,a){ if(name==='admin_feedback_update'){window.__fu.push(a); return Promise.resolve({error:null})} return o.rpc(name,a)}}}})(LumaAuth.client.schema)");
     const it=d.querySelector('.fb-item[data-id=fa1]'); it.querySelector('[data-fbst]').value='planned'; it.querySelector('[data-fbnote]').value='Fixing in 0.22'; it.querySelector('[data-fbsave]').click(); await wait(300); console.log('status saved:', ev('JSON.stringify(window.__fu)'));
     ev("LumaPlan.admin=false"); }
+  { // greeting pills for things that are near
+    const t0=ev("mytDayKey(Date.now())"), inN=(n)=>ev("bAddDays('"+t0+"',"+n+")"), hour=ev("Math.floor(mytNowMin()/60)");
+    ev("LUMA_MODE='personal'; goTo('dashboard')"); await wait(1500);
+    ev("REMS=[{id:'rz',title:'Pay rent',active:true,kind:'daily',start_date:'"+t0+"',remind_time:'23:59:00',days:[],last_fired_on:null}]; BILLS=[{id:'bn',name:'Netflix',amount:55,category:'Subscription',recurrence:'monthly',due_date:'"+inN(2)+"',active:true,created_at:new Date().toISOString()},{id:'bi',name:'Internet',amount:129,category:'Internet',recurrence:'once',due_date:'"+inN(1)+"',active:true,created_at:new Date().toISOString()}]; dashGoals=[{title:'Save RM5k',deadline:'"+inN(4)+"',completed_at:null,target_value:5000,current_value:2000}]; an=Object.assign(an||{},{goals:{water_ml:2000},health:[{log_date:'"+t0+"',water_ml:500}]}); paintDashboard()");
+    await wait(300); const chips=[...d.querySelectorAll('#dashChips [data-go]')].map(x=>txt(x));
+    console.log('greeting pills:', chips.join(' | '));
+    console.log('pill: reminder later today:', chips.some(c=>/Pay rent at 11:59 PM/.test(c)), '| bill due tomorrow:', chips.some(c=>/Internet \(RM129\.00\) due tomorrow/.test(c) || /Internet.*due tomorrow/.test(c)), '| subscription renews in 2 days:', chips.some(c=>/Netflix renews in 2 days/.test(c)), '| goal ends in 4 days:', chips.some(c=>/Save RM5k.*ends in 4 days/.test(c)), '| at most 4 extra pills:', chips.length<=3+5+2);
+    if (hour>=17) console.log('evening pills: habits/water shown:', chips.some(c=>/habit/.test(c)), chips.some(c=>/of water to go/.test(c)));
+    ev("REMS=[]; BILLS=[]; dashGoals=[]; paintDashboard()"); await wait(200); console.log('nothing near → only the usual pills:', [...d.querySelectorAll('#dashChips [data-go]')].length <= 3+2);
+  }
+  { // admin → Birthdays
+    const iso2=(n)=>iso(n);
+    globalThis.__rpcData.admin_birthdays=[{id:'b1',first_name:'Aina',last_name:'Rahman',email:'aina@x.com',birthday:'2000-10-10',next_on:iso2(0),days_until:0,turning:26,plan:'dawn',addons:[],wished_on:null},{id:'b2',first_name:'Ben',last_name:'Lee',email:'ben@x.com',birthday:'1999-10-13',next_on:iso2(3),days_until:3,turning:27,plan:'glow',addons:['work'],wished_on:null},{id:'b3',first_name:'Cho',last_name:'',email:'cho@x.com',birthday:'1990-10-30',next_on:iso2(20),days_until:20,turning:36,plan:'dawn',addons:[],wished_on:new Date().toISOString()}];
+    globalThis.__rpcData.admin_list_users=[{id:'b1',email:'aina@x.com',first_name:'Aina',last_name:'Rahman',plan:'dawn',addons:[],addon_expiry:{},addon_source:{},addon_tier:{},trials_used:[],is_admin:false,created_at:new Date().toISOString()}];
+    ev("LumaPlan.admin=true; window.__rendered=0"); ev("Object.keys(rendered).forEach(k=>delete rendered[k]); goTo('admin')"); await wait(1500);
+    console.log('birthdays card badge:', txt(d.getElementById('admBdBadge')), '| button:', !!d.getElementById('admBdBtn'));
+    d.getElementById('admBdBtn').click(); await wait(500);
+    console.log('birthday groups:', [...d.querySelectorAll('.adm-bd-h')].map(x=>txt(x)).join(' | '), '| rows:', d.querySelectorAll('.adm-bd-row').length, '| first row:', txt(d.querySelector('.adm-bd-row')).slice(0,110));
+    console.log('already-wished person has a disabled "Wished" button:', !!d.querySelector('[data-bd-wish=b3][disabled]'), '| others can be wished:', !d.querySelector('[data-bd-wish=b1][disabled]'));
+    d.querySelector('[data-bd-plan=b1]').click(); await wait(400); console.log('Plan button opens the plan dialog:', d.getElementById('admPlanOverlay').classList.contains('open'), '|', txt(d.getElementById('admPlanTitle'))); d.getElementById('admPlanClose').click();
+    d.querySelector('[data-bd-addon="study|b1"]').click(); await wait(400); console.log('Study button opens the Study add-on dialog:', d.getElementById('admPlanOverlay').classList.contains('open'), '|', txt(d.getElementById('admPlanTitle'))); d.getElementById('admPlanClose').click();
+    ev("window.__bw=[]; LumaAuth.client.schema=(function(sc){return function(n){const o=sc.call(this,n); return {from:o.from, rpc:function(name,a){ if(name==='admin_birthday_wish'){window.__bw.push(a); return Promise.resolve({error:null})} return o.rpc(name,a)}}}})(LumaAuth.client.schema)");
+    d.querySelector('[data-bd-wish=b1]').click(); await wait(200); console.log('wish asks first:', txt(d.getElementById('dlgTitle'))); d.getElementById('dlgOk').click(); await wait(400);
+    console.log('wish sent:', ev('JSON.stringify(window.__bw)'), '| button now:', txt(d.querySelector('[data-bd-wish=b1]')), '| disabled:', !!d.querySelector('[data-bd-wish=b1][disabled]'));
+    globalThis.__rpcData.admin_birthdays=[]; ev("LumaPlan.admin=false"); }
   // a guest: no Work add-on, only added to somebody's project
   ev("LumaPlan.addons=[]; LumaPlan.addonInfo={}; LumaPlan.guestWork=true; WK.tab='projects'; WK.project=''"); ev("goTo('work')"); await wait(1500);
   console.log('guest tabs:', [...d.querySelectorAll('#wkTabs button')].map(b=>b.dataset.wktab).join(','), '| add button hidden:', d.getElementById('wkAdd').style.display==='none', '| lock banner:', !!d.querySelector('.wk-lock'), '| own-project section hidden:', !d.querySelector('[data-wkedit]'));

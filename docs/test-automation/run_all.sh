@@ -6,9 +6,10 @@ cd "$(dirname "$0")"
 t() { perl -e 'alarm shift; exec @ARGV' "$@"; }   # timeout helper (macOS has no `timeout`)
 echo "=== database: apply every migration"; t 200 node sql/pg_boot.js 2>&1 | tail -1
 echo "=== database: rules"
-for t in pg_work_test pg_phase_test pg_company_test pg_wfiles_test pg_time_test pg_wreminder_test pg_move_test pg_extras_test pg_feedback_test pg_study_test pg_split_test pg_admin_test pg_tasks_test pg_gift_test pg_refs_test pg_busy_test pg_team_test; do printf "%-22s" "$t:"; t 250 node sql/$t.js 2>&1 | tail -1 | cut -c1-70; done
+for t in pg_work_test pg_phase_test pg_company_test pg_wfiles_test pg_time_test pg_wreminder_test pg_move_test pg_extras_test pg_feedback_test pg_study_test pg_split_test pg_admin_test pg_tasks_test pg_gift_test pg_refs_test pg_busy_test pg_team_test pg_auth_test pg_birthday_test; do printf "%-22s" "$t:"; t 250 node sql/$t.js 2>&1 | tail -1 | cut -c1-70; done
 echo "=== user interface (jsdom)"
 echo "--- work / feedback / busy-day / date picker (v49)"; t 150 node ui/v49_test.js 2>&1 | grep -E "TEST ERR|^errors" -A3 | head -6
+echo "--- Google / Apple buttons (oauth_test)"; t 100 node ui/oauth_test.js 2>&1 | tail -3
 echo "--- every page renders (v41)"; t 150 node ui/v41_test.js 2>&1 | tail -2
 echo "=== edge functions: syntax"
 for f in lumi account send-push; do printf "%-10s" "$f:"; "${ESBUILD:-./node_modules/.bin/esbuild}" "${LUMA_ROOT:-../..}/supabase/functions/$f/index.ts" --loader:.ts=ts --format=esm --outfile=/dev/null 2>&1 | tail -1; done

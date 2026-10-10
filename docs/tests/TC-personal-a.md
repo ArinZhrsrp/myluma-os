@@ -309,6 +309,38 @@ Covers the requirements in `docs/srs/SRS-personal-a.md`: Dashboard (DASH), Calen
 
 ---
 
+#### TC-DASH-026 — Pills for things that are near their time
+- **Requirement:** FR-DASH-025
+- **Type / Priority:** Functional · P2
+- **Preconditions:** A Glow person with, on the same day: a daily reminder at a time later today; a bill (category Internet) due tomorrow; a subscription renewing in 2 days; a goal ending in 4 days; one daily habit not ticked; a water goal of 2 L with 0.5 L logged. Test in the evening (after 5 pm) to see habits and water.
+- **Steps:** Open the Dashboard and look at the pills in the greeting card.
+- **Expected result:** In addition to the task / event / money pills there are pills such as "Pay rent at 11:59 PM", "1 habit left to tick today", "1.5 L of water to go", "Internet (RM129) due tomorrow", "Netflix renews in 2 days (RM55)", and (if there is room) "Goal “…” ends in 4 days". Tapping each opens its page. Before 4 pm the water pill and before 5 pm the habits pill are not shown.
+- **Automation:** `ui/v49_test.js` (reminder, bill, subscription, habits, water) · times of day: manual.
+
+#### TC-DASH-027 — The near-time pills are limited and quiet
+- **Requirement:** FR-DASH-026
+- **Type / Priority:** Boundary · P3
+- **Preconditions:** Six or more things are near (see TC-DASH-026); then a day with nothing near.
+- **Steps:** Look at the greeting; then remove the reminders, bills, subscriptions and goals and reload.
+- **Expected result:** At most five of these pills appear, the nearest first (today's before tomorrow's). With nothing near, none appear and only the usual pills remain. An overdue bill or task is not repeated as one of these pills. On a 360 px phone the pills wrap onto their own lines without cutting off.
+- **Automation:** `ui/v49_test.js` (nothing near → only the usual pills) · layout: manual (phone-width audit covers overflow).
+
+#### TC-DASH-028 — Long lists scroll inside their cards
+- **Requirement:** FR-DASH-027
+- **Type / Priority:** Functional · P2
+- **Preconditions:** A person with 9 open tasks, 9 reminders (or bills) due in the next days and 7 habits.
+- **Steps:** Open the Dashboard; scroll inside Today's Priorities, Upcoming Reminders and Habit Streaks.
+- **Expected result:** Each card shows about five rows and scrolls inside itself, like Today's Schedule (the page does not scroll). A soft fade appears at the bottom while there is more and disappears at the end. With five or fewer rows there is no scrollbar and no fade. Habit Streaks lists all habits, the longest streak first.
+- **Automation:** Manual (layout).
+
+#### TC-DASH-029 — Equal-height first row with five visible rows
+- **Requirement:** FR-DASH-028
+- **Type / Priority:** Responsive · P2
+- **Preconditions:** A person with 7 events today, 9 open tasks and 7 reminders / bills coming up (and a second account with only 1 of each).
+- **Steps:** Open the Dashboard at 1180 px, 900 px and 390 px wide.
+- **Expected result:** At 1180 px the three cards in the first row have exactly the same height; each shows five rows and scrolls inside after that (the page does not scroll); long titles stay on one line with "…". With only one item the cards are still the same height (empty space below the item). The smaller cards sit below in two tidy rows. At 900 px two columns (Reminders spans the second row); at 390 px one column.
+- **Automation:** Manual (layout; the phone-width audit checks for overflow).
+
 ## 2. Calendar (CAL)
 
 #### TC-CAL-001 — Four views, default Month

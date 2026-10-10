@@ -7,7 +7,7 @@ These scripts check LUMA automatically. They do **not** replace the manual test 
 | Folder | What it does | Needs |
 |---|---|---|
 | `sql/` | Boots an in-memory Postgres (PGlite), applies every migration in order, then tests the database rules: RLS (who can read / change what), triggers, limits, security-definer functions, notifications. | Node |
-| `ui/` | Loads the real app in a simulated browser (jsdom) with a fake Supabase client and walks the screens: `v41_test.js` opens every page and fails on any script error; `v49_test.js` exercises Work, Feedback, busy-day alerts, date picker, teams, Gantt cascade; `v30_test.js` holds the demo data the phone-width rig reuses. | Node |
+| `ui/` | Loads the real app in a simulated browser (jsdom) with a fake Supabase client and walks the screens: `v41_test.js` opens every page and fails on any script error; `v49_test.js` exercises Work, Feedback, busy-day alerts, date picker, teams, Gantt cascade; `oauth_test.js` checks the Google / Apple buttons (Apple only on Apple devices, the Supabase call, the Terms box, return messages, and the rule that Login never keeps a new account); `v30_test.js` holds the demo data the phone-width rig reuses. | Node |
 | `edge/` | Small tests that load the Edge-function source or a page script in isolation (Lumi tools, space filter, reset-password page, account deletion, update tool). | Node |
 | `rig/` | A headless-Chrome rig: serves the app on `http://localhost:8765` with a stub back end and checks every page and popup for sideways overflow at 320 and 360 px wide; also takes screenshots (`shot.sh`, `wshot.sh`). | Chrome on macOS, Python 3 |
 | `run_all.sh` | Runs all of the above and prints a summary. | all of the above |
@@ -26,7 +26,7 @@ The scripts find the project folder three levels up; set `LUMA_ROOT=/path/to/myl
 
 | Suite | Checks | Covers |
 |---|---|---|
-| `pg_boot.js` | 85 migrations | Every migration file applies cleanly in order |
+| `pg_boot.js` | 87 migrations | Every migration file applies cleanly in order |
 | `pg_work_test.js` | 35 | Work projects, tasks, members, roles, RLS, assignees, invitations |
 | `pg_phase_test.js` | 15 | Project phases and general-project folders |
 | `pg_company_test.js` | 27 | Companies, archive freeze, restore, delete, limits |
@@ -45,6 +45,8 @@ The scripts find the project folder three levels up; set `LUMA_ROOT=/path/to/myl
 | `pg_tasks_test.js` | 14 | Personal tasks rules |
 | `pg_gift_test.js` | 21 | Free-access gifts |
 | `pg_refs_test.js` | 10 | Notification `ref` values used for click-through |
+| `pg_birthday_test.js` | 32 | Birthdays: Admin list (time zones, 29 Feb), wish, 9 am alert, privacy, sign-up metadata (migration 087) |
+| `pg_auth_test.js` | 8 | Names for accounts made with Google, Apple or the sign-up form (migration 086) |
 
 ## Known harmless messages
 

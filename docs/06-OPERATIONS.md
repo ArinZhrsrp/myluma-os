@@ -6,7 +6,7 @@ For first-time set-up of a new environment follow `docs/STAGING_SETUP.md` (scree
 
 | | Staging | Production |
 |---|---|---|
-| Git branch | `staging` | `production` (via `main`) |
+| Git branch | `staging` (merged from `development`) | `main` (Vercel's Production Branch) |
 | Website | Vercel staging site | Vercel production site |
 | Supabase project | own project (`luma-staging`) | own project |
 | Config | `shared/supabase-config.js` picks the project from the address the site is opened on (`PROD_HOSTS`) | same file |
@@ -15,14 +15,14 @@ For first-time set-up of a new environment follow `docs/STAGING_SETUP.md` (scree
 
 ## 2. Release flow (from `README.md`, "Staging and production")
 
-1. Work on `staging`; push; Vercel updates the staging site.
-2. Database change: add `supabase/migrations/NNN_name.sql` (next number, safe to re-run), run it in the **staging** SQL Editor, run `python3 scripts/build-all-migrations.py` to refresh `supabase/ALL_MIGRATIONS.sql`.
-3. Function change: deploy the function (section 4).
-4. Bump `window.LUMA_VERSION` in `shared/supabase-config.js` and add a `CHANGELOG.md` entry (patch = fixes, minor = a feature).
-5. Test on staging (`docs/04-TEST-PLAN.md`).
-6. Approve: `git checkout main && git merge staging && git push`.
-7. Release: run the same migrations in the **production** SQL Editor, deploy the functions to production, `git checkout production && git merge main && git push`.
-8. Smoke test production (section 8).
+Branches: `development` (built and tested on the developer's computer) → `staging` (testers, on the server) → `main` (**the live site**: Vercel's Production Branch is `main`). There is no `production` branch.
+
+1. **Local.** Work on `development`; run `docs/test-automation/run_all.sh`; look at the screens with a local web server (it uses the **staging database**, so a migration that is not on staging yet cannot be tried on screen). Push (only a preview link updates). Previews and the staging site share the staging database: do not run a new migration until step 2.
+2. **Staging.** Merge `development` into `staging` and push. Run the release's migrations in the **staging** SQL Editor (in order), run `python3 scripts/build-all-migrations.py`, deploy functions to staging (section 4). Bump `window.LUMA_VERSION` in `shared/supabase-config.js` and add a `CHANGELOG.md` entry. Test on staging (`docs/04-TEST-PLAN.md`).
+3. **Release.** Run the same migrations in the **production** SQL Editor, deploy the functions to production, then merge `staging` into `main` and push. Vercel publishes the live site.
+4. Smoke test production (section 8).
+
+**Never push to `main` for anything that is not a release**, and never run a migration on production before its code is ready to merge. Check after any Vercel change that Settings → Environments → Production → Branch Tracking says `main`.
 
 **Rule of thumb:** run migrations in numeric order, one at a time, and read the SQL Editor result. The app tolerates some missing newer columns (it falls back), but not all (for example, Work expects `071`–`085`).
 
@@ -37,7 +37,7 @@ For first-time set-up of a new environment follow `docs/STAGING_SETUP.md` (scree
 
 ### Scheduled jobs (pg_cron)
 
-There are 15 jobs (the list below is taken from the migrations; `docs/design/DATABASE.md` explains each one). After any deploy, confirm the jobs exist:
+There are 16 jobs (the list below is taken from the migrations; `docs/design/DATABASE.md` explains each one). After any deploy, confirm the jobs exist:
 
 ```sql
 select jobname, schedule, active from cron.job order by jobname;
@@ -60,6 +60,7 @@ select jobname, status, return_message, start_time from cron.job_run_details ord
 | `luma-busy-alerts` | hourly (minute 5) | "tomorrow is busy / packed" push, sent at 18:00 in the person's time zone |
 | `luma-plan-expiry` | hourly (minute 5) | plans / add-ons that ended; warnings 7 days and 1 day before |
 | `luma-gift-reminders` | hourly (minute 10) | reminders about unclaimed free-access gifts |
+| `luma-birthday-alerts` | hourly (minute 20) | tells each administrator, at 9 am their time, who has a birthday today or in the next 7 days |
 | `luma-weekly-review` | hourly (minute 5) | sends the weekly review on Sunday 18:00 local time |
 
 ## 4. Edge functions
@@ -83,6 +84,31 @@ Set secrets per project: `npx supabase secrets set KEY=value --project-ref <ref>
 - Confirm e-mail on (6-digit code flow, see `README.md`), with the e-mail template that contains the code; a custom SMTP sender for production (the built-in sender is rate limited).
 - URL Configuration: site URL and redirect URLs for that environment (the reset-password link opens the site of the environment it was requested from).
 - Password reset links and confirmation links cannot be tested from `localhost` unless the redirect list contains it.
+
+### 5a. Sign in with Google and Apple
+
+The Login and Register pages have a **Google** button and an **Apple** button (Apple is shown only on iPhone, iPad and Mac). The buttons use Supabase Auth, so each provider must be switched on **per Supabase project** (staging and production separately) before it works. Until then, pressing a button ends on a Supabase error page.
+
+**Every project: allow the return address.** Supabase → Authentication → URL Configuration: add `https://<your site>/login/` to *Redirect URLs* (and `http://localhost:8000/login/` for local tests). People come back to `/login/`, which opens the app.
+
+**Google**
+1. Google Cloud Console → *APIs & Services* → *OAuth consent screen*: user type External; app name LUMA; support e-mail; a link to a privacy policy and terms page (**the Terms and Privacy links on Register are placeholders today, so write these pages first**); authorised domains `supabase.co` and your site's domain. Scopes: the defaults (`openid`, `email`, `profile`).
+2. *Credentials* → *Create credentials* → *OAuth client ID* → *Web application*. *Authorised redirect URI*: `https://<PROJECT_REF>.supabase.co/auth/v1/callback`. Copy the **Client ID** and **Client secret**.
+3. Supabase → Authentication → Providers → **Google**: enable, paste both, save.
+4. While the consent screen is in *Testing*, only the test users you list can sign in; press *Publish app* before real people use it.
+
+**Apple** (needs a paid Apple Developer account)
+1. Apple Developer → *Identifiers*: an **App ID** with the *Sign in with Apple* capability, then a **Services ID** (for example `com.yourname.luma.web`) with *Sign in with Apple* configured: *Domains* = `<PROJECT_REF>.supabase.co`, *Return URL* = `https://<PROJECT_REF>.supabase.co/auth/v1/callback`.
+2. *Keys* → create a key with *Sign in with Apple*; download the `.p8` file (only once) and note the **Key ID**; your **Team ID** is in *Membership*.
+3. Make the **client secret**: a signed token built from the `.p8`, Team ID, Key ID and the Services ID (Supabase's Apple-provider page links a generator). **It expires after at most 6 months, and Apple sign-in stops working the day it does: put a reminder in your calendar to make a new one and paste it in.**
+4. Supabase → Authentication → Providers → **Apple**: enable, *Client ID* = the Services ID, *Secret key* = the token from step 3, save.
+
+**Good to know**
+- **Register creates, Login never does.** Pressing Google / Apple on the **Register** page (with the Terms box ticked) creates the account and marks it registered; no form is filled in. Pressing it on the **Login** page with an ID that has no LUMA account does not keep anything: Supabase creates the account the moment Google says yes, so the Login page deletes it again (using the `account` function, which therefore **must be deployed**) and says "Press Create one and register with Google first". Keep *Authentication → Sign In / Providers → Allow new users to sign up* **on**: the rule is enforced by LUMA, not by Supabase.
+- A new Google / Apple sign-in from Register creates the account (no e-mail code step). The name comes from the provider; Apple sends it only the very first time, and "Hide my e-mail" gives an `@privaterelay.appleid.com` address.
+- If someone already has an e-mail account with the same verified address, Supabase links the sign-in methods when *Authentication → Settings → "Link accounts with the same e-mail"* is on (check the setting in each project).
+- The first sign-in fills the time zone and country from the browser (once); people can change them in Settings → Profile.
+- Test with a real phone: Safari on iPhone for Apple, and any browser for Google. The test cases are `TC-AUTH-031` to `TC-AUTH-042`.
 
 ## 6. Monitoring and routine checks
 

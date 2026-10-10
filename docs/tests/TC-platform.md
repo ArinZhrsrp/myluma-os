@@ -283,6 +283,170 @@ Automation names refer to `docs/test-automation/`: `pg_boot` (all migrations app
 - **Expected result:** Both redirect to `/app/`.
 - **Automation:** Manual.
 
+#### TC-AUTH-031 — Google button starts the Google sign-in
+- **Requirement:** FR-AUTH-030
+- **Type / Priority:** Functional · P1
+- **Preconditions:** Google is enabled in the Supabase project; the site's `/login/` address is in the redirect list; a Google account that is **already registered** in LUMA (made through the Register page earlier).
+- **Steps:**
+  1. Open `/login/` signed out.
+  2. Press **Google**.
+  3. Choose the Google account (the chooser must appear even if only one is signed in).
+  4. Allow access.
+- **Expected result:** Google's account chooser opens; after allowing, the browser returns to LUMA ("Signing you in…") and the dashboard opens signed in as that person.
+- **Automation:** `ui/oauth_test.js` (the Supabase call and redirect address) · the real Google round trip is Device only / manual.
+
+#### TC-AUTH-032 — Apple button is shown only on Apple devices
+- **Requirement:** FR-AUTH-031
+- **Type / Priority:** Compatibility · P1
+- **Preconditions:** Login and Register pages.
+- **Steps:** Open `/login/` and `/register/` on (a) an iPhone, (b) an iPad, (c) a Mac in Safari and in Chrome, (d) a Windows PC, (e) an Android phone.
+- **Expected result:** On (a)–(c) both Google and Apple are shown side by side. On (d) and (e) only Google is shown, full width; there is no gap or empty space where Apple would be.
+- **Automation:** `ui/oauth_test.js` (user-agent cases for Windows, Android, iPhone, iPad, Mac) · real devices: manual.
+
+#### TC-AUTH-033 — Apple button starts the Apple sign-in with name and e-mail
+- **Requirement:** FR-AUTH-032
+- **Type / Priority:** Functional · P1
+- **Preconditions:** Apple is enabled in the Supabase project (Services ID, key, valid client secret); an Apple ID; an Apple device.
+- **Steps:**
+  1. Open `/login/` and press **Apple**.
+  2. Sign in with the Apple ID; on the first time choose "Share my e-mail" and then "Hide my e-mail".
+- **Expected result:** The Apple sheet asks for name and e-mail; LUMA opens signed in. With "Hide my e-mail" the profile e-mail is an `@privaterelay.appleid.com` address and everything else works.
+- **Automation:** `ui/oauth_test.js` (scopes "name email") · the real Apple flow is Device only.
+
+#### TC-AUTH-034 — A new Google account gets its name and no verification code
+- **Requirement:** FR-AUTH-033
+- **Type / Priority:** Functional · P1
+- **Preconditions:** A Google account whose e-mail has never been used in LUMA.
+- **Steps:**
+  1. On `/register/` tick the Terms box and press Google; finish the Google steps.
+  2. In the app open Settings → Profile.
+- **Expected result:** No e-mail code page appears. The profile shows the first and last name from the Google account and the Google e-mail. A "welcome" notification exists.
+- **Automation:** `pg_auth_test` (names from `given_name` / `family_name`, `full_name`, a single name, no name, tidy spaces, the form wins) · the sign-in itself: manual.
+
+#### TC-AUTH-035 — A provider that sends no name does not break the account
+- **Requirement:** FR-AUTH-033
+- **Type / Priority:** Negative · P2
+- **Preconditions:** An Apple ID signing in a second time (Apple sends the name only the first time) or a Google account with no name.
+- **Steps:** Sign in with that account for the first time in LUMA and open the Dashboard and Settings → Profile.
+- **Expected result:** The account is created; the greeting falls back to the part of the e-mail before the @ (or "there"); the name fields in Edit profile are empty and can be filled in.
+- **Automation:** `pg_auth_test` (no name) · greeting: manual.
+
+#### TC-AUTH-036 — Country and time zone are filled in once after a provider sign-in
+- **Requirement:** FR-AUTH-034
+- **Type / Priority:** Functional · P2
+- **Preconditions:** A brand-new Google account; the browser time zone is Asia/Tokyo.
+- **Steps:**
+  1. Sign in with Google for the first time.
+  2. Open Settings → Profile → Edit.
+  3. Change the time zone to Asia/Kuala_Lumpur, save, sign out and in again.
+- **Expected result:** After step 1 the profile has time zone Asia/Tokyo and country Japan. After step 3 the chosen Asia/Kuala_Lumpur stays (it is never overwritten once set). An account that registered with e-mail and password is not changed by this.
+- **Automation:** Manual.
+
+#### TC-AUTH-037 — Register: social sign-up needs the Terms box
+- **Requirement:** FR-AUTH-035
+- **Type / Priority:** Negative · P1
+- **Preconditions:** `/register/`, Terms box not ticked.
+- **Steps:** Press Google; then tick the box and press Google again.
+- **Expected result:** First press: nothing opens, and "Tick the box to agree to the Terms of Service and Privacy Policy first." is shown. Second press: the Google sign-in opens. The Login page has no such box and opens at once.
+- **Automation:** `ui/oauth_test.js`.
+
+#### TC-AUTH-038 — Busy state and failure of the social buttons
+- **Requirement:** FR-AUTH-036
+- **Type / Priority:** Usability · P3
+- **Preconditions:** `/login/`; for the failure, a Supabase project where the provider is not enabled, or the network switched off.
+- **Steps:** Press Google and look at the button; then repeat with the network off.
+- **Expected result:** The button shows "Opening…" and cannot be pressed twice. With the network off (or a start-up error) the button returns to "Google" and the red box explains. If the provider is not enabled in Supabase, Supabase itself may show an error page after the redirect (note it as a set-up problem, see the operations guide).
+- **Automation:** Manual.
+
+#### TC-AUTH-039 — Coming back from the provider: errors and progress
+- **Requirement:** FR-AUTH-037
+- **Type / Priority:** Functional · P2
+- **Preconditions:** None.
+- **Steps:**
+  1. Press Google, then cancel on Google's screen.
+  2. Open `/login/?error=access_denied&error_description=Provider+said+no`.
+  3. Open `/login/?code=abc`.
+- **Expected result:** Step 1 and 2: the red box shows the provider's text (or "Sign-in was cancelled."). Step 3: the green box says "Signing you in…".
+- **Automation:** `ui/oauth_test.js`.
+
+#### TC-AUTH-040 — A deactivated account cannot get in through Google or Apple
+- **Requirement:** FR-AUTH-038
+- **Type / Priority:** Security · P1
+- **Preconditions:** A person who signed up with Google and was then deactivated by an administrator.
+- **Steps:** Sign in with Google again.
+- **Expected result:** The app signs the person out at start-up and `/login/` shows "This account has been deactivated…". "Remember me" is on for provider sign-ins, so a normal sign-in stays signed in after closing and reopening the browser.
+- **Automation:** Manual (the deactivation rule itself: `pg_admin_test`).
+
+#### TC-AUTH-041 — The same e-mail with a password and with Google is one account
+- **Requirement:** FR-AUTH-039
+- **Type / Priority:** Integration · P2
+- **Preconditions:** An account made with e-mail and password and some data (a task). Supabase Auth → "link accounts with the same e-mail" is on.
+- **Steps:** Sign in with Google using the same address.
+- **Expected result:** The same dashboard with the same task opens (not an empty new account). If the project setting is off, Supabase refuses or creates a second account: note which, it is a project setting (TBC).
+- **Automation:** Manual.
+
+#### TC-AUTH-042 — Provider set-up is documented and complete
+- **Requirement:** FR-AUTH-040
+- **Type / Priority:** Usability · P3
+- **Preconditions:** `docs/06-OPERATIONS.md`.
+- **Steps:** Follow "Sign in with Google and Apple" on a fresh staging project: enable Google, enable Apple, add the redirect address, press each button.
+- **Expected result:** Both buttons sign a test person in with no step missing from the guide. The note about renewing Apple's client secret is present.
+- **Automation:** Manual.
+
+#### TC-AUTH-043 — Login with an unregistered Google ID does not create an account
+- **Requirement:** FR-AUTH-041
+- **Type / Priority:** Functional · P1
+- **Preconditions:** A Google account that has never been used in LUMA. Admin → user list open in another tab (or access to Supabase → Authentication → Users).
+- **Steps:**
+  1. Open `/login/` and press **Google**; choose that Google account.
+  2. Look at the page you come back to.
+  3. Check the user list.
+- **Expected result:** You come back to `/login/` (not the app) with the red message "We couldn't find a LUMA account for this Google ID. Press “Create one” below and register with Google first." You are signed out. The user list has no account for that Google e-mail (the one just made was deleted again).
+- **Automation:** `ui/oauth_test.js` (delete call, sign-out, message) · the real round trip: Device only.
+
+#### TC-AUTH-044 — The same with Apple says Apple
+- **Requirement:** FR-AUTH-041
+- **Type / Priority:** Functional · P2
+- **Preconditions:** An Apple ID never used in LUMA; an Apple device.
+- **Steps:** On `/login/` press **Apple** and finish.
+- **Expected result:** The same refusal, naming **Apple** ("…for this Apple ID… register with Apple first"); no account remains.
+- **Automation:** `ui/oauth_test.js` · real Apple flow: Device only.
+
+#### TC-AUTH-045 — Register with Google needs no form
+- **Requirement:** FR-AUTH-042
+- **Type / Priority:** Functional · P1
+- **Preconditions:** A Google account never used in LUMA.
+- **Steps:**
+  1. Open `/register/`; leave every field empty; tick the Terms box.
+  2. Press **Google** and finish.
+  3. Close the browser, open `/login/` again and press **Google** with the same account.
+- **Expected result:** Step 2 opens the app signed in, with no form filled. Step 3 signs in normally to the same account (it is now registered). Settings → Profile shows the name and e-mail from Google, a time zone and country filled from the browser.
+- **Automation:** `ui/oauth_test.js` (marks registered, opens the app) · real flow: Device only.
+
+#### TC-AUTH-046 — An existing account signs in with Google from Login
+- **Requirement:** FR-AUTH-043
+- **Type / Priority:** Functional · P1
+- **Preconditions:** An account made yesterday through Register with Google (or an e-mail account with the same address, see TC-AUTH-041).
+- **Steps:** Open `/login/`, press **Google**.
+- **Expected result:** The app opens; nothing is deleted; no message about "Create one".
+- **Automation:** `ui/oauth_test.js` (old account, marked-registered account, e-mail account).
+
+#### TC-AUTH-047 — Strictness when the memory of which page was used is gone
+- **Requirement:** FR-AUTH-043
+- **Type / Priority:** Negative · P3
+- **Preconditions:** A Google ID not yet in LUMA.
+- **Steps:** On `/register/` tick Terms and press Google, but wait 20 minutes on Google's screen before finishing (or clear the browser's local storage on the way back).
+- **Expected result:** The sign-in is treated as a Login: the refusal message appears and no account is kept. The person goes back to Register and tries again (this must be a clear, harmless outcome).
+- **Automation:** `ui/oauth_test.js` (expired and missing memory).
+
+#### TC-AUTH-048 — If deleting the new account fails
+- **Requirement:** FR-AUTH-044
+- **Type / Priority:** Negative · P3
+- **Preconditions:** A project where the `account` function is not deployed (or temporarily offline).
+- **Steps:** Press Google on `/login/` with a Google ID not yet in LUMA.
+- **Expected result:** The person is still signed out and shown the "couldn't find a LUMA account" message. An unused account may remain in the user list until an administrator removes it (note the count when testing).
+- **Automation:** Manual.
+
 ## 2. SHL — App shell
 
 #### TC-SHL-001 — Boot sequence loads the whole app
@@ -1119,13 +1283,13 @@ Automation names refer to `docs/test-automation/`: `pg_boot` (all migrations app
 - **Expected result:** Groups "Today", "Yesterday", "<d Month yyyy>"; subtitle "<n> notifications · <n> unread"; the deleted row disappears; the empty texts "No unread notifications." / "No notifications yet.".
 - **Automation:** Manual.
 
-#### TC-NTF-005 — Load limit of 200
+#### TC-NTF-005 — Batches of 50 and loading more on scroll
 - **Requirement:** FR-NTF-006, NFR-PRF-004
-- **Type / Priority:** Boundary · P3
-- **Preconditions:** 250 notifications, 230 unread.
+- **Type / Priority:** Boundary · P2
+- **Preconditions:** 130 notifications, 120 unread (some with the same created time).
 - **Test data:** None.
-- **Steps:** 1. Open the app; read the page count and badge.
-- **Expected result:** Only the 200 newest are listed and counted (badge may show fewer unread than exist — Findings).
+- **Steps:** 1. Open the app and watch the network: the notification request returns at most 50 rows. 2. Read the badge and the page subtitle. 3. Open Notifications and scroll to the bottom; repeat until the end. 4. Mark one as read, delete one, and let a new one arrive; read the subtitle again. 5. Block the network, scroll to the end, then restore it and press "Try again".
+- **Expected result:** Requests return 50, 50, 30 rows (never more than 50) and the list ends without "Loading more…"; no notification appears twice and none is skipped, including ones with the same time. The subtitle and badge show the real totals (130 notifications · 120 unread) from the start, not 50. Changes update the totals. A failed request shows "Could not load more. Try again", which resumes from the same place. With the Unread filter on, scrolling still loads more until the unread ones fill the view.
 - **Automation:** Manual.
 
 #### TC-NTF-006 — Live arrival and toast
@@ -1443,7 +1607,7 @@ Automation names refer to `docs/test-automation/`: `pg_boot` (all migrations app
 - **Type / Priority:** Functional · P1
 - **Preconditions:** A.
 - **Test data:** Module Study, part Timetable, kind Bug, text "The Friday class is missing from the grid", a small PNG.
-- **Steps:** 1. Fill and add the picture (also try paste). 2. Send.
+- **Steps:** 1. Fill and add the picture with the "Add a picture" button (pasting an image into the page must do nothing). 2. Send.
 - **Expected result:** Preview shown; button "Sending…"; "Thank you! Your message was sent to the developer." and toast; form cleared; message appears under "Your messages" with Bug chip, "Study › Timetable", status New, "with a picture". Context includes page, mode, version, screen.
 - **Automation:** `v49_test` (send incl. GIF picture, thanks, list) · `pg_feedback_test` (database side).
 
@@ -1838,6 +2002,85 @@ Automation names refer to `docs/test-automation/`: `pg_boot` (all migrations app
 - **Expected result:** Same results; CSV downloads and the SVG chart draws in each.
 - **Automation:** Manual.
 
+#### TC-ADM-024 — The Birthdays card and its badge
+- **Requirement:** FR-ADM-024
+- **Type / Priority:** Functional · P1
+- **Preconditions:** Admin Ada signed in. Three people with a birthday saved: one today, one in 3 days, one in 20 days (set in Settings → Profile → Edit, or in the SQL editor).
+- **Steps:** Open Admin. Press **See birthdays**.
+- **Expected result:** The Birthdays card shows the badge "1 today". The list opens with three groups: Today (1), In the next 7 days (1), Later this month (1), each in date order. Pressing **Hide** closes it.
+- **Automation:** `ui/v49_test.js` (card, badge, groups, rows) · `pg_birthday_test` (the list itself).
+
+#### TC-ADM-025 — Birthday details: age, days, time zone, 29 February
+- **Requirement:** FR-ADM-025
+- **Type / Priority:** Boundary · P2
+- **Preconditions:** People with these birthdays: yesterday; 29 Feb 2000; today in Tokyo (time zone Asia/Tokyo) while it is still yesterday in Kuala Lumpur; no birthday at all; a deactivated account with a birthday today.
+- **Steps:** Open Admin → See birthdays (and, as needed, look at 28/29 Feb in a year check using the SQL function).
+- **Expected result:** Yesterday's birthday is not in the 30 days. The Tokyo person is listed as "today" while the Malaysian clock still says yesterday (each person's own time zone). The row says "turns N" with the right age. A 29 February birthday shows on 28 Feb in a non-leap year. People with no birthday and the deactivated account are not listed.
+- **Automation:** `pg_birthday_test` (days until, age, two time zones, 29 Feb in 2027 / 2028 / 2100, deactivated, no birthday).
+
+#### TC-ADM-026 — Gift buttons open the right dialogs
+- **Requirement:** FR-ADM-026
+- **Type / Priority:** Functional · P1
+- **Preconditions:** A person with a birthday today, on Dawn.
+- **Steps:** In the list press **Plan**; close; press **Work**; close; press **Study**.
+- **Expected result:** **Plan** opens "Change plan" for that person; **Work** opens "Work add-on" and **Study** "Study add-on", each with the normal choices (for the add-ons: Normal with a length, or Free trial · 7 days). Applying a gift works exactly as on the user list and the person gets the usual notification.
+- **Automation:** `ui/v49_test.js` (the dialogs open for the right person) · applying a gift: `pg_admin_test`.
+
+#### TC-ADM-027 — Send a birthday wish
+- **Requirement:** FR-ADM-027
+- **Type / Priority:** Functional · P1
+- **Preconditions:** A person with a birthday today; their app open on another device.
+- **Steps:**
+  1. In the list press **Wish** for that person and confirm.
+  2. Look at the person's bell (and phone).
+  3. Press Wish again for the same person.
+  4. Open Admin → recent actions (admin log).
+- **Expected result:** A confirmation asks first. The person gets "🎂 Happy birthday, <name>!" with "Wishing you a wonderful year, from all of us at LUMA." and a push. The button becomes a disabled "Wished". A second attempt (for example from SQL or another admin) within a day is refused ("already sent"). The admin log has `birthday_wish`. A person with no birthday cannot be wished.
+- **Automation:** `pg_birthday_test` (notification, once a day, log, refused cases) · `ui/v49_test.js` (confirm and button) · push: Device only.
+
+#### TC-ADM-028 — The daily 9 am alert to administrators
+- **Requirement:** FR-ADM-028
+- **Type / Priority:** Integration · P2
+- **Preconditions:** Admin Ada with time zone Asia/Kuala_Lumpur; the birthday job exists (`select jobname from cron.job`). Two people: one with a birthday today, one in 3 days.
+- **Steps:** At 9 am Kuala Lumpur time (or run `select luma.run_birthday_alerts()` at that hour) check Ada's bell; run it again; remove the birthdays and run it the next day.
+- **Expected result:** One notification "🎂 1 birthday today" with "Today: <name>. Coming up: <name> (in 3 days)…" that opens Admin. Not sent twice in a day. With nobody today or within 7 days nothing is sent. Only birthdays within 7 days and none today give "Birthdays coming up". An administrator is not told about their own birthday.
+- **Automation:** `pg_birthday_test` (9 am gate, once a day, wording, none → nothing) · the real cron job: manual.
+
+#### TC-ADM-029 — Birthdays are private
+- **Requirement:** FR-ADM-029
+- **Type / Priority:** Security · P1
+- **Preconditions:** Dawn Dan and Stranger Stu; Dan has a birthday saved.
+- **Steps:** As Stu (and as Dan) call `admin_birthdays`, `admin_birthday_wish` and `birthday_rows` through the API; as Stu read Dan's profile row.
+- **Expected result:** Each call is refused ("Not allowed" / permission denied). Stu cannot read Dan's profile row at all, so cannot see the birthday. Dan can read and change only his own.
+- **Automation:** `pg_birthday_test` (callers, profile privacy).
+
+#### TC-SET-025 — Add, change and remove a birthday in Settings
+- **Requirement:** FR-SET-023
+- **Type / Priority:** Functional · P2
+- **Preconditions:** A signed-in person with no birthday.
+- **Steps:**
+  1. Settings → Profile → Edit. Open the Birthday picker; choose a date; save.
+  2. Reopen Edit: the date is there. Try a date in the future and one in 1850.
+  3. Clear the date and save.
+- **Expected result:** The date is saved and shown again. The picker does not allow the future; a date before 1900 is refused. Clearing and saving removes the birthday (it no longer appears in Admin → Birthdays). The note about who sees it is shown. If migration 087 has not been run the name still saves and a notice names the migration.
+- **Automation:** `pg_birthday_test` (own update, 1900 limit) · the form: manual.
+
+#### TC-AUTH-049 — Birthday on the Register form
+- **Requirement:** FR-AUTH-045
+- **Type / Priority:** Functional · P2
+- **Preconditions:** `/register/`.
+- **Steps:** Register once with a birthday, once without, and once with a future date typed by hand (use the browser's developer tools to bypass the date limit).
+- **Expected result:** The first account has the birthday in its profile. The second has none. The third account is still created, with no birthday (the invalid date is ignored). Google and Apple sign-ups have no birthday until added in Settings.
+- **Automation:** `pg_birthday_test` (valid, invalid text, future date, none) · the form: manual.
+
+#### TC-NTF-028 — Birthday notifications look and behave right
+- **Requirement:** FR-NTF-025
+- **Type / Priority:** Usability · P3
+- **Preconditions:** A birthday wish and an administrator birthday alert exist.
+- **Steps:** Open the bell; tap each.
+- **Expected result:** Both show a cake icon. The wish opens the Dashboard; the administrator alert opens Admin.
+- **Automation:** Manual.
+
 ## 10. ACC — Account, export and delete
 
 #### TC-ACC-001 — Export my data
@@ -2180,7 +2423,7 @@ Numbered F-1 … F-n; "where" gives file and line (as of 0.26.4).
 | F-6 | **Account deletion is not atomic and may leave files.** Files are removed first and the sign-in last (a failure leaves a live account without files); only the first 1000 files per folder are listed, and only 4 levels deep; the confirmation e-mail is compared with `profiles.email`, which the person can edit (the update policy has no check). | `supabase/functions/account/index.ts`, 001 | Medium |
 | F-7 | **Feedback pictures are deleted with the account but the feedback is kept**, so the inbox shows "Open picture" for a file that no longer exists. | `account/index.ts` (BUCKETS includes luma-feedback), 081 | Low |
 | F-8 | **Focus mode has no quiet hours**, only a type filter (reminder_ and budget_ pass). Plan-end warnings, gifts, busy-day alerts and weekly reviews are silenced too. The brief mentions quiet hours; the code has none. | `notifications.js` 142, `send-push/index.ts` | Medium (scope) |
-| F-9 | **Badge and counts only cover the 200 newest notifications**, so a person with more than 200 unread sees a lower number. | `notifications.data.js` line 20 | Low |
+| F-9 | (Fixed in 0.30.0.) The badge and counts used to cover only the 200 newest notifications. Now at most 50 are requested at a time, more load on scroll, and the totals come from count queries. | `notifications.data.js`, `notifications.js` | Closed |
 | F-10 | **Server busy-day alert counts all events regardless of mode** (space) while the Calendar counts only the current mode, so the 6 pm push can say "busy" when the Personal calendar shows a light day. | 082 `busy_day_stats`, `core/busy.js` | Medium |
 | F-11 | **Plan perks and FAQ are fixed text**; editing limits in Admin → Plan limits does not update the plans popup or FAQ. The client fallback `DAWN` says 2 wallpapers while the database says 4; it has no Work keys (the client then treats Work limits as unlimited; the database still enforces). | `core/plans.js` PLANS, `support.js`, `shared/luma-plan.js` line 11 | Low |
 | F-12 | **The Study free trial is hidden only in the browser on production**; `start_addon_trial` accepts it anywhere. | `core/modes.js` line 130, 044 | Low |

@@ -66,7 +66,7 @@ You need: a Supabase account, a Vercel account (already connected to your GitHub
 4. If opening the staging address asks you to log in to Vercel: **Settings → Deployment Protection** → turn **Vercel Authentication** off for **Preview** deployments → Save.
 5. Write down the staging address, for example `https://myluma-os-staging.vercel.app`. Open it: you should see the LUMA login page with a small yellow **STAGING** tag at the bottom-left.
    You do **not** need to change `PROD_HOSTS`. Any address that is not `myluma-os.vercel.app` automatically uses the staging project.
-6. Leave **Settings → Git → Production Branch** as it is for now (`main`).
+6. Leave **Settings → Environments → Production → Branch Tracking** as `main`: the live site is published from `main` only. Never push to `main` except to release.
 
 ## Part 5 — Supabase: sign-in and email settings
 
