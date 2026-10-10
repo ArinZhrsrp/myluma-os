@@ -711,7 +711,21 @@ Deno.serve(async (req) => {
   const limit = mode === "chat" ? chatLimit : insightLimit;
   const view = body.view === "study" || body.view === "work" ? body.view : "personal", page = String(body.page || "").replace(/[^a-z]/g, "").slice(0, 20);
   const tz = String(body.tz || "Asia/Kuala_Lumpur"), today = isDate(body.today) ? body.today : new Date().toISOString().slice(0, 10), now = String(body.now || today);
-  const name = String(u.user.user_metadata?.full_name || u.user.user_metadata?.name || "").slice(0, 60);
+  // who the person is: their LUMA profile first (Settings → Profile), then the sign-in name (Google / Apple); only the person's own rows are readable
+  let who = String(u.user.user_metadata?.full_name || u.user.user_metadata?.name || "").slice(0, 60), first = "", birthdayToday = false, age = 0, modesHave = "";
+  if (!body.check) {
+    let pr: any = (await client.from("profiles").select("first_name,last_name,birthday").eq("id", u.user.id).maybeSingle()).data;
+    if (!pr) pr = (await client.from("profiles").select("first_name,last_name").eq("id", u.user.id).maybeSingle()).data; // before migration 087 there is no birthday column
+    if (pr) {
+      first = String(pr.first_name || "").trim().slice(0, 40); const full = [pr.first_name, pr.last_name].map((x: any) => String(x || "").trim()).filter(Boolean).join(" ").slice(0, 60);
+      if (full) who = full; if (!first) first = who.split(" ")[0] || "";
+      if (isDate(pr.birthday)) { const y = +String(today).slice(0, 4), md = String(pr.birthday).slice(5, 10); birthdayToday = md === String(today).slice(5, 10); age = y - +String(pr.birthday).slice(0, 4); }
+    }
+    const { data: ad } = await client.from("user_addons").select("addon,expires_at").eq("user_id", u.user.id);
+    modesHave = (ad || []).filter((r: any) => !r.expires_at || String(r.expires_at).slice(0, 10) >= today).map((r: any) => String(r.addon)).filter((x: string) => x === "study" || x === "work").join(", ");
+  }
+  const name = who;
+  const profileLine = `${first ? `Call them ${first}. ` : ""}Their plan is ${plan || "unknown"}${modesHave ? `; they also have the ${modesHave} add-on${modesHave.includes(",") ? "s" : ""}` : ""}.${birthdayToday ? ` Today is their birthday${age > 0 && age < 120 ? ` (${age})` : ""}: wish them a happy birthday once, briefly, at the start of the conversation.` : ""}`;
 
   if (body.check) { // just report the allowance (for the chat, or for AI insights when kind is "insights"), without using one
     const kind = body.kind === "insights" ? "insights" : "chat", lim = kind === "chat" ? chatLimit : insightLimit;
@@ -736,7 +750,7 @@ Deno.serve(async (req) => {
 
     const history = (Array.isArray(body.messages) ? body.messages : []).slice(-8).map((m: any) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content || "").slice(0, 1000) }));
     if (!history.length || history[history.length - 1].role !== "user") return json({ error: "Say something first." }, 400);
-    const msgs: any[] = [{ role: "system", content: SYSTEM(now, tz, name, view, page) + (canAct ? "" : "\n- On the user's current plan you can only read and answer. You cannot add or log anything. If asked to, say that adding things through Lumi is available on the Glow and Zenith plans.") }, ...history];
+    const msgs: any[] = [{ role: "system", content: SYSTEM(now, tz, name, view, page) + "\nAbout the user (from their LUMA profile; use it naturally, do not recite it): " + profileLine + (canAct ? "" : "\n- On the user's current plan you can only read and answer. You cannot add or log anything. If asked to, say that adding things through Lumi is available on the Glow and Zenith plans.") }, ...history];
     const tools = canAct ? TOOLS : TOOLS.filter((t: any) => t.function.name === "get_overview");
     const actions: unknown[] = [], reqId = crypto.randomUUID();
     for (let i = 0; i < 4; i++) {

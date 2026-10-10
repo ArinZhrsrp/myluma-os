@@ -14,8 +14,8 @@
     }
     const sdDeckVisible = d => !(d.semester_id && sdSem(d.semester_id) && sdSem(d.semester_id).archived_at);
     function sdCardsView() {
-      if (!SDK.loaded) return '<div class="ls" style="padding:10px 2px">Loading…</div>';
-      if (SDK.err) return card(`<div class="ls">Could not load your flashcards: ${escapeHtml(SDK.err)}. ${/study_decks|study_cards|my_deck_stats|schema cache|does not exist/i.test(SDK.err) ? 'Has <b>supabase/migrations/067_study_attendance_cards.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
+      if (!SDK.loaded) return '<div class="lu-empty">Loading…</div>';
+      if (SDK.err) return card(`<div class="lu-empty">Could not load your flashcards: ${escapeHtml(SDK.err)}. ${/study_decks|study_cards|my_deck_stats|schema cache|does not exist/i.test(SDK.err) ? 'Has <b>supabase/migrations/067_study_attendance_cards.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
       const decks = SDK.decks.filter(sdDeckVisible), st = d => SDK.stats[d.id] || { total: 0, due: 0 }, dueAll = decks.reduce((a, d) => a + st(d).due, 0);
       if (!decks.length) return card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-clone"></i></div><div class="h-empty-t">Make flashcards to remember things</div><div class="h-empty-s">Add a deck for a subject, write a question and an answer on each card, then test yourself. Cards you find easy come back less often; the ones you miss come back sooner.</div><div class="h-empty-chips"><button type="button" class="h-chip" data-deck-new><i class="fa-solid fa-plus" style="color:#34d399"></i>Make your first deck</button></div></div>`);
       return `<div class="sx-deckbar"><div><b>${dueAll}</b> card${dueAll === 1 ? '' : 's'} to review today</div>${dueAll ? '<button type="button" class="create-btn" data-run-all><i class="fa-solid fa-play"></i> Review all due</button>' : ''}</div>
@@ -35,13 +35,13 @@
     const sdDeckErr = m => sdErr('sdDeckError', m);
     function sdDeckPaint() {
       const E = SDK.edit; docEl('sdDeckCount').textContent = `(${E.cards.filter(c => !c.gone).length})`;
-      docEl('sdDeckCards').innerHTML = E.cards.map((c, i) => c.gone ? '' : `<div class="sx-ce" data-i="${i}"><input type="text" data-f value="${escapeHtml(c.front)}" maxlength="500" placeholder="Front"><input type="text" data-b value="${escapeHtml(c.back)}" maxlength="1000" placeholder="Back"><button type="button" class="tk-x" data-rm title="Remove card"><i class="fa-solid fa-xmark"></i></button></div>`).join('') || '<div class="ls">No cards yet. Add one below, or paste several.</div>';
+      docEl('sdDeckCards').innerHTML = E.cards.map((c, i) => c.gone ? '' : `<div class="sx-ce" data-i="${i}"><input type="text" data-f value="${escapeHtml(c.front)}" maxlength="500" placeholder="Front"><input type="text" data-b value="${escapeHtml(c.back)}" maxlength="1000" placeholder="Back"><button type="button" class="tk-x" data-rm title="Remove card"><i class="fa-solid fa-xmark"></i></button></div>`).join('') || '<div class="lu-empty">No cards yet. Add one below, or paste several.</div>';
     }
     async function sdDeckOpen(d) {
       if (!d && !sdActiveSem()) { sdNeedSem(); return; }
       SDK.edit = { id: d ? d.id : null, cards: [] }; docEl('sdDeckHead').textContent = d ? 'Edit deck' : 'New deck'; docEl('sdDeckTitle').value = d ? d.title : ''; sdCourseOptions('sdDeckCourse', d ? d.course_id : null, true);
       docEl('sdDeckFront').value = ''; docEl('sdDeckBack').value = ''; docEl('sdDeckPaste').value = ''; docEl('sdDeckDelete').style.display = d ? '' : 'none'; sdDeckErr('');
-      if (d) { docEl('sdDeckCards').innerHTML = '<div class="ls">Loading cards…</div>'; sdOpen('sdDeckOverlay'); const r = await LumaStudy.cards.inDeck(d.id); SDK.edit.cards = (r.data || []).map(c => ({ ...c, orig: { front: c.front, back: c.back } })); }
+      if (d) { docEl('sdDeckCards').innerHTML = '<div class="lu-empty">Loading cards…</div>'; sdOpen('sdDeckOverlay'); const r = await LumaStudy.cards.inDeck(d.id); SDK.edit.cards = (r.data || []).map(c => ({ ...c, orig: { front: c.front, back: c.back } })); }
       else sdOpen('sdDeckOverlay');
       sdDeckPaint(); if (!d) setTimeout(() => docEl('sdDeckTitle').focus(), 50);
     }

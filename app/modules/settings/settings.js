@@ -100,6 +100,7 @@
       pemPw2.value = '';
       pemCountry.value = lumaCountry(); if (pemCountry.selectedIndex < 0) pemCountry.value = '';
       skinSelect(pemCountry);
+      { const bd = document.getElementById('pemBirthday'); bd.max = new Date().toISOString().slice(0, 10); bd.value = (LUMA_PROFILE && LUMA_PROFILE.birthday) || ''; if (typeof skinDate === 'function') { skinDate(bd); if (bd._luDateRefresh) bd._luDateRefresh(); } }
       pemTimezone.innerHTML = LumaAuth.timezoneOptions(MYT); skinSelect(pemTimezone);
       pemOverlay.classList.add('open');
       pemFirst.focus();
@@ -131,11 +132,12 @@
         last_name: pemLast.value.trim(),
         country: pemCountry.value || null,
         timezone: pemTimezone.value || null,
+        birthday: document.getElementById('pemBirthday').value || null,
       });
       if (!profileError && tzChanged) tzSaved = true;
-      if (profileError && /country|timezone/i.test(profileError.message)) { // migrations 023 / 028 not run yet: still save the name
+      if (profileError && /country|timezone|birthday/i.test(profileError.message)) { // migrations 023 / 028 / 087 not run yet: still save the name
         ({ data: profileData, error: profileError } = await LumaAuth.updateProfile({ first_name: pemFirst.value.trim(), last_name: pemLast.value.trim() }));
-        if (!profileError) notices.push('country / time zone not saved — run supabase/migrations/023_money_country.sql and 028_timezone.sql');
+        if (!profileError) notices.push('country / time zone / birthday not saved — run supabase/migrations/023_money_country.sql, 028_timezone.sql and 087_birthdays.sql');
         if (!profileError && tzChanged) { setAppTimezone(pemTimezone.value); } // still use it in this session
       }
       if (profileError) {

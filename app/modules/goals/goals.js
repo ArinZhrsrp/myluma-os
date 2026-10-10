@@ -68,7 +68,7 @@
             <div class="g-sub">${gFmt(g.current_value, g.unit)} of ${gFmt(g.target_value, g.unit)}</div>${g.note ? `<div class="g-note">${escapeHtml(g.note)}</div>` : ''}</div>
           <button type="button" class="hedit g-edit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
           <div class="g-bottom"><span class="pill" style="color:${stCol};background:${stBg}">${stLabel}</span><span class="g-left">${left}</span><button type="button" class="np-btn g-update"><i class="fa-solid fa-arrow-trend-up"></i> Update progress</button></div></div>`;
-      }).join('') : '<div class="ls" style="padding:10px 2px">Nothing here yet.</div>';
+      }).join('') : '<div class="lu-empty">Nothing here yet.</div>';
       root.innerHTML = tabs + `<div class="grid-2">${cards}</div>`;
     }
 

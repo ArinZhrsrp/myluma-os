@@ -14,11 +14,22 @@
   const COLS_REF = COLS + ", ref"; // ref (the contact a nudge refers to) arrives with migration 009
 
   window.LumaNotifications = {
-    // newest first
-    async list(limit = 200) {
-      const q = (cols) => db().from("notifications").select(cols).order("created_at", { ascending: false }).limit(limit);
+    // newest first, at most PAGE (50) rows per call. `before` (an ISO time) continues after the last row of the previous page:
+    // it uses "at or before" so rows that share the same second are not skipped (the caller drops the ones it already has)
+    PAGE: 50,
+    async list(limit = 50, before = null, strict = false) {
+      limit = Math.min(Math.max(+limit || 50, 1), 50);
+      const q = (cols) => { let r = db().from("notifications").select(cols).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(limit); if (before) r = strict ? r.lt("created_at", before) : r.lte("created_at", before); return r; };
       const res = await q(COLS_REF);
       return res.error ? q(COLS) : res; // fall back when 009 hasn't been run yet
+    },
+    // how many notifications the person has in all, and how many are unread (two cheap count queries, no rows)
+    async counts() {
+      const [a, b] = await Promise.all([
+        db().from("notifications").select("id", { count: "exact", head: true }),
+        db().from("notifications").select("id", { count: "exact", head: true }).is("read_at", null),
+      ]);
+      return a.error || b.error ? null : { total: a.count || 0, unread: b.count || 0 };
     },
     async markRead(id) {
       return db().from("notifications").update({ read_at: new Date().toISOString() }).eq("id", id).is("read_at", null);

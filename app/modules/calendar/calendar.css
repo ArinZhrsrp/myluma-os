@@ -1092,3 +1092,6 @@
 /* upcoming list: room inside each row, so the highlight of an opened notification doesn't hug the text */
 #calUpcoming .upcoming-item { padding: 11px 12px; margin: 0 -12px; border-radius: 12px; }
 #calUpcoming .upcoming-item:last-child { padding-bottom: 11px; }
+
+/* very narrow month cells (a phone): the tint already shows a busy day, so the small icon next to the date is dropped instead of being cut off */
+@media (max-width: 480px) { .cal-cell .num .cal-ld { display: none; } }

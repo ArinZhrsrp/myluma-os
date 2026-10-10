@@ -8,6 +8,7 @@
       let browserZone = ''; try { browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
       guess(browserZone || tz.value);
       tz.addEventListener('change', () => { if (!countryTouched) guess(tz.value); }); })();
+    { const bd = document.getElementById("birthday"); if (bd) bd.max = new Date().toISOString().slice(0, 10); }   // no birthdays in the future
     LumaAuth.redirectIfSignedIn();
 
     // the Create account button stays off until the Terms and Privacy Policy box is ticked
@@ -15,10 +16,6 @@
     const syncAgree = () => { createBtn.disabled = !agreeEl.checked; createBtn.title = agreeEl.checked ? "" : "Tick the box to agree to the Terms of Service and Privacy Policy first"; };
     agreeEl.addEventListener("change", syncAgree); syncAgree();
 
-    LumaAuth._comingSoon = (btn) => {
-      const label = btn.textContent.trim();
-      showError(label + " sign-up isn't connected yet \u2014 create an account with email for now.");
-    };
 
     const form = document.getElementById("registerForm");
     const errEl = document.getElementById("formError");
@@ -35,6 +32,13 @@
       okEl.textContent = text;
       okEl.style.display = "flex";
     }
+
+    // Google / Apple: a new account is made the first time, so the Terms box must be ticked first
+    LumaAuth.wireSocialButtons({
+      intent: "register",
+      beforeStart: () => { if (agreeEl.checked) return true; showError("Tick the box to agree to the Terms of Service and Privacy Policy first."); return false; },
+      onError: (m) => showError(m),
+    });
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -56,7 +60,7 @@
       submitBtn.innerHTML = 'Creating account\u2026';
 
       const country = document.getElementById("country").value;
-      const { data, error } = await LumaAuth.signUp({ firstName, lastName, email, password, country, timezone: document.getElementById("timezone").value });
+      const { data, error } = await LumaAuth.signUp({ firstName, lastName, email, password, country, timezone: document.getElementById("timezone").value, birthday: document.getElementById("birthday").value });
 
       submitBtn.disabled = !agreeEl.checked;
       submitBtn.innerHTML = 'Create account <i class="fa-solid fa-arrow-right"></i>';

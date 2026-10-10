@@ -1,5 +1,13 @@
 // LUMA — login page
-    LumaAuth.redirectIfSignedIn();
+    // coming back from Google / Apple: Login never makes an account. A brand-new Google / Apple ID is sent to "Create one" (see finishProviderSignIn)
+    if (LumaAuth.cameBackFromProvider()) {
+      (async () => {
+        const r = await LumaAuth.finishProviderSignIn(), name = r.provider === "apple" ? "Apple" : "Google";
+        if (r.status === "no-account") { try { history.replaceState(null, "", location.pathname); } catch (e) { } showError("We couldn't find a LUMA account for this " + name + " ID. Press “Create one” below and register with " + name + " first."); }
+        else if (r.status === "ok") LumaAuth.go("/app/");
+        else showError("Sign-in did not finish. Please try again.");
+      })();
+    } else LumaAuth.redirectIfSignedIn();
 
     // restore the last choice and, if remembered, the email
     const rememberEl = document.getElementById("remember");
@@ -9,16 +17,15 @@
       if (saved && rememberEl.checked) document.getElementById("email").value = saved;
     } catch (e) {}
 
-    LumaAuth._comingSoon = (btn) => {
-      const label = btn.textContent.trim();
-      showError(label + " sign-in isn't connected yet — use email for now.");
-    };
 
     const form = document.getElementById("loginForm");
     const errEl = document.getElementById("formError");
     const okEl = document.getElementById("formOk");
     const submitBtn = document.getElementById("submitBtn");
 
+    // Google / Apple: the buttons, and what to say when the person comes back from the provider
+    LumaAuth.wireSocialButtons({ intent: "login", onError: (m) => showError(m) });
+    { const back = LumaAuth.oauthReturnError(); if (back) setTimeout(() => showError(back), 0); else if (LumaAuth.cameBackFromProvider()) setTimeout(() => showOk('Signing you in…'), 0); }
     if (/[?&]disabled=1\b/.test(location.search)) setTimeout(() => showError('This account has been deactivated. Please contact support if you think this is a mistake.'), 0);
     if (/[?&]deleted=1\b/.test(location.search)) setTimeout(() => showOk('Your account and all its data have been deleted. Thank you for trying LUMA.'), 0);
     function showError(text) {

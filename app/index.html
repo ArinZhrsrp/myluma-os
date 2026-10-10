@@ -17,34 +17,43 @@
   <title>LUMA</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
-  <link rel="stylesheet" href="core/core.css">
-  <link rel="stylesheet" href="modules/notifications/notifications.css">
-  <link rel="stylesheet" href="modules/contacts/contacts.css">
-  <link rel="stylesheet" href="modules/health/health.css">
-  <link rel="stylesheet" href="modules/purchases/purchases.css">
-  <link rel="stylesheet" href="modules/split/split.css">
-  <link rel="stylesheet" href="modules/settings/settings.css">
-  <link rel="stylesheet" href="modules/focus/focus.css">
-  <link rel="stylesheet" href="modules/tasks/tasks.css">
-  <link rel="stylesheet" href="modules/calendar/calendar.css">
-  <link rel="stylesheet" href="modules/money/money.css">
-  <link rel="stylesheet" href="modules/bills/bills.css">
-  <link rel="stylesheet" href="modules/subscriptions/subscriptions.css">
-  <link rel="stylesheet" href="modules/goals/goals.css">
-  <link rel="stylesheet" href="modules/habits/habits.css">
-  <link rel="stylesheet" href="modules/analytics/insights.css">
-  <link rel="stylesheet" href="modules/dashboard/dashboard.css">
-  <link rel="stylesheet" href="modules/reminders/reminders.css">
-  <link rel="stylesheet" href="modules/work/work.css">
-  <link rel="stylesheet" href="modules/study/study.css">
-  <link rel="stylesheet" href="modules/admin/admin.css">
-  <link rel="stylesheet" href="modules/adminreport/adminreport.css">
-  <link rel="stylesheet" href="modules/documents/documents.css">
-  <link rel="stylesheet" href="modules/notes/notes.css">
-  <link rel="stylesheet" href="modules/assistant/assistant.css">
-  <link rel="stylesheet" href="modules/support/support.css">
-  <link rel="stylesheet" href="modules/feedback/feedback.css">
-  <link rel="stylesheet" href="core/responsive.css"> <!-- last: phone and small-screen adjustments -->
+  <script>
+    // The stylesheets get a changing ?v=… so a browser never keeps an old copy after an update (the scripts already do this in core/boot.js).
+    // Live site: a new copy at most once an hour; staging and your computer: always fresh. responsive.css stays last.
+    (function () {
+      var v = location.hostname === 'myluma-os.vercel.app' ? Math.floor(Date.now() / 36e5) : Date.now();
+      [
+      'core/core.css',
+      'modules/notifications/notifications.css',
+      'modules/contacts/contacts.css',
+      'modules/health/health.css',
+      'modules/purchases/purchases.css',
+      'modules/split/split.css',
+      'modules/settings/settings.css',
+      'modules/focus/focus.css',
+      'modules/tasks/tasks.css',
+      'modules/calendar/calendar.css',
+      'modules/money/money.css',
+      'modules/bills/bills.css',
+      'modules/subscriptions/subscriptions.css',
+      'modules/goals/goals.css',
+      'modules/habits/habits.css',
+      'modules/analytics/insights.css',
+      'modules/dashboard/dashboard.css',
+      'modules/reminders/reminders.css',
+      'modules/work/work.css',
+      'modules/study/study.css',
+      'modules/admin/admin.css',
+      'modules/adminreport/adminreport.css',
+      'modules/documents/documents.css',
+      'modules/notes/notes.css',
+      'modules/assistant/assistant.css',
+      'modules/support/support.css',
+      'modules/feedback/feedback.css',
+      'core/responsive.css'
+      ].forEach(function (h) { document.write('<link rel="stylesheet" href="' + h + '?v=' + v + '">'); });
+    })();
+  </script>
 </head>
 
 <body>

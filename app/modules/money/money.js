@@ -75,9 +75,9 @@
       const byCat = {}; spentRows.forEach(t => { byCat[t.cat] = (byCat[t.cat] || 0) + t.amount; });
       const cats = Object.entries(byCat).sort((a, c) => c[1] - a[1]);
       const catHtml = cats.length ? cats.map(([n, v]) => { const [, , col] = mCatInfo(n, 'expense'); return `<div class="m-cat"><div class="top"><span class="dot" style="background:${col}"></span>${escapeHtml(n)}<span class="amt">${bRM(v)}</span></div><div class="bar"><span style="width:${Math.max(2, Math.round(v / spent * 100))}%;background:${col}"></span></div></div>`; }).join('')
-        : '<div class="ls" style="padding:18px 2px">No spending logged this month yet. Log an expense, or mark a bill as paid.</div>';
+        : '<div class="lu-empty">No spending logged this month yet. Log an expense, or mark a bill as paid.</div>';
       const shownTx = txns.slice(0, 5); // the page only lists the 5 latest; View all opens the full list
-      const txHtml = shownTx.length ? shownTx.map(mTxRow).join('') : '<div class="ls" style="padding:18px 2px">Nothing yet this month.</div>';
+      const txHtml = shownTx.length ? shownTx.map(mTxRow).join('') : '<div class="lu-empty">Nothing yet this month.</div>';
 
       const incomeNote = MSET.gross_salary > 0 ? (mIsMY() ? 'take-home after EPF, SOCSO & EIS' : 'salary + other income') : 'tap to set your salary';
       root.innerHTML = `<div class="m-nav"><div class="h-mnav"><button type="button" class="m-mprev" title="Previous month"><i class="fa-solid fa-chevron-left"></i></button><span>${bMonthLabel(first)}</span><button type="button" class="m-mnext" title="Next month"><i class="fa-solid fa-chevron-right"></i></button></div></div>

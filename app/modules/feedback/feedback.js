@@ -38,7 +38,7 @@
         <div class="pem-field"><label>What kind of message?</label><div class="h-tpls" id="fbKinds">${FB_KINDS.map(([k, n, i, c]) => `<button type="button" data-fbk="${k}" class="${k === FB.kind ? 'on' : ''}" style="--c:${c}"><i class="fa-solid ${i}"></i> ${n}</button>`).join('')}</div></div>
         <div class="pem-field"><label>Your comments <span style="color:#fca5a5">*</span></label><textarea id="fbText" maxlength="4000" placeholder="What happened, what did you expect, or what would you like? The more detail the better."></textarea><div class="fb-count"><span id="fbLen">0</span> / 4000</div></div>
         <div class="pem-field"><label>Picture <span class="fb-dim">(optional: a screenshot helps a lot)</span></label>
-          <div class="fb-pic" id="fbPic"><button type="button" class="np-btn" id="fbPick"><i class="fa-regular fa-image"></i> Add a picture</button><input type="file" id="fbFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none"><span class="fb-dim">or paste one here (Ctrl / Cmd + V)</span></div>
+          <div class="fb-pic" id="fbPic"><button type="button" class="np-btn" id="fbPick"><i class="fa-regular fa-image"></i> Add a picture</button><input type="file" id="fbFile" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none"></div>
           <div class="fb-prev" id="fbPrev" style="display:none"><img id="fbImg" alt="Your picture"><button type="button" class="fb-x" id="fbDrop" title="Remove the picture" aria-label="Remove the picture"><i class="fa-solid fa-xmark"></i></button></div></div>
         <div class="fb-actions"><button type="button" class="create-btn" id="fbSend"><i class="fa-solid fa-paper-plane"></i> Send feedback</button><span class="fb-dim">Sent with your name and email so the developer can reply. Up to 10 messages a day.</span></div></div>
         <div id="fbMine"></div>`;
@@ -97,7 +97,6 @@
       });
       pg.addEventListener('change', e => { if (e.target.id === 'fbModule') fbPaintPart(); if (e.target.id === 'fbFile' && e.target.files[0]) fbSetFile(e.target.files[0]); });
       pg.addEventListener('input', e => { if (e.target.id === 'fbText') docEl('fbLen').textContent = e.target.value.length; });
-      pg.addEventListener('paste', e => { const f = [...(e.clipboardData ? e.clipboardData.files : [])].find(x => /^image\//.test(x.type)); if (f) { e.preventDefault(); fbSetFile(f); } });
       fbLoadMine();
     };
 

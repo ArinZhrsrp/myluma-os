@@ -164,7 +164,7 @@
       docEl('calUpcoming').innerHTML = shown.length ? shown.map(({ it, k }) => {
         const d = bDays(k, today), when = d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : cFmt(k, { weekday: 'short', day: 'numeric', month: 'short' });
         return `<div class="upcoming-item" data-d="${k}" data-type="${it.type}" data-id="${it.id}"><div class="dot" style="background:${it.color}"></div><div><div class="up-title">${escapeHtml(it.title)}</div><div class="up-time">${when} · ${cTimeLabel(it)}</div></div></div>`;
-      }).join('') : '<div class="ls" style="padding:6px 0">Nothing in the next 2 weeks.</div>';
+      }).join('') : '<div class="lu-empty">Nothing in the next 2 weeks.</div>';
       // counts for the month being looked at (hidden categories still show their count, just dimmed)
       const first = bFirst(cDate || today), n = cLast(first), cnt = {};
       const hiddenNow = new Set(cHidden); cHidden.clear();
@@ -207,10 +207,10 @@
     // pick contacts to invite
     let CAL_CONTACTS = null;
     async function openInvitePicker() {
-      const box = docEl('calInvList'); box.innerHTML = '<div class="ls" style="padding:8px 2px">Loading…</div>'; docEl('calInviteOverlay').classList.add('open');
-      if (!CAL_CONTACTS) { const r = await LumaContacts.listContacts(); CAL_CONTACTS = r.error ? null : (r.data || []).filter(c => c.status === 'accepted'); if (r.error) { box.innerHTML = `<div class="ls" style="padding:8px 2px">Could not load your contacts: ${escapeHtml(r.error.message)}</div>`; return; } }
+      const box = docEl('calInvList'); box.innerHTML = '<div class="lu-empty">Loading…</div>'; docEl('calInviteOverlay').classList.add('open');
+      if (!CAL_CONTACTS) { const r = await LumaContacts.listContacts(); CAL_CONTACTS = r.error ? null : (r.data || []).filter(c => c.status === 'accepted'); if (r.error) { box.innerHTML = `<div class="lu-empty">Could not load your contacts: ${escapeHtml(r.error.message)}</div>`; return; } }
       const already = new Set(cForm.guests.filter(g => !cForm.remove.has(g.user_id)).map(g => g.user_id));
-      box.innerHTML = CAL_CONTACTS.length ? CAL_CONTACTS.map(c => { const nm = [c.other_first_name, c.other_last_name].filter(Boolean).join(' ') || c.other_email; return `<label class="cal-pick ${already.has(c.other_id) ? 'dis' : ''}"><input type="checkbox" data-id="${c.other_id}" data-name="${escapeHtml(nm)}" ${already.has(c.other_id) || cForm.invite.has(c.other_id) ? 'checked' : ''} ${already.has(c.other_id) ? 'disabled' : ''}><span class="av">${escapeHtml((nm[0] || '?').toUpperCase())}</span><span class="nm">${escapeHtml(nm)}<small>${already.has(c.other_id) ? 'Already invited' : escapeHtml(c.other_email || '')}</small></span></label>`; }).join('') : '<div class="ls" style="padding:8px 2px">You have no contacts yet. Add people on the Contacts page first, then invite them here.</div>';
+      box.innerHTML = CAL_CONTACTS.length ? CAL_CONTACTS.map(c => { const nm = [c.other_first_name, c.other_last_name].filter(Boolean).join(' ') || c.other_email; return `<label class="cal-pick ${already.has(c.other_id) ? 'dis' : ''}"><input type="checkbox" data-id="${c.other_id}" data-name="${escapeHtml(nm)}" ${already.has(c.other_id) || cForm.invite.has(c.other_id) ? 'checked' : ''} ${already.has(c.other_id) ? 'disabled' : ''}><span class="av">${escapeHtml((nm[0] || '?').toUpperCase())}</span><span class="nm">${escapeHtml(nm)}<small>${already.has(c.other_id) ? 'Already invited' : escapeHtml(c.other_email || '')}</small></span></label>`; }).join('') : '<div class="lu-empty">You have no contacts yet. Add people on the Contacts page first, then invite them here.</div>';
     }
     docEl('calInviteBtn').onclick = openInvitePicker;
     docEl('calInvClose').onclick = () => docEl('calInviteOverlay').classList.remove('open');

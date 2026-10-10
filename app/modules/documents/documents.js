@@ -61,11 +61,11 @@
       docEl('viewerTitle').textContent = d.name;
       docEl('viewerSub').textContent = 'Uploaded ' + mytDateTime(d.created_at) + ' (' + tzOffsetLabel() + ')';
       dl.removeAttribute('href'); dl.removeAttribute('download');
-      body.className = 'viewer-body'; body.innerHTML = '<div class="ls">Loading…</div>';
+      body.className = 'viewer-body'; body.innerHTML = '<div class="lu-empty">Loading…</div>';
       docEl('viewerOverlay').classList.add('open');
       const { blob, error } = await LumaDocuments.download(d);
       if (!docEl('viewerOverlay').classList.contains('open')) return; // closed while loading
-      if (error) { body.innerHTML = `<div class="ls" style="padding:20px">Could not load file: ${escapeHtml(error.message)}</div>`; return; }
+      if (error) { body.innerHTML = `<div class="lu-empty">Could not load file: ${escapeHtml(error.message)}</div>`; return; }
       viewerUrl = URL.createObjectURL(blob);
       dl.href = viewerUrl; dl.download = d.name;
       const t = blob.type, ext = d.name.split('.').pop().toLowerCase();
@@ -132,7 +132,7 @@
         };
         if (filter === 'shared') {
           const sharedInRange = sharedDocs.filter(d => inDateRange(d.shared_at, dateF));
-          pg.querySelector('#docGrid').innerHTML = sharedInRange.length ? sharedInRange.map(sharedCard).join('') : sharedDocs.length ? '<div class="ls" style="padding:10px 2px;grid-column:1/-1">No shared documents in this date range.</div>' : '<div class="ls" style="padding:10px 2px;grid-column:1/-1">Nothing shared with you yet — files your contacts share will appear here automatically.</div>';
+          pg.querySelector('#docGrid').innerHTML = sharedInRange.length ? sharedInRange.map(sharedCard).join('') : sharedDocs.length ? '<div class="lu-empty" style="grid-column:1/-1">No shared documents in this date range.</div>' : '<div class="lu-empty" style="grid-column:1/-1">Nothing shared with you yet — files your contacts share will appear here automatically.</div>';
           return;
         }
         const shown = docs.filter(d => inDateRange(d.created_at, dateF) && (filter === 'all' || (filter === 'none' ? !d.category_id : scope.has(d.category_id))));
@@ -328,7 +328,7 @@
       const renderShareList = () => {
         const on = new Set(shares.filter(x => x.document_id === sharing.id).map(x => x.shared_with));
         docEl('shareList').innerHTML = people.length ? selectAllRow(people.length) + people.map(p => `<label class="cat-row" style="cursor:pointer"><input type="checkbox" data-uid="${p.id}" ${on.has(p.id) ? 'checked' : ''} ><span style="color:#fff;font-size:0.82rem">${escapeHtml(p.name)}</span><span class="ls" style="margin-left:auto">${escapeHtml(p.email || '')}</span></label>`).join('')
-          : '<div class="ls" style="padding:8px 2px">No contacts yet — add one on the Contacts page and wait for them to accept.</div>';
+          : '<div class="lu-empty">No contacts yet — add one on the Contacts page and wait for them to accept.</div>';
         syncSelectAll(docEl('shareList'));
       };
       const closeShare = () => { docEl('shareOverlay').classList.remove('open'); render(); };

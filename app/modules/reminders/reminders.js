@@ -2,7 +2,7 @@
       // ---------------- REMINDERS ----------------
     MODULES.reminders = function () {
         return head('Reminders','<span id="remSub">Loading…</span>', '<button class="create-btn" id="remAddBtn"><i class="fa-solid fa-plus"></i> New reminder</button>') +
-        '<div id="remRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+        '<div id="remRoot"><div class="lu-empty">Loading…</div></div>';
     };
 
     // =====================================================

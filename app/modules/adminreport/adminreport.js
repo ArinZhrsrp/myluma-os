@@ -1,6 +1,6 @@
 // LUMA — module: adminreport
     MODULES.adminreport = function () {
-        return head('Plan report', '<span id="arSub">Loading…</span>', '<button class="create-btn" id="arBack" style="background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-arrow-left"></i> Admin</button><button class="create-btn" id="arCsv"><i class="fa-solid fa-download"></i> Download CSV</button>') + '<div id="arRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+        return head('Plan report', '<span id="arSub">Loading…</span>', '<button class="create-btn" id="arBack" style="background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-arrow-left"></i> Admin</button><button class="create-btn" id="arCsv"><i class="fa-solid fa-download"></i> Download CSV</button>') + '<div id="arRoot"><div class="lu-empty">Loading…</div></div>';
     };
 
     // =====================================================
@@ -11,9 +11,9 @@
       pg.querySelector('#arBack').onclick = () => goTo('admin');
       if (!LumaPlan.admin) { sub.textContent = 'Not allowed'; root.innerHTML = card('<div class="ls">This page is only for administrators.</div>'); return; }
       const { data, error } = await LumaAuth.client.schema('luma').rpc('admin_monthly_stats', { p_months: 36 });
-      if (error) { sub.textContent = 'Could not load'; root.innerHTML = card(`<div class="ls">Could not load the report: ${escapeHtml(error.message)}. Has <b>supabase/migrations/040_admin_report.sql</b> been run?</div>`); return; }
+      if (error) { sub.textContent = 'Could not load'; root.innerHTML = card(`<div class="lu-empty">Could not load the report: ${escapeHtml(error.message)}. Has <b>supabase/migrations/040_admin_report.sql</b> been run?</div>`); return; }
       const all = (data || []).slice().sort((a, b) => a.period.localeCompare(b.period)); // oldest → newest
-      if (!all.length) { root.innerHTML = card('<div class="ls">No data yet.</div>'); return; }
+      if (!all.length) { root.innerHTML = card('<div class="lu-empty">No data yet.</div>'); return; }
       const lbl = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });
       const PLAN_COL = { dawn: '#34d399', glow: '#fbbf24', zenith: '#a78bfa' };
       // the range starts at the first month that has any account (or the last 12 months), ends at this month
@@ -61,7 +61,7 @@
 
     // the Work add-on: how many have it, and how much it is used (migration 080)
     async function loadAdminWork(box) {
-      if (!box) return; box.innerHTML = card('<div class="section-title"><i class="fa-solid fa-briefcase"></i> Work add-on</div><div class="ls">Loading…</div>');
+      if (!box) return; box.innerHTML = card('<div class="section-title"><i class="fa-solid fa-briefcase"></i> Work add-on</div><div class="lu-empty">Loading…</div>');
       const { data: w, error } = await LumaAuth.client.schema('luma').rpc('admin_work_stats');
       if (error || !w) { box.innerHTML = card(`<div class="section-title"><i class="fa-solid fa-briefcase"></i> Work add-on</div><div class="ls">${/admin_work_stats|schema cache|does not exist/i.test(error ? error.message : '') ? 'Run <b>supabase/migrations/080_work_links_budget_mentions.sql</b> to see the Work figures.' : escapeHtml(error ? error.message : 'No data')}</div>`); return; }
       const tile = (l, v, c) => `<div class="adm-stat"><div class="l">${c ? `<span class="ar-dot" style="background:${c}"></span>` : ''}${l}</div><div class="v">${v}</div></div>`, lbl = d => new Date(d).toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' });

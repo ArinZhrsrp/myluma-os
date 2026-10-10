@@ -37,7 +37,7 @@
     // ---------- the tab ----------
     function wkEntriesShown() { return WKTM.entries.filter(e => !WKTM.co || e.company_id === WKTM.co); }
     function wkTimeView() {
-      if (!WKTM.loaded) return '<div class="ls" style="padding:10px 2px">Loading…</div>';
+      if (!WKTM.loaded) return '<div class="lu-empty">Loading…</div>';
       if (WKTM.err) return card(`<div class="ls">${escapeHtml(wkTimeHint(WKTM.err))}</div>`);
       const es = wkEntriesShown(), total = es.reduce((a, e) => a + e.minutes, 0), days = [...new Set(es.map(e => e.work_date))].sort().reverse(), run = WKTM.running;
       const byProj = {}; es.forEach(e => { const k = e.project_name || e.label || 'General'; byProj[k] = (byProj[k] || 0) + e.minutes; });
@@ -57,7 +57,7 @@
     }
     function wkTimePaint() {
       const root = docEl('wkRoot'); if (!root || WK.tab !== 'time') return; root.classList.add('wk-timeview'); root.innerHTML = wkTimeView();
-      const s = docEl('wkTimerFor'); if (s) { if (!wkFillTargets(s)) { s.parentElement.innerHTML = '<div class="ls">Add a company or a project first.</div>'; } }
+      const s = docEl('wkTimerFor'); if (s) { if (!wkFillTargets(s)) { s.parentElement.innerHTML = '<div class="lu-empty">Add a company or a project first.</div>'; } }
       const c = docEl('wkTimeCo'); if (c) skinSelect(c); wkTimerTick();
       const tf = docEl('wkTimerFor'); if (tf) { const fix = () => { docEl('wkTimerNote').placeholder = tf.value.startsWith('c:') ? 'Name it, e.g. Client call (optional)' : 'Note (optional)'; }; tf.addEventListener('change', fix); fix(); }
     }
@@ -170,7 +170,7 @@
         + (rows.length ? `<div class="wk-tt"><b>${wkDur(total)}</b><span>in total on this project this month</span></div>`
           + Object.values(by).sort((a, b) => b.m - a.m).map(x => `<div class="wk-prog" style="--c:#fb923c"><div class="sb-h"><span>${escapeHtml(x.name)} <small>${x.days.size} day${x.days.size === 1 ? '' : 's'}</small></span><b>${wkDur(x.m)}</b></div><div class="sb-t"><i style="width:${Math.max(4, Math.round(x.m / Math.max(...Object.values(by).map(y => y.m)) * 100))}%"></i></div></div>`).join('')
           + `<div class="wk-teamrows">${rows.map(r => `<div class="wk-te"><span class="wk-te-d">${wkDur(r.minutes)}</span><div class="wk-te-t"><b>${escapeHtml(r.name)} · ${wkDayLabel(r.work_date)}</b><small>${escapeHtml([r.task_title, r.note].filter(Boolean).join(' · ') || 'No note')}</small></div></div>`).join('')}</div>`
-          : '<div class="ls" style="padding:10px 2px">Nobody logged time on this project in this month.</div>')
+          : '<div class="lu-empty">Nobody logged time on this project in this month.</div>')
         + '<div class="ls" style="font-size:0.72rem;margin-top:10px">People are told on their Time tab that the owner of a project can see the hours they log on it.</div>';
     }
     async function wkTeamLoad() {

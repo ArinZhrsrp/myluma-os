@@ -299,3 +299,28 @@
       const t = (title || '') + ' ' + (body || ''), ad = /\b(work|study)\b/i.exec(title || '');
       return ad ? `#planCard [data-pc="${ad[1].toLowerCase()}"]` : /plan/i.test(t) ? '#planCard [data-pc="plan"]' : /add-on|gift|trial/i.test(t) ? '#planCard' : null;
     }
+
+// ---------- character counter ("12 / 120") under every title, name and note field that has a limit ----------
+(function () {
+  const skipType = /^(number|date|time|datetime-local|month|search|email|password|checkbox|radio|file|color|range|hidden)$/;
+  function eligible(f) {
+    if (f.tagName !== 'TEXTAREA' && f.tagName !== 'INPUT') return false;
+    if (f.tagName === 'INPUT' && (skipType.test(f.type) || !f.closest('.pem-field'))) return false;
+    return +f.getAttribute('maxlength') > 0;
+  }
+  function paint(c) {
+    const f = c._f, max = +f.getAttribute('maxlength'), n = f.value.length;
+    const t = n + ' / ' + max.toLocaleString('en-US'); if (c.textContent !== t) c.textContent = t;
+    const st = n >= max ? 'full' : n >= max * 0.9 ? 'near' : ''; if (c.dataset.st !== st) c.dataset.st = st;
+  }
+  function scan() {
+    document.querySelectorAll('input[maxlength],textarea[maxlength]').forEach(f => {
+      if (f._cc && f._cc.isConnected || !eligible(f)) return;
+      const c = document.createElement('div'); c.className = 'lu-cc'; c._f = f; f._cc = c; f.insertAdjacentElement('afterend', c); paint(c);
+    });
+  }
+  function refresh() { document.querySelectorAll('.lu-cc').forEach(c => { if (!c._f.isConnected) c.remove(); else if (c.offsetParent) paint(c); }); }
+  let q = 0; const later = () => { if (!q) q = requestAnimationFrame(() => { q = 0; scan(); }); };
+  const start = () => { scan(); new MutationObserver(later).observe(document.body, { childList: true, subtree: true }); setInterval(refresh, 400); document.addEventListener('input', e => { if (e.target._cc) paint(e.target._cc); }); };
+  document.body ? start() : document.addEventListener('DOMContentLoaded', start);
+})();

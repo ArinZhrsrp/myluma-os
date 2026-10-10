@@ -27,12 +27,14 @@
     const luLoads = (from, count) => Array.from({ length: count }, (_, i) => luLoad(bAddDays(from, i)));
 
     // a notice for today, tomorrow and the days after: only shown when something is busy or packed
-    function luBusyBanner() {
+    function luBusyBanner(slim) {
       if (!luBusyOn()) return '';
-      const today = mytDayKey(Date.now()); try { if (sessionStorage.getItem('luma_busy_x') === today) return ''; } catch (e) { }
+      const today = mytDayKey(Date.now()); try { if (localStorage.getItem('luma_busy_x') === today) return ''; } catch (e) { }
       const days = luLoads(today, 7).filter(d => d.level > 0); if (!days.length) return '';
       const first = days[0], tomorrow = bAddDays(today, 1), when = first.k === today ? 'Today' : first.k === tomorrow ? 'Tomorrow' : luDayName(first.k), worst = days.some(d => d.level === 2 && d.k <= bAddDays(today, 2)) ? 2 : first.level;
-      const rest = days.filter(d => d !== first).slice(0, 4);
+      const rest = days.filter(d => d !== first).slice(0, 3);
+      // the slim form (Dashboard): two short lines — what is busy, then the other busy days as small links
+      if (slim) return `<div class="lu-busy slim ${worst === 2 ? 'packed' : ''}" data-busy><i class="fa-solid ${worst === 2 ? 'fa-fire' : 'fa-triangle-exclamation'}"></i><div class="bt"><button type="button" class="bl1" data-busy-day="${first.k}" title="Open ${first.k === today ? 'today' : luDayName(first.k)}"><b>${when} ${first.level === 2 ? 'is packed' : 'is busy'}</b> <span>· ${first.why}</span></button>${rest.length ? `<div class="bl2">Also: ${rest.map(d => `<button type="button" class="${d.level === 2 ? 'p' : ''}" data-busy-day="${d.k}" title="${d.why}">${luDayName(d.k).replace(/^(\w+) (\d+) (\w+)$/, '$1 $2')}</button>`).join('')}</div>` : ''}</div><button type="button" class="bx" data-busy-x title="Hide for today" aria-label="Hide for today"><i class="fa-solid fa-xmark"></i></button></div>`;
       return `<div class="lu-busy ${worst === 2 ? 'packed' : ''}" data-busy><i class="fa-solid ${worst === 2 ? 'fa-fire' : 'fa-triangle-exclamation'}"></i><div class="bt"><b>${when} ${first.level === 2 ? 'is packed' : 'is busy'}</b><span>${first.why}${first.level === 2 ? '. Think about moving something.' : ''}</span>
         <div class="bd"><button type="button" data-busy-day="${first.k}">Open ${first.k === today ? 'today' : luDayName(first.k)}</button>${rest.length ? '<em>Also:</em>' + rest.map(d => `<button type="button" class="${d.level === 2 ? 'p' : ''}" data-busy-day="${d.k}" title="${d.why}">${luDayName(d.k)}</button>`).join('') : ''}</div></div><button type="button" class="bx" data-busy-x title="Hide for today" aria-label="Hide for today"><i class="fa-solid fa-xmark"></i></button></div>`;
     }
@@ -45,13 +47,13 @@
     function luBusyOpen(k) { cView = 'day'; cDate = k; goTo('calendar'); setTimeout(() => { if (typeof paintCalendar === 'function') paintCalendar(); }, 400); }
     document.addEventListener('click', e => {
       const d = e.target.closest('[data-busy-day]'); if (d) return luBusyOpen(d.dataset.busyDay);
-      if (e.target.closest('[data-busy-x]')) { try { sessionStorage.setItem('luma_busy_x', mytDayKey(Date.now())); } catch (x) { } document.querySelectorAll('.lu-busy[data-busy]').forEach(b => b.remove()); }
+      if (e.target.closest('[data-busy-x]')) { try { localStorage.setItem('luma_busy_x', mytDayKey(Date.now())); } catch (x) { } document.querySelectorAll('.lu-busy[data-busy]').forEach(b => b.remove()); }
     });
     // each page that shows the notice calls this with the id of its box (the Calendar's data is loaded first if it isn't yet)
     async function luPaintBusy(id, opts = {}) {
       const box = document.getElementById(id); if (!box) return;
       if (!luBusyOn()) { box.innerHTML = ''; box.style.display = 'none'; return; }
       if (typeof calEnsureData === 'function') { try { await calEnsureData(); } catch (e) { } }
-      const b = luBusyBanner(), s = opts.strip ? luBusyStrip() : '';
+      const b = luBusyBanner(!!opts.slim), s = opts.strip ? luBusyStrip() : '';
       box.innerHTML = (b || '') + s; box.style.display = b || s ? '' : 'none';
     }

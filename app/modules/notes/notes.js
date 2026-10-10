@@ -116,7 +116,7 @@
       // picker: every document (own + shared) with a tick for those attached to this note
       const renderPicker = async () => {
         const box = docEl('attachList');
-        if (!libDocs) box.innerHTML = '<div class="ls">Loading…</div>';
+        if (!libDocs) box.innerHTML = '<div class="lu-empty">Loading…</div>';
         const lib = await loadLibrary(), q = docEl('attachSearch').value.trim().toLowerCase();
         const shown = lib.filter(d => !q || d.name.toLowerCase().includes(q));
         box.innerHTML = shown.length ? selectAllRow(shown.length) + shown.map(d => `<label class="cat-row" style="cursor:pointer"><input type="checkbox" data-id="${d.id}" ${atts.some(a => a.id === d.id) ? 'checked' : ''}><i class="fa-solid ${LumaDocuments.icon(d)}" style="color:#93c5fd"></i><span style="color:#fff;font-size:0.78rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(d.name)}</span><span class="ls" style="margin-left:auto;white-space:nowrap;font-size:0.66rem">${mytDateTime(d.created_at)} · ${LumaDocuments.formatSize(d.size_bytes)}</span></label>`).join('')

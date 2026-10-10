@@ -33,8 +33,8 @@
     }
     const sdSnippet = t => sdPlain(t).slice(0, 140);
     function sdNotesView() {
-      if (!SDN.loaded) return '<div class="ls" style="padding:10px 2px">Loading…</div>';
-      if (SDN.err) return card(`<div class="ls">Could not load your notes: ${escapeHtml(SDN.err)}. ${/study_notes|schema cache|does not exist/i.test(SDN.err) ? 'Has <b>supabase/migrations/053_study_notes.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
+      if (!SDN.loaded) return '<div class="lu-empty">Loading…</div>';
+      if (SDN.err) return card(`<div class="lu-empty">Could not load your notes: ${escapeHtml(SDN.err)}. ${/study_notes|schema cache|does not exist/i.test(SDN.err) ? 'Has <b>supabase/migrations/053_study_notes.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
       const chips = SD.courses.length ? `<div class="sd-filters"><div class="sd-subj"><button type="button" data-ncourse="" class="${SDN.course === '' ? 'on' : ''}">All subjects</button>${SD.courses.filter(c => !c.archived).map(c => `<button type="button" data-ncourse="${c.id}" class="${SDN.course === c.id ? 'on' : ''}" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}</button>`).join('')}</div></div>` : '';
       const list = SDN.notes.filter(n => (!SDN.course || n.course_id === SDN.course) && !(n.semester_id && sdSem(n.semester_id) && sdSem(n.semester_id).archived_at));
       const mine = list.length ? `<div class="grid-2">${list.map(n => { const c = sdCourse(n.course_id); return `<div class="card sd-note" data-note="${n.id}"><div class="sn-h"><b>${escapeHtml(n.title)}</b>${sdCC(c)}</div><p>${escapeHtml(sdSnippet(n.body)) || '<span class="ls">Empty note</span>'}</p><small>Updated ${sdShort(mytDayKey(n.updated_at))}</small></div>`; }).join('')}</div>`
@@ -52,7 +52,7 @@
 
     // ---------- files on a note (opened and attached the same way as in group projects) ----------
     function sdFileRows(rows, canRemove, attr) {
-      return rows.length ? rows.map(f => `<div class="sd-file"><i class="fa-solid fa-file"></i><button type="button" class="nm" data-nfile-open="${escapeHtml(f.storage_path)}">${escapeHtml(f.name)}</button><small>${LumaDocuments.formatSize(Number(f.size_bytes || 0))}</small>${canRemove ? `<button type="button" class="ic" data-nfile-del="${f.id}" title="Remove from the note" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>` : ''}</div>`).join('') : '<div class="ls" style="padding:2px 0">No files attached.</div>';
+      return rows.length ? rows.map(f => `<div class="sd-file"><i class="fa-solid fa-file"></i><button type="button" class="nm" data-nfile-open="${escapeHtml(f.storage_path)}">${escapeHtml(f.name)}</button><small>${LumaDocuments.formatSize(Number(f.size_bytes || 0))}</small>${canRemove ? `<button type="button" class="ic" data-nfile-del="${f.id}" title="Remove from the note" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>` : ''}</div>`).join('') : '<div class="lu-empty">No files attached.</div>';
     }
     async function sdNoteFiles(id, boxId, canRemove) { const r = await LumaStudy.notes.files(id); if (r.error) return; docEl(boxId).innerHTML = sdFileRows(r.data || [], canRemove); }
     async function sdOpenNoteFile(path) { const r = await LumaDocuments.signedUrl({ storage_path: path }); if (r.error || !r.url) return luAlert('Could not open the file: ' + ((r.error && r.error.message) || 'no link')); window.open(r.url, '_blank', 'noopener'); }

@@ -91,7 +91,7 @@
       docEl('sdAttList').innerHTML = past.length ? past.slice(0, 120).map(s => {
         const cur = sdAttGet(s.c.id, s.date);
         return `<div class="sx-row"><div class="sx-d"><b>${sdFmtDate(s.date, { weekday: 'short', day: 'numeric', month: 'short' })}</b><small>${sdT12(s.c.start_time)}${s.c.room ? ' · ' + escapeHtml(s.c.room) : ''}</small></div><div class="sx-set">${SD_ATT.map(([k, n, i, col]) => `<button type="button" data-sx-set="${s.c.id}|${c.id}|${s.date}|${k}" class="${cur && cur.status === k ? 'on' : ''}" style="--c:${col}" title="${n}" aria-label="${n}"><i class="fa-solid ${i}"></i></button>`).join('')}</div></div>`;
-      }).join('') : '<div class="ls">No classes have taken place yet. They appear here once they have.</div>';
+      }).join('') : '<div class="lu-empty">No classes have taken place yet. They appear here once they have.</div>';
     }
     function sdAttOpen(courseId) { SDX.course = courseId; const c = sdCourse(courseId); if (!c) return; docEl('sdAttTarget').value = c.attendance_target != null ? c.attendance_target : 80; sdErr('sdAttError', ''); sdAttPaint(); sdOpen('sdAttOverlay'); }
     docEl('sdAttClose').onclick = () => sdClose('sdAttOverlay');

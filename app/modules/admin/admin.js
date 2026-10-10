@@ -1,7 +1,7 @@
 // LUMA — module: admin
       // ---------------- ADMIN ----------------
     MODULES.admin = function () {
-        return head('Admin', '<span id="admSub">Loading…</span>') + '<div id="admRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+        return head('Admin', '<span id="admSub">Loading…</span>') + '<div id="admRoot"><div class="lu-empty">Loading…</div></div>';
     };
 
     // =====================================================
@@ -11,12 +11,12 @@
       const root = pg.querySelector('#admRoot'), sub = pg.querySelector('#admSub');
       if (!LumaPlan.admin) { sub.textContent = 'Not allowed'; root.innerHTML = card('<div class="ls">This page is only for administrators.</div>'); return; }
       const db = () => LumaAuth.client.schema('luma'), ago = iso => { if (!iso) return 'never'; const d = Math.floor((Date.now() - Date.parse(iso)) / 864e5); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; };
-      root.innerHTML = '<div class="adm-stats" id="admStats"></div><div id="admReport"></div><div class="adm-search"><i class="fa-solid fa-search"></i><input id="admSearch" type="text" placeholder="Search by name or email…" autocomplete="off"></div><div class="adm-bar" id="admBar"></div><div id="admList"><div class="ls" style="padding:10px 2px">Loading…</div></div><div id="admLog"></div>';
+      root.innerHTML = '<div class="adm-stats" id="admStats"></div><div id="admReport"></div><div class="adm-search"><i class="fa-solid fa-search"></i><input id="admSearch" type="text" placeholder="Search by name or email…" autocomplete="off"></div><div class="adm-bar" id="admBar"></div><div id="admList"><div class="lu-empty">Loading…</div></div><div id="admLog"></div>';
       const stats = async () => { const { data } = await db().rpc('admin_stats'); if (!data) return; sub.textContent = `${data.total} account${data.total === 1 ? '' : 's'} · ${data.new_7d} new this week`; document.getElementById('admStats').innerHTML = [['Accounts', data.total], ['Dawn', data.dawn], ['Glow', data.glow], ['Zenith', data.zenith], ['New in 7 days', data.new_7d]].map(([l, v]) => `<div class="adm-stat"><div class="l">${l}</div><div class="v">${v}</div></div>`).join(''); };
       const list = async () => {
         const box = document.getElementById('admList'), q = document.getElementById('admSearch').value.trim();
         const { data, error } = await db().rpc('admin_list_users', { p_search: q, p_limit: 500 });
-        if (error) { box.innerHTML = card(`<div class="ls">Could not load accounts: ${escapeHtml(error.message)}. Has <b>supabase/migrations/036_admin.sql</b> been run?</div>`); return; }
+        if (error) { box.innerHTML = card(`<div class="lu-empty">Could not load accounts: ${escapeHtml(error.message)}. Has <b>supabase/migrations/036_admin.sql</b> been run?</div>`); return; }
         box.innerHTML = (data || []).length ? data.map(u => {
           const nm = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email, me = LUMA_USER && u.id === LUMA_USER.id;
           const planPaid = u.plan !== 'dawn', planEnd = planPaid ? admEndText(u.plan_expires_at) : 'free';
@@ -25,7 +25,7 @@
             <div class="adm-who"><div class="adm-name">${escapeHtml(nm)}${u.is_admin ? '<span class="b">Admin</span>' : ''}${me ? '<span class="b" style="background:rgba(59,130,246,0.2);color:#93c5fd">You</span>' : ''}${u.email_confirmed_at ? '' : '<span class="u">Unverified</span>'}${u.disabled_at ? '<span class="u">Deactivated</span>' : ''}</div><div class="adm-sub">${escapeHtml(u.email)}${u.country ? ' · ' + escapeHtml(u.country) : ''}</div><div class="adm-seen">Joined ${ago(u.created_at)} · Seen ${ago(u.last_sign_in_at)}</div></div>
             <div class="adm-tiles">${tile('plan', 'Plan', planPaid, planEnd, 'plan ' + (planPaid ? 'paid ' : '') + admEndClass(planPaid && u.plan_expires_at), 'data-plan-open')}<div class="adm-addons">${['work', 'study'].map(k => { const on = (u.addons || []).includes(k), ex = (u.addon_expiry || {})[k]; return tile(k, k === 'work' && on && (u.addon_tier || {}).work === 'pro' ? 'Work Pro' : LumaPlan.ADDON_NAMES[k], on, on ? ((u.addon_source || {})[k] === 'trial' ? 'trial · ' : '') + (ex ? admShort(ex) : 'no end date') : 'tap to give', k + ' ' + (on ? admEndClass(ex) : ''), `data-addon="${k}" title="${LumaPlan.ADDON_NAMES[k]} add-on${on ? ' · ' + admEndText(ex) : ''}"`); }).join('')}</div></div>
             <button type="button" class="adm-more" data-acct title="Account actions"><i class="fa-solid fa-ellipsis"></i></button></div>`;
-        }).join('') : '<div class="ls" style="padding:14px 2px">No accounts match.</div>';
+        }).join('') : '<div class="lu-empty">No accounts match.</div>';
         ADM_USERS = Object.fromEntries((data || []).map(u => [u.id, u]));
         ADM_ORDER = (data || []).map(u => u.id); ADM_SEL = new Set([...ADM_SEL].filter(id => ADM_USERS[id])); admBar();
       };
@@ -41,11 +41,13 @@
       let t = null; document.getElementById('admSearch').addEventListener('input', () => { clearTimeout(t); t = setTimeout(list, 300); });
       // the monthly report lives on its own page (opened from here)
       const report = async () => {
-        document.getElementById('admReport').innerHTML = card(`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div class="rp-ico" style="--c:#60a5fa"><i class="fa-solid fa-chart-column"></i></div><div style="flex:1;min-width:200px"><div style="color:#fff;font-weight:600;font-size:0.9rem">Plan report</div><div class="ls" style="margin-top:2px">People on each plan month by month, with a chart, a month and date range, and a CSV download.</div></div><button type="button" class="create-btn" id="admOpenReport">View report <i class="fa-solid fa-arrow-right"></i></button></div>`);
+        document.getElementById('admReport').innerHTML = card(`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div class="rp-ico" style="--c:#60a5fa"><i class="fa-solid fa-chart-column"></i></div><div style="flex:1;min-width:200px"><div style="color:#fff;font-weight:600;font-size:0.9rem">Plan report</div><div class="ls" style="margin-top:2px;font-size:0.78rem;line-height:1.5">People on each plan month by month, with a chart, a month and date range, and a CSV download.</div></div><button type="button" class="create-btn" id="admOpenReport">View report <i class="fa-solid fa-arrow-right"></i></button></div>`);
         document.getElementById('admOpenReport').onclick = () => goTo('adminreport');
-        { const box = document.getElementById('admReport'); box.insertAdjacentHTML('beforeend', card(`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div class="rp-ico" style="--c:#fbbf24"><i class="fa-regular fa-comment-dots"></i></div><div style="flex:1;min-width:200px"><div style="color:#fff;font-weight:600;font-size:0.9rem">Feedback inbox <span id="admFbNew" class="adm-fbnew"></span></div><div class="ls" style="margin-top:2px">What people sent from the Feedback page: bugs, ideas and questions, with pictures. Set a status and reply with a note.</div></div><button type="button" class="create-btn" id="admOpenFb">Open inbox <i class="fa-solid fa-arrow-right"></i></button></div>`)); document.getElementById('admOpenFb').onclick = () => goTo('adminfeedback');
-          box.insertAdjacentHTML('beforeend', card(`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div class="rp-ico" style="--c:#a78bfa"><i class="fa-solid fa-sliders"></i></div><div style="flex:1;min-width:200px"><div style="color:#fff;font-weight:600;font-size:0.9rem">Plan limits</div><div class="ls" style="margin-top:2px">How many reminders, projects, companies… each plan allows. Leave a box empty for unlimited. Work and Work Pro are the two sizes of the Work add-on: they set the Work numbers, whatever the plan. Changes apply straight away.</div></div><button type="button" class="create-btn" id="admLimBtn">Edit limits <i class="fa-solid fa-chevron-down"></i></button></div><div id="admLimBox" style="display:none;margin-top:12px"></div>`));
+        { const box = document.getElementById('admReport'); box.insertAdjacentHTML('beforeend', card(`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div class="rp-ico" style="--c:#fbbf24"><i class="fa-regular fa-comment-dots"></i></div><div style="flex:1;min-width:200px"><div style="color:#fff;font-weight:600;font-size:0.9rem">Feedback inbox <span id="admFbNew" class="adm-fbnew"></span></div><div class="ls" style="margin-top:2px;font-size:0.78rem;line-height:1.5">What people sent from the Feedback page: bugs, ideas and questions, with pictures. Set a status and reply with a note.</div></div><button type="button" class="create-btn" id="admOpenFb">Open inbox <i class="fa-solid fa-arrow-right"></i></button></div>`)); document.getElementById('admOpenFb').onclick = () => goTo('adminfeedback');
+          box.insertAdjacentHTML('beforeend', card(`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div class="rp-ico" style="--c:#a78bfa"><i class="fa-solid fa-sliders"></i></div><div style="flex:1;min-width:200px"><div style="color:#fff;font-weight:600;font-size:0.9rem">Plan limits</div><div class="ls" style="margin-top:2px;font-size:0.78rem;line-height:1.5">How many reminders, projects, companies… each plan allows. Leave a box empty for unlimited. Work and Work Pro are the two sizes of the Work add-on: they set the Work numbers, whatever the plan. Changes apply straight away.</div></div><button type="button" class="create-btn" id="admLimBtn">Edit limits <i class="fa-solid fa-chevron-down"></i></button></div><div id="admLimBox" style="display:none;margin-top:12px"></div>`));
           document.getElementById('admLimBtn').onclick = admLimits; }
+        { const box = document.getElementById('admReport'); box.insertAdjacentHTML('beforeend', card(`<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><div class="rp-ico" style="--c:#f472b6"><i class="fa-solid fa-cake-candles"></i></div><div style="flex:1;min-width:200px"><div style="color:#fff;font-weight:600;font-size:0.9rem">Birthdays <span id="admBdBadge" class="adm-fbnew"></span></div><div class="ls" style="margin-top:2px;font-size:0.78rem;line-height:1.5">Who has a birthday today and in the next 30 days, so you can send a wish or gift a plan or a free trial. You also get a notification at 9 am on days that have one.</div></div><button type="button" class="create-btn" id="admBdBtn">See birthdays <i class="fa-solid fa-chevron-down"></i></button></div><div id="admBdBox" style="display:none;margin-top:12px"></div>`));
+          document.getElementById('admBdBtn').onclick = admBirthdays; admBdLoad(true); }
         { 
           LumaAuth.client.schema('luma').from('feedback').select('id', { count: 'exact', head: true }).eq('status', 'new').then(r => { const n = r && r.count; const el = document.getElementById('admFbNew'); if (el && n) el.textContent = n + ' new'; }); }
       };
@@ -56,10 +58,55 @@
 
     // ---------- plan limits (luma.plan_limits) ----------
     const ADM_LIMIT_LABELS = { work_companies: 'Work · companies', work_projects: 'Work · projects', work_people: 'Work · people on a project', work_tasks: 'Work · tasks in a project', work_teams: 'Work · teams', lumi_questions: 'Lumi questions a day', lumi_actions: 'Lumi actions (0 = off, 1 = on)', insights: 'Insights a day', storage_mb: 'Storage (MB)', file_mb: 'File size (MB)', reminders: 'Reminders', habits: 'Habits', goals: 'Goals', bills: 'Bills', contacts: 'Contacts', wallpapers: 'Wallpapers', split: 'Split expenses (0 = off, 1 = on)' };
+    // ---------- birthdays (migration 087) ----------
+    let ADM_BD = [];
+    const admBdName = r => [r.first_name, r.last_name].filter(Boolean).join(' ') || r.email;
+    async function admBdLoad(badgeOnly) {
+      const { data, error } = await LumaAuth.client.schema('luma').rpc('admin_birthdays', { p_days: 30 });
+      const badge = document.getElementById('admBdBadge');
+      if (error) { ADM_BD = null; if (badge) badge.textContent = ''; return error; }
+      ADM_BD = data || []; const today = ADM_BD.filter(r => r.days_until === 0).length, week = ADM_BD.filter(r => r.days_until > 0 && r.days_until <= 7).length;
+      if (badge) badge.textContent = today ? `${today} today` : week ? `${week} this week` : '';
+      if (!badgeOnly) admBdPaint(); return null;
+    }
+    function admBdPaint() {
+      const box = document.getElementById('admBdBox'); if (!box) return;
+      if (ADM_BD === null) { box.innerHTML = '<div class="pem-msg error" style="display:flex">Could not load birthdays. Run supabase/migrations/087_birthdays.sql in the SQL Editor first.</div>'; return; }
+      const groups = [['Today', r => r.days_until === 0], ['In the next 7 days', r => r.days_until > 0 && r.days_until <= 7], ['Later this month', r => r.days_until > 7]];
+      const when = r => new Date(r.next_on + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) + (r.days_until === 0 ? '' : r.days_until === 1 ? ' · tomorrow' : ` · in ${r.days_until} days`) + ` · turns ${r.turning}`;
+      const row = r => `<div class="adm-bd-row" data-id="${r.id}"><div class="adm-bd-who"><b>${escapeHtml(admBdName(r))}</b><small>${escapeHtml(when(r))}</small><small>${escapeHtml(r.email || '')} · ${LumaPlan.NAMES[r.plan] || r.plan}${(r.addons || []).length ? ' + ' + r.addons.map(a => LumaPlan.ADDON_NAMES[a] || a).join(', ') : ''}</small></div>
+        <div class="adm-bd-act"><button type="button" class="np-btn" data-bd-plan="${r.id}" title="Gift a month (or more) of a plan"><i class="fa-solid fa-gift"></i> Plan</button><button type="button" class="np-btn" data-bd-addon="work|${r.id}" title="Gift Work (a free trial or some months)"><i class="fa-solid fa-briefcase"></i> Work</button><button type="button" class="np-btn" data-bd-addon="study|${r.id}" title="Gift Study (a free trial or some months)"><i class="fa-solid fa-graduation-cap"></i> Study</button><button type="button" class="np-btn" data-bd-wish="${r.id}" ${r.wished_on ? 'disabled' : ''} title="Send a birthday notification">${r.wished_on ? '<i class="fa-solid fa-check"></i> Wished' : '<i class="fa-solid fa-cake-candles"></i> Wish'}</button></div></div>`;
+      const html = groups.map(([t, f]) => { const rs = ADM_BD.filter(f); return rs.length ? `<div class="adm-bd-h">${t} <em>${rs.length}</em></div>${rs.map(row).join('')}` : ''; }).join('');
+      box.innerHTML = html || '<div class="lu-empty">Nobody has a birthday in the next 30 days. (People add it when they register or in Settings → Profile → Edit.)</div>';
+    }
+    async function admBdUser(id) {
+      if (ADM_USERS[id]) return ADM_USERS[id];
+      const r = (ADM_BD || []).find(x => x.id === id); if (!r) return null;
+      const { data } = await LumaAuth.client.schema('luma').rpc('admin_list_users', { p_search: r.email, p_limit: 5 });
+      const u = (data || []).find(x => x.id === id); if (u) ADM_USERS[id] = u; return u || null;
+    }
+    async function admBirthdays() {
+      const box = document.getElementById('admBdBox'), btn = document.getElementById('admBdBtn'); if (!box) return;
+      if (box.style.display !== 'none') { box.style.display = 'none'; btn.innerHTML = 'See birthdays <i class="fa-solid fa-chevron-down"></i>'; return; }
+      btn.innerHTML = 'Hide <i class="fa-solid fa-chevron-up"></i>'; box.style.display = ''; box.innerHTML = '<div class="lu-empty">Loading…</div>';
+      await admBdLoad(false);
+      box.onclick = async e => {
+        const pl = e.target.closest('[data-bd-plan]'), ad = e.target.closest('[data-bd-addon]'), ws = e.target.closest('[data-bd-wish]');
+        if (pl) { const u = await admBdUser(pl.dataset.bdPlan); if (u) admOpen(u, 'plan'); return; }
+        if (ad) { const [k, id] = ad.dataset.bdAddon.split('|'), u = await admBdUser(id); if (u) admOpen(u, 'addon', k); return; }
+        if (ws) {
+          const r = (ADM_BD || []).find(x => x.id === ws.dataset.bdWish); if (!r) return;
+          if (!await luConfirm({ title: `Send a birthday wish to ${admBdName(r)}?`, message: 'They get a "Happy birthday" notification (and a push). You can still gift a plan or add-on separately.', ok: 'Send wish', icon: 'fa-cake-candles', tone: 'info' })) return;
+          ws.disabled = true; const { error } = await LumaAuth.client.schema('luma').rpc('admin_birthday_wish', { p_user: r.id, p_message: '' });
+          if (error) { ws.disabled = false; return luAlert(error.message); }
+          r.wished_on = new Date().toISOString(); admBdPaint(); flashToast('Wish sent', admBdName(r), 'fa-cake-candles', '#f472b6');
+        }
+      };
+    }
     async function admLimits() {
       const box = document.getElementById('admLimBox'), btn = document.getElementById('admLimBtn'); if (!box) return;
       if (box.style.display !== 'none') { box.style.display = 'none'; btn.innerHTML = 'Edit limits <i class="fa-solid fa-chevron-down"></i>'; return; }
-      btn.innerHTML = 'Hide <i class="fa-solid fa-chevron-up"></i>'; box.style.display = ''; box.innerHTML = '<div class="ls">Loading…</div>';
+      btn.innerHTML = 'Hide <i class="fa-solid fa-chevron-up"></i>'; box.style.display = ''; box.innerHTML = '<div class="lu-empty">Loading…</div>';
       const { data, error } = await LumaAuth.client.schema('luma').rpc('admin_plan_limits');
       if (error) { box.innerHTML = `<div class="pem-msg error" style="display:flex">${escapeHtml(error.message)}</div>`; return; }
       const keys = [...new Set((data || []).map(r => r.key))], val = (k, p) => { const r = data.find(x => x.key === k && x.plan === p); return r ? (r.value === null ? '' : r.value) : null; };
@@ -302,7 +349,7 @@
         const t = ADM_ACTS[a.action] || [a.action, 'fa-circle', '#94a3b8'], d = a.detail || {};
         const more = a.action === 'bulk_gift' ? `${d.addon} · ${d.given} sent${d.skipped ? ', ' + d.skipped + ' skipped' : ''}${d.note ? ' · “' + d.note + '”' : ''}` : a.action === 'bulk_grant' ? `${d.addon} · ${d.given} given${d.extended ? ', ' + d.extended + ' extended' : ''}${d.skipped ? ', ' + d.skipped + ' skipped' : ''}${d.note ? ' · “' + d.note + '”' : ''}` : (a.target_email || '') + (d.addon ? ' · ' + d.addon : '') + (d.reason ? ' · ' + d.reason : '');
         return `<div class="adm-log"><div class="rp-ico" style="--c:${t[2]}"><i class="fa-solid ${t[1]}"></i></div><div class="adm-log-m"><div class="adm-log-t">${t[0]}</div><div class="adm-log-s">${escapeHtml(more)}</div></div><div class="adm-log-w">${escapeHtml(a.admin_name || '')}<br>${when(a.created_at)}</div></div>`;
-      }).join('') : '<div class="ls">Nothing yet.</div>'}`);
+      }).join('') : '<div class="lu-empty">Nothing yet.</div>'}`);
     }
 
     WIRE.admin = function (pg) { return loadAdmin(pg); };

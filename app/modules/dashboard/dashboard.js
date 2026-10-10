@@ -2,10 +2,11 @@
     // =====================================================
     //  DASHBOARD — every widget is computed from your real data
     // =====================================================
-    let dashTasks = [], dashRecHidden = false, dashPrIds = null; // dashPrIds: the priorities shown at the last load — ticked ones stay (crossed out) until the dashboard is reloaded
+    let dashGoals = [], dashTasks = [], dashRecHidden = false, dashPrIds = null; // dashPrIds: the priorities shown at the last load — ticked ones stay (crossed out) until the dashboard is reloaded
     const D_PRIO = { high: ['#ef4444', 0], med: ['#f59e0b', 1], low: ['#22c55e', 2] };
-    const dashCard = (icon, color, label, value) => `<div style="flex:1;text-align:center;padding:14px 6px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><i class="fa-solid ${icon}" style="color:${color};font-size:1.2rem;"></i><div class="wgt-it" style="margin-top:9px;">${value}</div><div class="wgt-sub" style="margin-top:2px;">${label}</div></div>`;
+    const dashCard = (icon, color, label, value) => `<div style="flex:1;text-align:center;padding:14px 6px;min-width:0;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><i class="fa-solid ${icon}" style="color:${color};font-size:1.2rem;"></i><div class="wgt-it" style="margin-top:9px;">${value}</div><div class="wgt-sub" style="margin-top:2px;">${label}</div></div>`;
     const dashChip = (icon, color, text, page) => `<span data-go="${page}" style="cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);font-size:0.75rem;color:rgba(255,255,255,0.85);"><i class="${icon}" style="color:${color};"></i> ${text}</span>`;
+    const dashRecGone = rec => { try { return localStorage.getItem('luma_rec_x') === new Date().toDateString() + '|' + String(rec[0]).replace(/<[^>]*>/g, ''); } catch (e) { return false; } }; // "Not now" is remembered for today, for that same suggestion
     const dashSet = (id, html) => { const e = document.getElementById(id); if (e) e.innerHTML = html; };
 
     // ----- tips of the day: every tip that applies right now is a candidate; one is picked at random and rotates -----
@@ -71,10 +72,45 @@
     }
     setInterval(() => { if (document.getElementById('page-dashboard').classList.contains('active') && !document.hidden) showDashTip(true); }, 20000);
 
+    // Small pills in the greeting for things that are close to their time: reminders later today, bills and subscriptions due in the next 3 days,
+    // habits and water still to do in the evening, goals ending this week. Nothing is shown when nothing is near; the nearest five are kept (today before tomorrow before later).
+    function dashNearChips(today, rows, habitsLeft) {
+      const out = [], nowM = mytNowMin(), hour = Math.floor(nowM / 60), esc = escapeHtml;
+      const days = d => bDays(d, today), when = n => n <= 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
+      try {   // reminders that will fire later today
+        const rl = (typeof REMS !== 'undefined' ? REMS : []).filter(r => r.active && typeof remNext === 'function' && remNext(r) === today).sort((a, b) => a.remind_time.localeCompare(b.remind_time));
+        if (rl.length) { const mins = +rl[0].remind_time.slice(0, 2) * 60 + +rl[0].remind_time.slice(3, 5) - nowM; out.push({ rank: Math.max(0, mins) / 60, icon: 'fa-solid fa-bell', color: '#fcd34d', page: 'reminders', text: rl.length === 1 ? `${esc(rl[0].title)} at ${fmt12(rl[0].remind_time)}` : `${rl.length} reminders later today` }); }
+      } catch (e) { }
+      try {   // bills (not subscriptions) due today or within 3 days
+        const bl = rows.filter(r => r.status !== 'paid' && r.status !== 'overdue' && r.b.category !== 'Subscription' && days(r.due) <= 3);
+        if (bl.length) { const d = Math.min(...bl.map(r => days(r.due))); out.push({ rank: d * 24, icon: 'fa-solid fa-file-invoice-dollar', color: '#fdba74', page: 'bills', text: bl.length === 1 ? `${esc(bl[0].b.name)} (${bRM(bl[0].amount)}) due ${when(days(bl[0].due))}` : `${bl.length} bills due in the next 3 days` }); }
+      } catch (e) { }
+      try {   // subscriptions renewing within 3 days
+        const sl = (typeof BILLS !== 'undefined' && typeof bNext === 'function' ? BILLS : []).filter(b => b.category === 'Subscription' && b.active !== false).map(b => ({ b, d: bNext(b, today) })).filter(x => x.d && days(x.d) <= 3).sort((a, c) => a.d.localeCompare(c.d));
+        if (sl.length) out.push({ rank: days(sl[0].d) * 24 + 1, icon: 'fa-solid fa-repeat', color: '#c4b5fd', page: 'subscriptions', text: sl.length === 1 ? `${esc(sl[0].b.name)} renews ${when(days(sl[0].d))} (${bRM(sl[0].b.amount)})` : `${sl.length} subscriptions renew in the next 3 days` });
+      } catch (e) { }
+      try {   // evening: habits not ticked, water below the goal
+        if (hour >= 17 && habitsLeft.length) out.push({ rank: 6, icon: 'fa-solid fa-seedling', color: '#86efac', page: 'habits', text: `${habitsLeft.length} habit${habitsLeft.length > 1 ? 's' : ''} left to tick today` });
+        const goal = an && an.goals ? Number(an.goals.water_ml) : 0, log = (an && an.health ? an.health : []).find(r => r.log_date === today) || {}, have = Number(log.water_ml) || 0;
+        if (hour >= 16 && goal && have < goal) out.push({ rank: 7, icon: 'fa-solid fa-droplet', color: '#38bdf8', page: 'health', text: `${(goal - have) >= 1000 ? ((goal - have) / 1000).toFixed(1).replace(/\.0$/, '') + ' L' : (goal - have) + ' ml'} of water to go` });
+      } catch (e) { }
+      try {   // goals that end within a week and are not finished
+        const gl = (dashGoals || []).filter(g => g.deadline && !g.completed_at && days(g.deadline) >= 0 && days(g.deadline) <= 7 && !(Number(g.target_value) && Number(g.current_value) >= Number(g.target_value))).sort((a, c) => a.deadline.localeCompare(c.deadline));
+        if (gl.length) out.push({ rank: days(gl[0].deadline) * 24 + 2, icon: 'fa-solid fa-bullseye', color: '#f9a8d4', page: 'goals', text: gl.length === 1 ? `Goal “${esc(gl[0].title)}” ends ${when(days(gl[0].deadline))}` : `${gl.length} goals end this week` });
+      } catch (e) { }
+      return out.sort((a, b) => a.rank - b.rank).slice(0, 5).map(c => dashChip(c.icon, c.color, c.text, c.page)).join('');
+    }
+
+    // the lists in the cards scroll after about five rows; a soft fade at the bottom says there is more (it goes away at the end of the list)
+    function dashFade(el) {
+      if (!el) return;
+      const f = () => el.classList.toggle('more', el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+      el.onscroll = f; f();
+    }
     function paintDashboard() {
       if (!document.getElementById('dashChips')) return;
       if (typeof wkPaintDashCard === 'function') wkPaintDashCard();
-      luPaintBusy('dashBusy');
+      luPaintBusy('dashBusy', { slim: true });
       const today = hToday(), T = dashTasks, open = T.filter(t => t.status !== 'done');
       const overdue = open.filter(t => t.due_date && t.due_date < today), dueToday = open.filter(t => t.due_date === today);
       const hid = [...cHidden]; cHidden.clear(); // the calendar's category filter shouldn't hide things here
@@ -93,6 +129,7 @@
         dashChip('fa-solid fa-fire', '#fca5a5', urgent ? `${urgent} task${urgent > 1 ? 's' : ''} due or overdue` : 'No tasks due today', 'tasks'),
         dashChip('fa-regular fa-calendar', '#93c5fd', events.length ? `${events.length} event${events.length > 1 ? 's' : ''} today` : 'No events today', 'calendar'),
         budget ? dashChip('fa-solid fa-wallet', left < 0 ? '#fca5a5' : '#6ee7b7', left < 0 ? `${bRM(-left)} over budget` : `${bRM(left)} left to spend`, 'money') : dashChip('fa-solid fa-wallet', '#6ee7b7', `${bRM(spent)} spent this month`, 'money'),
+        dashNearChips(today, rows, habitsLeft),
         dashAddonChip() + dashInstallChip()
       ].join(''));
 
@@ -104,17 +141,17 @@
       else if (habitsLeft.length) rec = [`${habitsLeft.length} habit${habitsLeft.length > 1 ? 's' : ''} still to tick today, including <span style="color:#c4b5fd;">${escapeHtml(habitsLeft[0].name)}</span>.`, 'habits', 'Open habits'];
       const recEl = document.getElementById('dashRec');
       const aiOn = prefOn('ai', true), tipCard = document.querySelector('#page-dashboard .tip-card'); if (tipCard) tipCard.style.display = aiOn ? '' : 'none';
-      if (recEl) { recEl.style.display = rec && !dashRecHidden && aiOn ? '' : 'none'; if (rec) { document.getElementById('dashRecText').innerHTML = rec[0]; recEl.dataset.go = rec[1]; recEl.querySelector('#dashRecGo span').textContent = rec[2]; } }
+      if (recEl) { recEl.style.display = rec && !dashRecHidden && !dashRecGone(rec) && aiOn ? 'flex' : 'none'; if (rec) { document.getElementById('dashRecText').innerHTML = rec[0]; recEl.dataset.go = rec[1]; recEl.dataset.key = String(rec[0]).replace(/<[^>]*>/g, ''); recEl.querySelector('#dashRecGo span').textContent = rec[2]; } }
 
       // schedule
-      dashSet('dashSched', todayItems.length ? todayItems.map(it => `<div data-cal="${it.type}:${it.id}" style="display:flex;gap:11px;cursor:pointer;"><span class="wgt-time" style="width:56px;flex-shrink:0;padding-top:9px;">${it.time ? t12(it.time) : it.type === 'event' ? 'All day' : it.type === 'bill' ? 'Bill' : 'Task'}</span><span style="width:3px;border-radius:3px;background:${it.color};margin:3px 0;"></span><div style="flex:1;min-width:0;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">${escapeHtml(it.title)}</div><div class="wgt-sub" style="margin-top:2px;">${escapeHtml(cTimeLabel(it))}${it.type === 'event' ? ' · ' + escapeHtml(it.cat) : ''}</div></div></div>`).join('') : '<div class="wgt-sub">Nothing scheduled today. Add an event on the Calendar.</div>');
+      dashSet('dashSched', todayItems.length ? todayItems.map(it => `<div data-cal="${it.type}:${it.id}" style="display:flex;gap:11px;cursor:pointer;"><span class="wgt-time" style="width:56px;flex-shrink:0;padding-top:9px;">${it.time ? t12(it.time) : it.type === 'event' ? 'All day' : it.type === 'bill' ? 'Bill' : 'Task'}</span><span style="width:3px;border-radius:3px;background:${it.color};margin:3px 0;"></span><div style="flex:1;min-width:0;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05);"><div class="wgt-it">${escapeHtml(it.title)}</div><div class="wgt-sub" style="margin-top:2px;">${escapeHtml(cTimeLabel(it))}${it.type === 'event' ? ' · ' + escapeHtml(it.cat) : ''}</div></div></div>`).join('') : '<div class="wgt-sub lu-empty">Nothing scheduled today. Add an event on the Calendar.</div>');
 
       // priorities: 8 open tasks — overdue ones first (oldest first), then high priority first (nearest due date first), then medium, then low
       const od = t => t.due_date && t.due_date < today ? 0 : 1;
-      if (!dashPrIds) dashPrIds = open.slice().sort((a, b) => od(a) - od(b) || (od(a) === 0 ? a.due_date.localeCompare(b.due_date) : 0) || (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9999').localeCompare(b.due_date || '9999')).slice(0, 8).map(t => t.id);
+      if (!dashPrIds) dashPrIds = open.slice().sort((a, b) => od(a) - od(b) || (od(a) === 0 ? a.due_date.localeCompare(b.due_date) : 0) || (D_PRIO[a.priority] || D_PRIO.med)[1] - (D_PRIO[b.priority] || D_PRIO.med)[1] || (a.due_date || '9999').localeCompare(b.due_date || '9999')).slice(0, 15).map(t => t.id);
       const prAll = dashPrIds.map(id => T.find(t => t.id === id)).filter(Boolean);
       const pr = [...prAll.filter(t => t.status !== 'done'), ...prAll.filter(t => t.status === 'done')]; // crossed-out ones sink below the rest (list order otherwise unchanged)
-      dashSet('dashTasks', pr.length ? pr.map(t => { const dl = t.due_date && t.status !== 'done' ? (t.due_date < today ? '<span style="color:#fca5a5;font-size:0.68rem;">overdue</span>' : t.due_date === today ? '<span style="color:#fcd34d;font-size:0.68rem;">today</span>' : `<span style="color:rgba(255,255,255,0.45);font-size:0.68rem;">${hKeyLabel(t.due_date)}</span>`) : ''; return `<div class="check-row ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct">${escapeHtml(t.title)} ${dl}</span><span class="prio-dot" style="background:${(D_PRIO[t.priority] || D_PRIO.med)[0]};"></span></div>`; }).join('') : '<div class="wgt-sub">No open tasks. Enjoy the calm.</div>');
+      dashSet('dashTasks', pr.length ? pr.map(t => { const dl = t.due_date && t.status !== 'done' ? (t.due_date < today ? '<span style="color:#fca5a5;font-size:0.68rem;">overdue</span>' : t.due_date === today ? '<span style="color:#fcd34d;font-size:0.68rem;">today</span>' : `<span style="color:rgba(255,255,255,0.45);font-size:0.68rem;">${hKeyLabel(t.due_date)}</span>`) : ''; return `<div class="check-row ${t.status === 'done' ? 'done' : ''}" data-id="${t.id}"><span class="check-box"><i class="fa-solid fa-check"></i></span><span class="ct"><span class="ct-t" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>${dl}</span><span class="prio-dot" style="background:${(D_PRIO[t.priority] || D_PRIO.med)[0]};"></span></div>`; }).join('') : '<div class="wgt-sub lu-empty">No open tasks. Enjoy the calm.</div>');
 
       // money
       const bp = budget ? Math.min(100, Math.round(spent / budget * 100)) : 0, ip = income ? Math.min(100, Math.round(spent / income * 100)) : 0;
@@ -122,7 +159,7 @@
 
       // wellness (today's log)
       const log = (an && an.health ? an.health : []).find(r => r.log_date === today) || {};
-      dashSet('dashWell', dashCard('fa-moon', '#a78bfa', 'Sleep', log.sleep_hours != null ? Number(log.sleep_hours) + 'h' : '—') + dashCard('fa-droplet', '#38bdf8', 'Water', log.water_ml != null ? (log.water_ml / 1000).toFixed(1).replace(/\.0$/, '') + 'L' : '—') + dashCard(log.mood ? MOOD_ICO[log.mood - 1] : 'fa-face-meh-blank', log.mood ? MOOD_COL[log.mood - 1] : 'rgba(255,255,255,0.3)', 'Mood', log.mood ? MOOD_NAME[log.mood - 1] : '—'));
+      dashSet('dashWell', dashCard('fa-moon', '#a78bfa', 'Sleep', log.sleep_hours != null ? Number(log.sleep_hours) + 'h' : '—') + dashCard('fa-droplet', '#38bdf8', 'Water', log.water_ml != null ? (log.water_ml / 1000).toFixed(1).replace(/\.0$/, '') + 'L' : '—') + dashCard('fa-shoe-prints', '#34d399', 'Steps', log.steps != null ? Number(log.steps).toLocaleString() : '—') + dashCard(log.mood ? MOOD_ICO[log.mood - 1] : 'fa-face-meh-blank', log.mood ? MOOD_COL[log.mood - 1] : 'rgba(255,255,255,0.3)', 'Mood', log.mood ? MOOD_NAME[log.mood - 1] : '—'));
 
       // productivity (last 7 days vs the 7 before)
       if (an) {
@@ -134,8 +171,9 @@
       // reminders: next unpaid bills & subscriptions
       const billUp = rows.map(r => { const d = bDays(r.due, today), sub = r.b.category === 'Subscription', [, icon] = bCat(r.b.category); return { key: r.due, time: '99:99', icon, name: r.b.name, d, price: bRM(r.amount), label: d < 0 ? 'Overdue ' + (-d) + 'd' : d === 0 ? 'Due today' : (sub ? 'Renews in ' : 'Due in ') + d + 'd' }; });
       const remUp = REMS.map(r => ({ r, k: remNext(r) })).filter(x => x.k && bDays(x.k, today) <= 14).map(({ r, k }) => { const d = bDays(k, today); return { key: k, time: r.remind_time, icon: 'fa-bell', name: r.title, d, price: fmt12(r.remind_time), label: d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : 'In ' + d + 'd' }; });
-      const up = [...billUp, ...remUp].sort((a, b) => a.key.localeCompare(b.key) || a.time.localeCompare(b.time)).slice(0, 4);
-      dashSet('dashRem', up.length ? up.map(x => `<div class="reminder-item" style="font-size:0.78rem;padding:0.5rem 0;"><span class="title" style="color:#fff"><i class="fa-solid ${x.icon}" style="color:rgba(255,255,255,0.7)"></i> ${escapeHtml(x.name)}</span><span><span class="meta" style="font-weight:600;color:${x.d < 0 ? '#fca5a5' : x.d === 0 ? '#fcd34d' : 'rgba(255,255,255,0.75)'}">${x.label}</span> <span class="price">${x.price}</span></span></div>`).join('') : '<div class="wgt-sub">No reminders, bills or subscriptions coming up.</div>');
+      const up = [...billUp, ...remUp].sort((a, b) => a.key.localeCompare(b.key) || a.time.localeCompare(b.time)).slice(0, 12);
+      dashSet('dashRem', up.length ? up.map(x => `<div class="reminder-item" style="font-size:0.78rem;padding:0.5rem 0;"><span class="title" style="color:#fff"><i class="fa-solid ${x.icon}" style="color:rgba(255,255,255,0.7)"></i> ${escapeHtml(x.name)}</span><span><span class="meta" style="font-weight:600;color:${x.d < 0 ? '#fca5a5' : x.d === 0 ? '#fcd34d' : 'rgba(255,255,255,0.75)'}">${x.label}</span> <span class="price">${x.price}</span></span></div>`).join('') : '<div class="wgt-sub lu-empty">No reminders, bills or subscriptions coming up.</div>');
+      ['dashSched', 'dashTasks', 'dashRem', 'dashHabits'].forEach(id => dashFade(document.getElementById(id)));
 
       // overview
       const load = overdue.length + dueToday.length, lvl = load <= 3 ? ['Low', '✅', '#6ee7b7'] : load <= 6 ? ['Medium', '🟡', '#fcd34d'] : ['High', '⚠️', '#fca5a5'];
@@ -164,7 +202,7 @@
       flashToast(DASH_SPACES[k][0] + ' is now shown in Personal', 'You can change this in Settings → Preferences', DASH_SPACES[k][1], '#34d399');
     });
     async function loadDashboard() {
-      const [t, ev, rm] = await Promise.all([LumaTasks.list(), LumaEvents.list(), LumaReminders.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(hKeyAdd(hToday(), -70)).then(h => { an = { ...(an || {}), health: h.error ? [] : (h.data || []) }; }), LumaHealth.getGoals().then(g => { an = { ...(an || {}), goals: g.data }; }), (LumaPlan.hasAddon('study') && prefOn('show_study_personal', false)) ? sdEnsureLoaded() : null, LumaEvents.invited().then(r => { CINV = r.error ? [] : (r.data || []); })]);
+      const [t, ev, rm] = await Promise.all([LumaTasks.list(), LumaEvents.list(), LumaReminders.list(), refreshHabits(), loadMoneyData(), LumaHealth.listLogs(hKeyAdd(hToday(), -70)).then(h => { an = { ...(an || {}), health: h.error ? [] : (h.data || []) }; }), LumaHealth.getGoals().then(g => { an = { ...(an || {}), goals: g.data }; }), (LumaPlan.hasAddon('study') && prefOn('show_study_personal', false)) ? sdEnsureLoaded() : null, LumaGoals.list().then(r => { dashGoals = r.error ? [] : (r.data || []); }), LumaEvents.invited().then(r => { CINV = r.error ? [] : (r.data || []); })]);
       if (!rm.error) REMS = rm.data || [];
       dashTasks = t.error ? [] : t.data; CTASKS = dashTasks; if (!ev.error) CEV = ev.data || [];
       an = { ...(an || {}), tasks: dashTasks };
@@ -177,7 +215,7 @@
     document.getElementById('page-dashboard').addEventListener('click', async e => {
       const go = e.target.closest('[data-go]');
       if (go && !e.target.closest('#dashRecNo')) { if (go.id === 'dashRec' && !e.target.closest('#dashRecGo')) return; return goTo(go.dataset.go); }
-      if (e.target.closest('#dashRecNo')) { dashRecHidden = true; document.getElementById('dashRec').style.display = 'none'; return; }
+      if (e.target.closest('#dashRecNo')) { dashRecHidden = true; try { localStorage.setItem('luma_rec_x', new Date().toDateString() + '|' + (document.getElementById('dashRec').dataset.key || '')); } catch (x) { } document.getElementById('dashRec').style.display = 'none'; return; }
       const sc = e.target.closest('[data-cal]');
       if (sc) { const [type, id] = sc.dataset.cal.split(':'); goTo('calendar'); setTimeout(() => calOpenItem(type, id, hToday()), 400); return; }
       const row = e.target.closest('#dashTasks .check-row');

@@ -30,7 +30,7 @@
   window.LUMA_ENV = useProd ? "production" : "staging";
   // The app version. Bump it when something is pushed to staging:
   //   patch (0.9.1) = fixes and small tweaks · minor (0.10.0) = a new feature or module · 1.0.0 = the first production release.
-  window.LUMA_VERSION = "0.26.4";
+  window.LUMA_VERSION = "0.30.0";
 
   // the version (and "staging") under "Your Personal OS": any element with data-luma-version gets filled in
   window.lumaPaintVersion = function () {

@@ -91,11 +91,13 @@
         .map(([id, places]) => `<option value="${id}"${id === selected ? " selected" : ""}>${this.tzOffset(id)} · ${places}</option>`).join("");
     },
 
-    async signUp({ firstName, lastName, email, password, country = "", timezone = "" }) {
+    async signUp({ firstName, lastName, email, password, country = "", timezone = "", birthday = "" }) {
+      const data = { first_name: firstName, last_name: lastName, country, timezone };
+      if (/^\d{4}-\d{2}-\d{2}$/.test(birthday)) data.birthday = birthday;   // optional; the database ignores a date that makes no sense
       return client.auth.signUp({
         email,
         password,
-        options: { data: { first_name: firstName, last_name: lastName, country, timezone } },
+        options: { data },
       });
     },
 
@@ -108,6 +110,70 @@
     async resendSignupCode(email) {
       return client.auth.resend({ type: "signup", email });
     },
+
+    // ---------- Google and Apple ----------
+    // Both go through Supabase Auth (the providers are switched on in the Supabase dashboard: docs/06-OPERATIONS.md, "Sign in with Google and Apple").
+    // The person comes back to /login/, which sees the new session and opens the app. A new account is made the first time.
+    // "Sign in with Apple" is only offered on Apple devices (iPhone, iPad, Mac): isAppleDevice() decides.
+    isAppleDevice(nav) {
+      const n = nav || (typeof navigator !== "undefined" ? navigator : {});
+      return /iPhone|iPad|iPod|Macintosh|Mac OS X/i.test(String(n.userAgent || "")) || /^(Mac|iPhone|iPad|iPod)/i.test(String(n.platform || ""));
+    },
+    // Which page started the provider sign-in ("login" or "register") is remembered for a few minutes, because the provider sends the person back
+    // to /login/ either way. Supabase makes an account the moment Google / Apple says yes, so the Login page uses this to undo it (below).
+    rememberOAuthIntent(intent, provider) { try { localStorage.setItem("luma.oauth_intent", JSON.stringify({ intent, provider, ts: Date.now() })); } catch (e) { /* ignore */ } },
+    takeOAuthIntent() {
+      try { const v = JSON.parse(localStorage.getItem("luma.oauth_intent") || "null"); localStorage.removeItem("luma.oauth_intent"); return v && Date.now() - v.ts < 15 * 60 * 1000 ? v : null; } catch (e) { return null; }
+    },
+    go(url) { window.location.href = url; },
+    // Called on /login/ when the person comes back from Google / Apple. Returns { status: "ok" | "no-account" | "none", provider }.
+    //  • started from Register: the account is marked registered and we go on;
+    //  • started from Login with an account that did not exist a minute ago: it is NOT registered, so the brand-new account is deleted again
+    //    (the `account` function) and the person is signed out and told to use "Create one" first;
+    //  • anything else (an existing account): go on.
+    async finishProviderSignIn() {
+      const session = await this.getSession(); if (!session) return { status: "none" };
+      const intent = this.takeOAuthIntent(), user = session.user, meta = user.user_metadata || {}, provider = (user.app_metadata && user.app_metadata.provider) || "";
+      if (provider !== "google" && provider !== "apple") return { status: "ok", provider };
+      if (intent && intent.intent === "register") {
+        if (!meta.registered) { try { await client.auth.updateUser({ data: { registered: true } }); } catch (e) { /* ignore */ } }
+        return { status: "ok", provider };
+      }
+      const fresh = !!user.created_at && Date.now() - Date.parse(user.created_at) < 5 * 60 * 1000 && !meta.registered;
+      if (fresh) {
+        try { await client.functions.invoke("account", { body: { action: "delete", confirm: user.email || "" } }); } catch (e) { /* signed out below anyway */ }
+        try { await client.auth.signOut(); } catch (e) { /* the account is gone: nothing to sign out of */ }
+        return { status: "no-account", provider };
+      }
+      return { status: "ok", provider };
+    },
+    async signInWithProvider(provider) {
+      if (provider !== "google" && provider !== "apple") return { error: { message: "Unknown sign-in method" } };
+      this.setRemember(true);
+      const options = { redirectTo: new URL("/login/", window.location.origin).href };
+      if (provider === "google") options.queryParams = { prompt: "select_account" };
+      if (provider === "apple") options.scopes = "name email";
+      return client.auth.signInWithOAuth({ provider, options });
+    },
+    // the "Google" / "Apple" buttons of the Login and Register pages: <button data-oauth="google|apple">; Apple stays hidden off Apple devices.
+    // opts.beforeStart() may return false to stop (Register wants the Terms box ticked first); opts.onError(message) shows a problem.
+    wireSocialButtons(opts) {
+      opts = opts || {};
+      const buttons = [...document.querySelectorAll(".social [data-oauth]")];
+      buttons.forEach((b) => { if (b.dataset.oauth === "apple") b.hidden = !this.isAppleDevice(); });
+      buttons.forEach((b) => b.addEventListener("click", async () => {
+        if (opts.beforeStart && opts.beforeStart() === false) return;
+        const label = b.innerHTML; b.disabled = true; b.innerHTML = "Opening…";
+        this.rememberOAuthIntent(opts.intent || "login", b.dataset.oauth);
+        const { error } = await this.signInWithProvider(b.dataset.oauth);
+        if (error) { b.disabled = false; b.innerHTML = label; if (opts.onError) opts.onError(error.message || "Could not start the sign-in."); }
+      }));
+    },
+    // a problem the provider or Supabase sent back in the address ("?error_description=…" or "#error_description=…"), or ""
+    oauthReturnError() {
+      try { const q = new URLSearchParams((location.search || "").replace(/^\?/, "") + "&" + (location.hash || "").replace(/^#/, "")); return q.get("error_description") || (q.get("error") ? "Sign-in was cancelled." : ""); } catch (e) { return ""; }
+    },
+    cameBackFromProvider() { return /[?&#](code|access_token)=/.test((location.search || "") + (location.hash || "")); },
 
     // remember: true (default) keeps you signed in across browser restarts;
     // false ends the session when the browser/tab is closed.
@@ -180,7 +246,7 @@
     // Call on Login/Register — sends already-signed-in users to the dashboard.
     async redirectIfSignedIn(redirectTo = "/app/") {
       const session = await this.getSession();
-      if (session) window.location.href = redirectTo;
+      if (session) this.go(redirectTo);
       return session;
     },
 

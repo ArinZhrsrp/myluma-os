@@ -97,7 +97,7 @@
           <span class="pill ${pc}">${pt}</span><span class="lright">${bRM(r.amount)}</span>
           <button type="button" class="hedit b-edit" title="Edit"><i class="fa-solid fa-pen"></i></button>
           <button type="button" class="hbtn b-pay ${r.status === 'paid' ? 'on' : ''}" title="${r.status === 'paid' ? 'Paid — tap to undo' : 'Mark as paid'}" style="${r.status === 'paid' ? 'background:#22c55e' : ''}"><i class="fa-solid fa-check"></i></button></div>`;
-      }).join('') : '<div class="ls" style="padding:18px 4px;text-align:center">No bills due in this month.</div>';
+      }).join('') : '<div class="lu-empty">No bills due in this month.</div>';
 
       root.innerHTML = `<div class="bills-grid">
         ${card(`<div class="section-title"><i class="fa-regular fa-calendar-check"></i> ${title}</div>

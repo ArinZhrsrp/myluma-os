@@ -178,7 +178,7 @@
     .tk-list { display:flex; flex-direction:column; gap:6px; margin-bottom:8px; }
     .tk-item { display:flex; align-items:center; gap:8px; }
     .tk-item input[type=text] { flex:1; min-width:0; padding:9px 11px; }
-    .tk-item.done input[type=text] { text-decoration:line-through; opacity:0.55; }
+    .tk-item.done input[type=text] { opacity:0.55; }
     .tk-tick, .tk-x { flex:none; width:34px; height:34px; border-radius:10px; border:1.5px solid rgba(255,255,255,0.3); background:rgba(255,255,255,0.04); color:transparent; cursor:pointer; display:grid; place-items:center; transition:.15s; }
     .tk-item.done .tk-tick { background:linear-gradient(135deg,#22c55e,#16a34a); border-color:transparent; color:#fff; }
     .tk-x { border-color:transparent; background:none; color:rgba(255,255,255,0.45); }

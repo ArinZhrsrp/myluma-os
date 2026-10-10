@@ -4,6 +4,89 @@ The newest version is on top. The version number lives in `shared/supabase-confi
 Rules: **patch** (0.9.1) = fixes and small tweaks · **minor** (0.10.0) = a new feature or module · **1.0.0** = the first production release.
 Versions before 0.9.0 were written down afterwards from the commit history, so their grouping is approximate.
 
+## 0.30.0 — 2026-10-11 (staging)
+### Changed — Dashboard layout
+- **Today's Schedule, Today's Priorities and Upcoming Reminders are now the same height.** Each list is exactly five rows tall (every row is 52 px, titles on one line with "…"), and scrolls inside after five. Priorities holds up to 15 tasks and Reminders up to 12.
+- Below them the smaller cards sit in two tidy rows: **This Month, Today's Overview, Productivity**, then **Habit Streaks** (wide, scrolls after about five habits) beside **Wellness**. (The column-packing of 0.29.5 is gone; no gaps, nothing stretched oddly.) Narrower windows use two columns, phones one.
+- **The busy-day notice is slim and moved into the greeting card**: one line (🔥 Today is busy · 2 things · 8 h booked · Also: Mon 12 · Tue 13 · Wed 14 · ✕) instead of a big box in the Schedule card. Tap the text to open that day.
+- **Closing the busy notice (✕) or the Suggestion ("Not now") is now remembered for the rest of the day**, also after a refresh or a new tab. (Before, the Suggestion came straight back on refresh and the notice only stayed hidden in that tab.) A different suggestion still shows.
+- **The Work tabs stretch across the row like Study's** (the tabs share the width, "New task" stays at the end).
+- **"Nothing here yet" messages look the same on every page.** About 105 empty-card, loading and "could not load" messages (Work Overview, Study, Contacts, Documents, Money, Goals, Health, Admin, the Dashboard cards and more) used different sizes, spacing and colours; they now share one style (`.lu-empty`: 0.84 rem, softer white, left-aligned, same padding).
+- **Character limits are shown.** Every title, name and note box in Personal, Work and Study that has a limit now shows a counter under it ("12 / 120"; amber near the limit, red at it). Notes, Health notes, Documents names, Settings names and the Support message had no limit; they now have one (Notes 20,000, Health note 1,000, document name 120, first / last name 60, Support message 2,000). The other boxes keep the limits they already had.
+- **Done tasks and steps are no longer crossed out** (Tasks board and checklists, Work task steps, the Dashboard list); they are only faded, with the tick showing.
+- **Lumi knows who you are, from your profile.** It addresses you by the first name in Settings → Profile (before, it used the sign-in name, which could be old or missing), knows your plan and your Study / Work add-ons, and wishes you a happy birthday once on your birthday. It is not given your e-mail. Needs the `lumi` function to be deployed again.
+- **Notifications load 50 at a time.** The app now asks for at most 50 notifications per request (before: 200). The Notifications page loads the next 50 as you scroll to the bottom ("Loading more…", with "Try again" if it fails). The count on the page and the bell badge now come from the server (total and unread), so they are right even with hundreds of notifications.
+- **Page buttons stay on the right on a narrower window.** On a laptop the Work tabs and "New task" dropped under the title and sat on the left; the page-header buttons (all pages) now stay right-aligned when they wrap.
+- **Habit Streaks fills its wide card**: habits sit side by side in columns (two on a laptop, three on a big screen, one on a phone) instead of one thin list.
+- **Wellness shows four tiles: Sleep, Water, Steps, Mood** (it showed three). The tiles share the row and wrap to two rows on a narrow card.
+
+## 0.29.5 — 2026-10-11 (staging)
+### Changed
+- **Dashboard cards fill the columns evenly.** Each card goes into the shortest of the three columns (in the same order as before), so the columns end at about the same height and the big gaps are gone. Re-done when the window is resized or the data changes.
+- **Stylesheets are no longer kept by the browser after an update.** `app/index.html` now adds a changing `?v=` to every stylesheet (always fresh on staging and your computer; at most an hour old on the live site). This was why some fixes (like the habit icons) did not show until a hard refresh.
+### Fixed
+- Dashboard → Habit Streaks: the icon tile is now centred and round-cornered by its own inline style, so it no longer depends on the stylesheet being up to date.
+
+## 0.29.4 — 2026-10-11 (staging)
+### Changed
+- Dashboard: **Today's Priorities** (now up to 15 tasks), **Upcoming Reminders** (up to 12) and **Habit Streaks** (all your habits) scroll after about five rows, like Today's Schedule, instead of cutting the list short. A soft fade at the bottom shows there is more.
+- The busy-day notice in the Schedule card has smaller day buttons and lists at most 3 "Also" days, so it sits in tidier rows.
+
+## 0.29.3 — 2026-10-10 (staging)
+### Fixed
+- Dashboard → Habit Streaks: the habit icons sat in the top-left corner of a plain square; they are now centred in a round-cornered tile.
+
+## 0.29.2 — 2026-10-10 (staging)
+### Changed
+- Dashboard: the cards are in three stacks (Schedule + Habits | Priorities + Reminders + Wellness | Productivity + This Month + Overview), so a tall card like the Schedule (with the busy-day notice) no longer leaves empty space inside the cards beside it, and nothing is cut short. On narrow windows and phones the cards flow as before, in the same order.
+
+## 0.29.1 — 2026-10-10 (staging)
+### Changed
+- Dashboard: **Upcoming Reminders** and **This Month** (the budget card) swap places, so the long budget card no longer pushes the cards beside it down.
+
+## 0.29.0 — 2026-10-10 (staging)
+### Added
+- **Pills in the greeting for things that are near their time**, next to the task / events / money ones. They only appear when there is something, the nearest five are kept (today before tomorrow before later), and each opens its page: **reminders** later today ("Pay rent at 3:00 pm" / "3 reminders later today"), **bills** due within 3 days ("Internet (RM129) due tomorrow"), **subscriptions** renewing within 3 days ("Netflix renews in 2 days"), **habits** still to tick (from 5 pm), **water** still to drink (from 4 pm, "1.5 L of water to go"), and **goals** ending within a week.
+
+## 0.28.3 — 2026-10-10 (staging)
+### Changed
+- Dashboard: the Suggestion is no longer a separate big card. It is one line inside the greeting card, under the chips (✨ "You have 3 overdue tasks. Start with …", with an Open button and "Not now"). Same rules as before; it still only shows when there is something to say.
+
+## 0.28.2 — 2026-10-10 (staging)
+### Changed
+- Feedback: the "or paste one here (Ctrl / Cmd + V)" option is gone; a picture is added only with the **Add a picture** button.
+
+## 0.28.1 — 2026-10-10 (staging)
+### Changed
+- Dashboard: the decorative Lumi robot circle in the greeting card is gone (the floating Lumi button and the Lumi menu item already do that job).
+
+## 0.28.0 — 2026-10-10 (staging)
+### Added — birthdays in Admin
+- **Admin → Birthdays.** A card with a badge ("2 today" / "3 this week") that opens everyone with a birthday today, in the next 7 days and later this month (30 days), in each person's own time zone (29 Feb counts on 28 Feb in non-leap years). Each row shows the date, the age they turn, the e-mail and plan, and buttons: **Plan**, **Work**, **Study** (open the usual gift dialogs: a plan for some months, or a free trial / months of an add-on) and **Wish**.
+- **Wish** sends the person "🎂 Happy birthday, <name>!" (with a push) once a day at most, and is written to the admin log.
+- **A 9 am alert for administrators** (job `luma-birthday-alerts`): "N birthdays today" and who is coming up in the next 7 days; nothing on days with none.
+- **People can add a birthday** (optional): on the Register form and in Settings → Profile → Edit, with a note that only the LUMA team sees it. FAQ entry added.
+### Database
+- `087_birthdays.sql`: `profiles.birthday`, `birthday_rows`, `admin_birthdays`, `admin_birthday_wish`, `run_birthday_alerts` + cron job, `handle_new_user` (birthday from sign-up). Run after 086.
+
+## 0.27.1 — 2026-10-10 (staging)
+### Fixed
+- Admin: the descriptions under Plan report, Feedback inbox and Plan limits were too large; they are now small text.
+- Settings → Preferences → "How easily a day counts as busy": the dropdown arrow sat against the right edge; it now has its own arrow with space to its right.
+
+## 0.27.0 — 2026-10-10 (staging)
+### Added — sign up and sign in with Google and Apple
+- The **Google** and **Apple** buttons on Login and Register now work (they were "coming soon" notes). Google asks which account to use; Apple asks for name and e-mail. After the provider the person comes back to `/login/`, which opens the app, and is kept signed in.
+- **Apple is shown only on Apple devices** (iPhone, iPad, Mac); everywhere else Google fills the row.
+- A first sign-in creates the account (no e-mail code, because the provider has verified the address). The profile takes the name from the provider (`086_oauth_names.sql`: `given_name` / `family_name`, else `full_name` split at the first space; the sign-up form's names win). Country and time zone are filled from the browser once, for accounts made with Google or Apple.
+- **Login never creates an account.** If a Google / Apple ID that has no LUMA account is used on Login, the account Supabase just made is deleted again and the person is told to press "Create one" and register with Google / Apple first (no form to fill: only the Terms box). Needs the `account` function deployed.
+- On Register the Terms box must be ticked before Google or Apple starts. The Login page shows a provider's error ("sign-in cancelled…") or "Signing you in…" when the person returns.
+- **You must switch each provider on in Supabase** (and add the `/login/` address to the redirect list): see `docs/06-OPERATIONS.md`, "Sign in with Google and Apple". Apple's client secret has to be renewed at least every 6 months.
+### Fixed
+- Calendar month view on a phone: the busy-day icon next to the date was cut off in narrow cells (found by the phone-width audit); on phones the day's tint shows the load and the icon is left out.
+### Database
+- `086_oauth_names.sql` (`handle_new_user`). Run after 085.
+
 ## 0.26.4 — 2026-10-09 (staging)
 ### Fixed
 - Calendar → Upcoming Events: the highlight shown when you open a reminder hugged the text (no space inside the box). Rows now have padding all round.

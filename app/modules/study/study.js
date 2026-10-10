@@ -24,7 +24,7 @@
       const left = ends ? Math.ceil((ends - Date.now()) / 864e5) : null, note = ends ? ` · ${info.source === 'trial' ? 'free trial' : 'add-on'} until ${new Date(ends - 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (${left} day${left === 1 ? '' : 's'} left)` : '';
       return head('Study', `<span id="sdSub">Loading…</span>${note}`,
         `<div class="sd-tabs" id="sdTabs">${SD_TABS.filter(t => !sdGuest() || t[0] === 'groups').map(([k, n, i]) => `<button type="button" data-sdtab="${k}" title="${n}" aria-label="${n}" class="${SD.tab === k ? 'on' : ''}"><i class="fa-solid ${i}"></i><span>${n}</span></button>`).join('')}</div><button class="create-btn" id="sdAdd"><i class="fa-solid fa-plus"></i> <span id="sdAddT">Add assignment</span></button>`) +
-        '<div id="sdRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+        '<div id="sdRoot"><div class="lu-empty">Loading…</div></div>';
     };
 
     // ---------- small helpers ----------
@@ -141,7 +141,7 @@
       const add = SD_ADD[SD.tab]; docEl('sdAdd').style.display = add && (!sdGuest() || SD.tab === 'groups') ? '' : 'none'; if (add) docEl('sdAddT').textContent = add[0];
       if (SD.err && !SD_VIEW[SD.tab]) {
         sub.textContent = 'Could not load';
-        root.innerHTML = card(`<div class="ls">Could not load your study data: ${escapeHtml(SD.err)}. ${/study_|schema cache|does not exist/i.test(SD.err) ? 'Has <b>supabase/migrations/045_study.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
+        root.innerHTML = card(`<div class="lu-empty">Could not load your study data: ${escapeHtml(SD.err)}. ${/study_|schema cache|does not exist/i.test(SD.err) ? 'Has <b>supabase/migrations/045_study.sql</b> been run in the Supabase SQL Editor?' : ''}</div>`);
         return;
       }
       const open = sdLiveTasks().filter(t => t.status !== 'done');
@@ -185,19 +185,19 @@
         const s = sdMin(c.start_time), e = sdMin(c.end_time), isNow = nowM >= s && nowM < e, isNext = !isNow && !marked && s > nowM;
         if (isNext) marked = true;
       return `<div class="sd-today ${isNow ? 'now' : ''}" data-cls="${c.id}" style="--c:${(sdCourse(c.course_id) || {}).color || '#34d399'}"><div class="tm">${sdT12(c.start_time)}<small>${sdT12(c.end_time)}</small></div><div class="bd"><b>${escapeHtml((sdCourse(c.course_id) || {}).name || 'Class')}</b><small>${[c.room, (SD_CLASS_KINDS.find(x => x[0] === c.kind) || [])[1]].filter(Boolean).map(escapeHtml).join(' · ')}</small></div>${isNow ? '<span class="sd-badge">Now</span>' : isNext ? '<span class="sd-badge next">Next</span>' : e <= nowM ? '<span class="sd-badge off">Done</span>' : ''}</div>`;
-      }).join('') : '<div class="ls" style="padding:6px 2px">No classes today. Enjoy!</div>';
+      }).join('') : '<div class="lu-empty">No classes today. Enjoy!</div>';
       const soon = [...overdue, ...open.filter(t => t.due_date && t.due_date >= today)].sort((a, b) => a.due_date.localeCompare(b.due_date) || sdHM(a.due_time).localeCompare(sdHM(b.due_time))).slice(0, 8);
-      const dueHtml = soon.length ? soon.map(sdRow).join('') : '<div class="ls" style="padding:6px 2px">Nothing is due. Add an assignment, test or exam to track it.</div>';
+      const dueHtml = soon.length ? soon.map(sdRow).join('') : '<div class="lu-empty">Nothing is due. Add an assignment, test or exam to track it.</div>';
       const by = {}; SD.focus.forEach(r => { by[r.course_id || ''] = (by[r.course_id || ''] || 0) + r.minutes; });
       const rows = Object.keys(by).sort((a, b) => by[b] - by[a]);
       const top = rows.length ? by[rows[0]] : 1;
       const timeHtml = rows.length ? rows.map(id => { const c = sdCourse(id); return `<div class="sd-bar" style="--c:${c ? c.color : '#94a3b8'}"><div class="sb-h"><span>${escapeHtml(c ? c.name : 'No subject')}</span><b>${sdMinText(by[id])}</b></div><div class="sb-t"><i style="width:${Math.max(4, Math.round(by[id] / top * 100))}%"></i></div></div>`; }).join('')
-        : '<div class="ls" style="padding:6px 2px">Start <b>Focus Mode</b> and pick a subject. Your study time shows up here.</div>';
+        : '<div class="lu-empty">Start <b>Focus Mode</b> and pick a subject. Your study time shows up here.</div>';
       const graded = SD.courses.map(c => ({ c, g: sdGrade(c.id) })).filter(x => x.g != null);
       const gradeHtml = graded.length ? graded.map(({ c, g }) => `<div class="sd-bar" style="--c:${c.color}"><div class="sb-h"><span>${escapeHtml(c.name)}</span><b>${sdPct(g)}%</b></div><div class="sb-t"><i style="width:${Math.max(3, Math.min(100, g))}%"></i></div></div>`).join('')
-        : '<div class="ls" style="padding:6px 2px">Add a score and weight to your assignments to see your grade for each subject.</div>';
+        : '<div class="lu-empty">Add a score and weight to your assignments to see your grade for each subject.</div>';
       const exams = open.filter(t => (t.kind === 'exam' || t.kind === 'test') && t.due_date && t.due_date >= today).sort((a, b) => a.due_date.localeCompare(b.due_date)).slice(0, 5);
-      const examHtml = exams.length ? exams.map(t => { const d = sdDiff(today, t.due_date), c = sdCourse(t.course_id); return `<div class="sd-exam ${d <= 3 ? 'hot' : ''}" data-task="${t.id}" style="--c:${c ? c.color : '#a78bfa'}"><div class="dd"><b>${d}</b><span>${d === 1 ? 'day' : 'days'}</span></div><div class="bd"><b>${escapeHtml(t.title)}</b><small>${escapeHtml(c ? c.name : sdKind(t.kind)[1])} · ${sdFmtDate(t.due_date, { weekday: 'short', day: 'numeric', month: 'short' })}${t.due_time ? ' · ' + sdT12(t.due_time) : ''}</small></div></div>`; }).join('') : '<div class="ls" style="padding:6px 2px">No tests or exams coming up. Add one as an assignment of type Exam or Test.</div>';
+      const examHtml = exams.length ? exams.map(t => { const d = sdDiff(today, t.due_date), c = sdCourse(t.course_id); return `<div class="sd-exam ${d <= 3 ? 'hot' : ''}" data-task="${t.id}" style="--c:${c ? c.color : '#a78bfa'}"><div class="dd"><b>${d}</b><span>${d === 1 ? 'day' : 'days'}</span></div><div class="bd"><b>${escapeHtml(t.title)}</b><small>${escapeHtml(c ? c.name : sdKind(t.kind)[1])} · ${sdFmtDate(t.due_date, { weekday: 'short', day: 'numeric', month: 'short' })}${t.due_time ? ' · ' + sdT12(t.due_time) : ''}</small></div></div>`; }).join('') : '<div class="lu-empty">No tests or exams coming up. Add one as an assignment of type Exam or Test.</div>';
       setTimeout(() => luPaintBusy('sdBusy'), 0);
       return `${sdSemStrip()}<div id="sdBusy" class="wk-busybox" style="display:none"></div><div class="sd-tiles">${tiles}</div><div class="grid-2">
         ${card(`<div class="section-title"><i class="fa-solid fa-chalkboard-user"></i> Today's classes</div>${todayHtml}`)}
@@ -318,10 +318,10 @@
         const state = t > sem.end_date ? 'Ended' : t < sem.start_date ? `Starts in ${sdDiff(t, sem.start_date)} days` : `Week ${Math.min(total, Math.floor(sdDiff(sem.start_date, t) / 7) + 1)} of ${total}`;
         return `<div class="card sd-sem ${sem.is_active ? 'cur' : ''}" data-sem="${sem.id}"><div class="sm-top"><div class="sm-main"><div class="sm-t">${escapeHtml(sem.name)}${sem.is_active ? '<em>Active</em>' : '<em class="off">Inactive</em>'}</div><div class="sm-s">${sdShort(sem.start_date)} to ${sdShort(sem.end_date)} · ${total} weeks · ${state}</div></div><div class="sm-gpa"><b>${g ? g.gpa.toFixed(2) : '—'}</b><span>GPA</span></div><button type="button" class="hedit" title="Edit"><i class="fa-solid fa-pen"></i></button></div>
           <div class="sm-done">${sem.is_active ? `<button type="button" class="np-btn" data-copy-sem="${sem.id}"><i class="fa-regular fa-copy"></i> Start from a previous semester</button><button type="button" class="np-btn" data-finish-sem="${sem.id}"><i class="fa-solid fa-box-archive"></i> Done with this semester</button>` : cur ? `<button type="button" class="np-btn" disabled title="Archive ${escapeHtml(cur.name)} first: only one semester can be active"><i class="fa-solid fa-lock"></i> Activate (archive ${escapeHtml(cur.name)} first)</button>` : `<button type="button" class="np-btn act" data-activate-sem="${sem.id}"><i class="fa-solid fa-bolt"></i> Make this the active semester</button>`}</div>
-          <div class="sm-subj">${list.length ? list.map(c => { const m = sdMark(c); return `<span class="sd-cc" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}${m != null ? ` <b>${sdLetter(m, c)[1]}</b>` : ''}</span>`; }).join('') : '<span class="ls">No subjects in this semester yet. New subjects you add go into the active semester.</span>'}</div></div>`;
+          <div class="sm-subj">${list.length ? list.map(c => { const m = sdMark(c); return `<span class="sd-cc" style="--c:${c.color}"><i></i>${escapeHtml(c.name)}${m != null ? ` <b>${sdLetter(m, c)[1]}</b>` : ''}</span>`; }).join('') : '<span class="lu-empty">No subjects in this semester yet. New subjects you add go into the active semester.</span>'}</div></div>`;
       }).join('');
       const tail = archivedSems.length ? `<div class="sd-endednote"><button type="button" data-open-archive>Archived semesters (${archivedSems.length}) · open the archive</button></div>` : '';
-      return explain + head + (cards || card('<div class="ls" style="padding:6px 2px">All your semesters are archived. Add a new one to plan the next.</div>')) + tail;
+      return explain + head + (cards || card('<div class="lu-empty">All your semesters are archived. Add a new one to plan the next.</div>')) + tail;
     }
 
     // ---------- the three popups ----------
@@ -656,7 +656,7 @@
 
     // --- breaks & holidays ---
     function sdPaintBreaks() {
-      docEl('sdBreakList').innerHTML = SD.breaks.length ? [...SD.breaks].sort((a, b) => a.start_date.localeCompare(b.start_date)).map(b => `<div class="sd-brk"><div><b>${escapeHtml(b.name)}</b><small>${sdShort(b.start_date)}${b.end_date !== b.start_date ? ' to ' + sdShort(b.end_date) : ''} · ${sdDiff(b.start_date, b.end_date) + 1} day${sdDiff(b.start_date, b.end_date) ? 's' : ''}</small></div><button type="button" class="h-del" data-brk-del="${b.id}" title="Delete" aria-label="Delete"><i class="fa-regular fa-trash-can"></i></button></div>`).join('') : '<div class="ls" style="padding:4px 2px">No breaks yet.</div>';
+      docEl('sdBreakList').innerHTML = SD.breaks.length ? [...SD.breaks].sort((a, b) => a.start_date.localeCompare(b.start_date)).map(b => `<div class="sd-brk"><div><b>${escapeHtml(b.name)}</b><small>${sdShort(b.start_date)}${b.end_date !== b.start_date ? ' to ' + sdShort(b.end_date) : ''} · ${sdDiff(b.start_date, b.end_date) + 1} day${sdDiff(b.start_date, b.end_date) ? 's' : ''}</small></div><button type="button" class="h-del" data-brk-del="${b.id}" title="Delete" aria-label="Delete"><i class="fa-regular fa-trash-can"></i></button></div>`).join('') : '<div class="lu-empty">No breaks yet.</div>';
     }
     function openBreaks() { sdErr('sdBreakError', ''); docEl('sdBreakName').value = ''; docEl('sdBreakFrom').value = sdKey(); docEl('sdBreakTo').value = sdKey(); ['sdBreakFrom', 'sdBreakTo'].forEach(id => docEl(id)._luDateRefresh && docEl(id)._luDateRefresh()); sdPaintBreaks(); sdOpen('sdBreakOverlay'); }
     docEl('sdBreakClose').onclick = () => sdClose('sdBreakOverlay');
@@ -781,15 +781,15 @@
     let SD_CONTACTS = null, sdPickResolve = null;
     // resolves with a Map(userId → name) of the people ticked, or null if the popup was closed
     async function sdPickContacts({ title = 'Pick contacts', selected = new Map(), exclude = new Set() } = {}) {
-      docEl('sdPickTitle').textContent = title; const box = docEl('sdPickList'); box.innerHTML = '<div class="ls" style="padding:8px 2px">Loading…</div>'; sdOpen('sdPickOverlay');
+      docEl('sdPickTitle').textContent = title; const box = docEl('sdPickList'); box.innerHTML = '<div class="lu-empty">Loading…</div>'; sdOpen('sdPickOverlay');
       if (!SD_CONTACTS) {
         const r = await LumaContacts.listContacts();
-        if (r.error) { box.innerHTML = `<div class="ls" style="padding:8px 2px">Could not load your contacts: ${escapeHtml(r.error.message)}</div>`; return new Promise(res => { sdPickResolve = res; }); }
+        if (r.error) { box.innerHTML = `<div class="lu-empty">Could not load your contacts: ${escapeHtml(r.error.message)}</div>`; return new Promise(res => { sdPickResolve = res; }); }
         SD_CONTACTS = (r.data || []).filter(c => c.status === 'accepted');
       }
       box.innerHTML = SD_CONTACTS.length ? SD_CONTACTS.map(c => { const nm = [c.other_first_name, c.other_last_name].filter(Boolean).join(' ') || c.other_email, dis = exclude.has(c.other_id);
         return `<label class="cal-pick ${dis ? 'dis' : ''}"><input type="checkbox" data-id="${c.other_id}" data-name="${escapeHtml(nm)}" ${dis || selected.has(c.other_id) ? 'checked' : ''} ${dis ? 'disabled' : ''}><span class="av">${escapeHtml((nm[0] || '?').toUpperCase())}</span><span class="nm">${escapeHtml(nm)}<small>${dis ? 'Already added' : escapeHtml(c.other_email || '')}</small></span></label>`; }).join('')
-        : '<div class="ls" style="padding:8px 2px">You have no contacts yet. Add people on the Contacts page first.</div>';
+        : '<div class="lu-empty">You have no contacts yet. Add people on the Contacts page first.</div>';
       return new Promise(res => { sdPickResolve = res; });
     }
     const sdPickEnd = v => { sdClose('sdPickOverlay'); const r = sdPickResolve; sdPickResolve = null; if (r) r(v); };

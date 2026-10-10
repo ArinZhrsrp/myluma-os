@@ -3,7 +3,7 @@
     MODULES.analytics = function () {
         return head('Analytics', '<span id="anSub">Your patterns across tasks, habits, health and money</span>',
           '<div class="an-range" id="anRange"><button data-n="7" class="on">7 days</button><button data-n="30">30 days</button></div>') +
-          '<div id="anRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+          '<div id="anRoot"><div class="lu-empty">Loading…</div></div>';
     };
 
     // =====================================================
@@ -80,8 +80,8 @@
           ${card(`<div class="section-title"><i class="fa-solid fa-fire"></i> Habit consistency by day</div>${anBars(cur.habitDay.map(v => v == null ? 0 : v), cur.keys, 1, v => Math.round(v * 100) + '%', 'alt')}`)}
         </div>
         <div class="grid-2" style="margin-bottom:0.9rem">
-          ${card(`<div class="section-title"><i class="fa-solid fa-chart-pie"></i> Completed tasks by tag</div>${tags.length ? tags.map((t, i) => bar(t[0], `${t[1]} · ${Math.round(t[1] / tagTot * 100)}%`, t[1] / tagTot * 100, tcol[i % tcol.length])).join('') : '<div class="ls">No tasks completed in this period.</div>'}`)}
-          ${card(`<div class="section-title"><i class="fa-solid fa-wallet"></i> Spending by category <span class="ls" style="margin-left:auto">${anRM(cur.spend)}${cur.income ? ' · income ' + anRM(cur.income) : ''}</span></div>${cats.length ? cats.slice(0, 6).map(c => bar(c[0], anRM(c[1]), c[1] / catMax * 100, mcol[c[0]] || '#94a3b8')).join('') : '<div class="ls">No spending recorded in this period.</div>'}`)}
+          ${card(`<div class="section-title"><i class="fa-solid fa-chart-pie"></i> Completed tasks by tag</div>${tags.length ? tags.map((t, i) => bar(t[0], `${t[1]} · ${Math.round(t[1] / tagTot * 100)}%`, t[1] / tagTot * 100, tcol[i % tcol.length])).join('') : '<div class="lu-empty">No tasks completed in this period.</div>'}`)}
+          ${card(`<div class="section-title"><i class="fa-solid fa-wallet"></i> Spending by category <span class="ls" style="margin-left:auto">${anRM(cur.spend)}${cur.income ? ' · income ' + anRM(cur.income) : ''}</span></div>${cats.length ? cats.slice(0, 6).map(c => bar(c[0], anRM(c[1]), c[1] / catMax * 100, mcol[c[0]] || '#94a3b8')).join('') : '<div class="lu-empty">No spending recorded in this period.</div>'}`)}
         </div>
         ${card(`<div class="section-title"><i class="fa-solid fa-robot"></i> Lumi's insights <button type="button" class="create-btn" id="anAiBtn" style="margin-left:auto;padding:6px 12px;font-size:0.7rem;background:rgba(255,255,255,0.08);box-shadow:none"><i class="fa-solid fa-wand-magic-sparkles"></i> ${anAiGet() ? 'Refresh with AI' : 'Get AI insights'}</button></div><div class="ls" style="margin:-4px 0 10px"><span id="anAiNote" style="display:${anAiGet() ? 'inline' : 'none'}">Written by Lumi (AI) from your numbers. · </span><span id="anAiLeft">${anAiLeftTxt()}</span></div>${(() => { const n = (anAiGet() || ins).slice(0, 6).length; return `<div class="${n === 4 || n === 2 ? 'grid-2' : 'grid-3'}">`; })()}${(anAiGet() ? anAiGet().map(t => ['fa-wand-magic-sparkles', t]) : ins).slice(0, 6).map(c => `<div style="padding:14px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.05)"><i class="fa-solid ${c[0]}" style="color:#93c5fd;font-size:1.1rem"></i><p style="margin-top:10px;font-size:0.75rem;color:rgba(255,255,255,0.8);line-height:1.55">${escapeHtml(c[1])}</p></div>`).join('')}</div>`)}`;
       document.getElementById('anAiBtn').onclick = anAskAi; anAiPaintLeft();

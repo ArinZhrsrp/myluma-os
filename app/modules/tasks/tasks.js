@@ -39,7 +39,7 @@
           const items = TASKS.filter(t => t.status === col.status).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999')); // soonest due first
           return `<div data-status="${col.status}"><div class="kcol-head"><span class="dot" style="background:${col.dot}"></span><span class="t">${col.name}</span><span class="c">${items.length}</span></div><div class="kcol-body h-list">
             ${items.map(t => `<div class="card kcard" data-id="${t.id}">
-              <div class="kt" style="${t.status === 'done' ? 'text-decoration:line-through;opacity:.55' : ''}">${escapeHtml(t.title)}</div>
+              <div class="kt" style="${t.status === 'done' ? 'opacity:.55' : ''}">${escapeHtml(t.title)}</div>
               ${t.notes ? `<div class="knote"><i class="fa-regular fa-note-sticky"></i>${escapeHtml(t.notes)}</div>` : ''}
               <div class="kmeta"><span class="pill pill-${t.priority}">${t.priority === 'high' ? 'High' : t.priority === 'med' ? 'Medium' : 'Low'}</span><span>${escapeHtml(t.tag)}</span>${t.repeat && t.repeat !== 'none' ? `<span class="t-badge" title="Repeats ${t.repeat}"><i class="fa-solid fa-repeat"></i> ${(T_REPEAT.find(r => r[0] === t.repeat) || [])[1] || ''}</span>` : ''}${Array.isArray(t.checklist) && t.checklist.length ? `<span class="t-badge ${t.checklist.every(x => x.d) ? 'ok' : ''}" title="Checklist"><i class="fa-regular fa-square-check"></i> ${t.checklist.filter(x => x.d).length}/${t.checklist.length}</span>` : ''}
                 <span class="t-status" title="Change status"><span class="d" style="background:${col.dot}"></span>${col.name}<i class="fa-solid fa-chevron-down" style="font-size:0.5rem"></i></span>

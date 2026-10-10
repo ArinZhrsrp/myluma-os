@@ -17,7 +17,7 @@
         <div id="docQueue"></div>
       </div>
       <div class="pem-field" id="docNameField"><label>Name <span style="color:#fca5a5">*</span></label><input
-          id="docName" type="text" placeholder="Document name" autocomplete="off"></div>
+          id="docName" type="text" maxlength="120" placeholder="Document name" autocomplete="off"></div>
       <div class="pem-field" style="margin-bottom:0"><label>Category <span
             style="color:rgba(255,255,255,0.35);font-weight:400">(optional)</span></label><select
           id="docCategory"></select></div>
@@ -75,7 +75,7 @@
       <div class="pem-msg error" id="catError"></div>
       <div id="catList" style="max-height:320px;overflow-y:auto"></div>
       <div class="cat-row" style="margin-top:10px"><button type="button" class="color-dot" id="catNewColor"
-          title="Pick a colour (random if you skip)"></button><input id="catNew" placeholder="New top-level category"
+          title="Pick a colour (random if you skip)"></button><input id="catNew" maxlength="60" placeholder="New top-level category"
           autocomplete="off"><button class="confirm-btn save" id="catAdd"
           style="flex:none;padding:0 16px;height:38px">Add</button></div>
       <div class="pem-hint">Rename by editing, move with the dropdown, or use + to nest a subcategory. Deleting one

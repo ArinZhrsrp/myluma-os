@@ -6,7 +6,7 @@
 
     MODULES.studyarchive = function () {
       SA.sem = null; SA.tab = 'subjects'; SA.other = null; SA.q = ''; // opening the archive from the menu starts on the list of semesters
-      return head('Study archive', '<span id="saSub">Loading…</span>', `<div class="sa-search"><i class="fa-solid fa-magnifying-glass"></i><input id="saSearch" type="text" placeholder="Search the archive…" autocomplete="off" value="${escapeHtml(SA.q)}"></div><div id="saBack" style="display:none"><button type="button" class="create-btn" id="saBackBtn"><i class="fa-solid fa-arrow-left"></i> All semesters</button></div>`) + '<div id="saRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+      return head('Study archive', '<span id="saSub">Loading…</span>', `<div class="sa-search"><i class="fa-solid fa-magnifying-glass"></i><input id="saSearch" type="text" placeholder="Search the archive…" autocomplete="off" value="${escapeHtml(SA.q)}"></div><div id="saBack" style="display:none"><button type="button" class="create-btn" id="saBackBtn"><i class="fa-solid fa-arrow-left"></i> All semesters</button></div>`) + '<div id="saRoot"><div class="lu-empty">Loading…</div></div>';
     };
     // the subjects shown for the archived semester being looked at
     const saCourses = () => SA.sem === '__none' ? SD.courses.filter(c => c.archived && !(c.semester_id && sdSem(c.semester_id) && sdSem(c.semester_id).archived_at)) : SD.courses.filter(c => c.semester_id === SA.sem);
@@ -30,14 +30,14 @@
     function saPaint() {
       const root = document.getElementById('saRoot'), sub = document.getElementById('saSub'); if (!root) return;
       const back = document.getElementById('saBack'); back.style.display = SA.sem ? '' : 'none';
-      if (SD.err) { sub.textContent = 'Could not load'; root.innerHTML = card(`<div class="ls">Could not load your study data: ${escapeHtml(SD.err)}</div>`); return; }
+      if (SD.err) { sub.textContent = 'Could not load'; root.innerHTML = card(`<div class="lu-empty">Could not load your study data: ${escapeHtml(SD.err)}</div>`); return; }
       const sems = SD.semesters.filter(x => x.archived_at).sort((a, b) => b.end_date.localeCompare(a.end_date));
       const loose = SD.courses.filter(c => c.archived && !(c.semester_id && sdSem(c.semester_id) && sdSem(c.semester_id).archived_at));
       if (SA.sem && SA.sem !== '__none' && !sdSem(SA.sem)) SA.sem = null;
       if (!SA.sem && SA.q.trim()) {
         const res = saResults(SA.q.trim()); sub.textContent = `${res.length} result${res.length === 1 ? '' : 's'} in the archive`;
         const by = {}; res.forEach(r => { (by[r.sem] = by[r.sem] || { label: r.label, rows: [] }).rows.push(r); });
-        root.innerHTML = res.length ? Object.keys(by).map(k => card(`<div class="section-title"><i class="fa-solid fa-box-archive"></i> ${escapeHtml(by[k].label)} <span class="sd-count">${by[k].rows.length}</span></div>${by[k].rows.map(r => `<div class="sd-row" data-sr data-sem="${k}" data-tab="${r.tab}"><i class="fa-solid ${r.icon}" style="color:#34d399;width:22px;text-align:center"></i><div class="sd-rb"><div class="sd-rt">${escapeHtml(r.title)}</div><div class="sd-rm">${escapeHtml(r.sub)}</div></div><i class="fa-solid fa-chevron-right" style="color:rgba(255,255,255,0.4);font-size:0.7rem"></i></div>`).join('')}`)).join('') : card(`<div class="ls" style="padding:8px 2px">Nothing in the archive matches “${escapeHtml(SA.q.trim())}”.</div>`);
+        root.innerHTML = res.length ? Object.keys(by).map(k => card(`<div class="section-title"><i class="fa-solid fa-box-archive"></i> ${escapeHtml(by[k].label)} <span class="sd-count">${by[k].rows.length}</span></div>${by[k].rows.map(r => `<div class="sd-row" data-sr data-sem="${k}" data-tab="${r.tab}"><i class="fa-solid ${r.icon}" style="color:#34d399;width:22px;text-align:center"></i><div class="sd-rb"><div class="sd-rt">${escapeHtml(r.title)}</div><div class="sd-rm">${escapeHtml(r.sub)}</div></div><i class="fa-solid fa-chevron-right" style="color:rgba(255,255,255,0.4);font-size:0.7rem"></i></div>`).join('')}`)).join('') : card(`<div class="lu-empty">Nothing in the archive matches “${escapeHtml(SA.q.trim())}”.</div>`);
         return;
       }
       if (!SA.sem) {
@@ -54,22 +54,22 @@
       const tasks = SD.tasks.filter(t => ids.includes(t.course_id)), classes = SD.classes.filter(k => ids.includes(k.course_id));
       const tiles = `<div class="sd-tiles"><div class="sd-tile" style="--c:#34d399"><i class="fa-solid fa-award"></i><div><b>${g ? g.gpa.toFixed(2) : '—'}</b><span>GPA</span></div></div><div class="sd-tile" style="--c:#60a5fa"><i class="fa-solid fa-book"></i><div><b>${courses.length}</b><span>Subjects</span></div></div><div class="sd-tile" style="--c:#a78bfa"><i class="fa-solid fa-list-check"></i><div><b>${tasks.filter(t => t.status === 'done').length}/${tasks.length}</b><span>Assignments done</span></div></div><div class="sd-tile" style="--c:#fbbf24"><i class="fa-solid fa-layer-group"></i><div><b>${g ? g.credits : 0}</b><span>Credit hours</span></div></div></div>`;
       const tabs = `<div class="sd-tabs sa-tabs">${SA_TABS.map(([k, n, i]) => `<button type="button" data-sa-tab="${k}" class="${SA.tab === k ? 'on' : ''}"><i class="fa-solid ${i}"></i><span>${n}</span></button>`).join('')}<button type="button" class="sa-restore" data-sa-restore><i class="fa-solid fa-rotate-left"></i><span>Restore</span></button><button type="button" class="sa-delete" data-sa-delete title="Delete for good"><i class="fa-regular fa-trash-can"></i><span>Delete permanently</span></button></div>`;
-      const remark = sem ? `<div class="sa-remark"><i class="fa-regular fa-comment-dots"></i><div><b>Your remark</b><p>${sem.remark ? escapeHtml(sem.remark) : '<span class="ls">No remark yet.</span>'}</p></div><button type="button" class="np-btn" data-sa-remark>${sem.remark ? 'Edit' : 'Add'} remark</button></div>` : '';
+      const remark = sem ? `<div class="sa-remark"><i class="fa-regular fa-comment-dots"></i><div><b>Your remark</b><p>${sem.remark ? escapeHtml(sem.remark) : '<span class="lu-empty">No remark yet.</span>'}</p></div><button type="button" class="np-btn" data-sa-remark>${sem.remark ? 'Edit' : 'Add'} remark</button></div>` : '';
       let body = '';
-      if (SA.tab === 'subjects') body = courses.length ? `<div class="grid-2">${courses.map(sdCourseCard).join('')}</div>` : '<div class="ls" style="padding:8px 2px">No subjects.</div>';
+      if (SA.tab === 'subjects') body = courses.length ? `<div class="grid-2">${courses.map(sdCourseCard).join('')}</div>` : '<div class="lu-empty">No subjects.</div>';
       else if (SA.tab === 'timetable') {
-        body = classes.length ? `<div class="sd-week">${SD_DAYS.map(([d, n]) => { const list = classes.filter(k => k.weekday === d).sort((a, b) => sdHM(a.start_time).localeCompare(sdHM(b.start_time))); return `<div class="sd-day"><div class="sd-dh"><span>${n}</span></div>${list.length ? list.map(sdClassCard).join('') : '<div class="sd-free">Free</div>'}</div>`; }).join('')}</div>` : '<div class="ls" style="padding:8px 2px">No classes were on the timetable.</div>';
+        body = classes.length ? `<div class="sd-week">${SD_DAYS.map(([d, n]) => { const list = classes.filter(k => k.weekday === d).sort((a, b) => sdHM(a.start_time).localeCompare(sdHM(b.start_time))); return `<div class="sd-day"><div class="sd-dh"><span>${n}</span></div>${list.length ? list.map(sdClassCard).join('') : '<div class="sd-free">Free</div>'}</div>`; }).join('')}</div>` : '<div class="lu-empty">No classes were on the timetable.</div>';
         const brks = sem ? SD.breaks.filter(b => b.end_date >= sem.start_date && b.start_date <= sem.end_date) : [];
         if (brks.length) body += `<div class="sd-endednote ls">Breaks in this semester: ${brks.map(b => `${escapeHtml(b.name)} (${sdShort(b.start_date)}${b.end_date !== b.start_date ? ' to ' + sdShort(b.end_date) : ''})`).join(', ')}</div>`;
       } else if (SA.tab === 'assignments') {
-        body = tasks.length ? courses.map(c => { const list = tasks.filter(t => t.course_id === c.id).sort((a, b) => (b.due_date || '').localeCompare(a.due_date || '')); return list.length ? card(`<div class="section-title"><span class="sc-dot" style="--c:${c.color};background:${c.color};width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px"></span>${escapeHtml(c.name)} <span class="sd-count">${list.length}</span></div>${list.map(sdRow).join('')}`) : ''; }).join('') + (tasks.some(t => !t.course_id) ? '' : '') : '<div class="ls" style="padding:8px 2px">No assignments.</div>';
+        body = tasks.length ? courses.map(c => { const list = tasks.filter(t => t.course_id === c.id).sort((a, b) => (b.due_date || '').localeCompare(a.due_date || '')); return list.length ? card(`<div class="section-title"><span class="sc-dot" style="--c:${c.color};background:${c.color};width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px"></span>${escapeHtml(c.name)} <span class="sd-count">${list.length}</span></div>${list.map(sdRow).join('')}`) : ''; }).join('') + (tasks.some(t => !t.course_id) ? '' : '') : '<div class="lu-empty">No assignments.</div>';
       } else if (SA.tab === 'notes') {
-        body = SDN.loaded ? sdArchiveNotes(ids) : '<div class="ls" style="padding:8px 2px">Loading…</div>';
+        body = SDN.loaded ? sdArchiveNotes(ids) : '<div class="lu-empty">Loading…</div>';
       } else if (SA.tab === 'groups') {
         const gl = sem ? SDG.list.filter(p => p.semester_id === sem.id) : [];
-        body = !SDG.loaded ? '<div class="ls" style="padding:8px 2px">Loading…</div>' : gl.length ? `<div class="grid-2">${gl.map(p => `<div class="card sd-proj" data-proj="${p.id}"><div class="sp-h"><b>${escapeHtml(p.title)}</b>${p.course_name ? `<span class="sd-cc"><i></i>${escapeHtml(p.course_name)}</span>` : ''}</div><div class="sp-m"><span><i class="fa-solid fa-user-group"></i> ${p.members}</span><span>${p.tasks_done} of ${p.tasks_total} tasks done</span>${p.due_date ? `<span><i class="fa-regular fa-calendar"></i> ${sdShort(p.due_date)}</span>` : ''}</div></div>`).join('')}</div>` : '<div class="ls" style="padding:8px 2px">No group projects were made in this semester.</div>';
+        body = !SDG.loaded ? '<div class="lu-empty">Loading…</div>' : gl.length ? `<div class="grid-2">${gl.map(p => `<div class="card sd-proj" data-proj="${p.id}"><div class="sp-h"><b>${escapeHtml(p.title)}</b>${p.course_name ? `<span class="sd-cc"><i></i>${escapeHtml(p.course_name)}</span>` : ''}</div><div class="sp-m"><span><i class="fa-solid fa-user-group"></i> ${p.members}</span><span>${p.tasks_done} of ${p.tasks_total} tasks done</span>${p.due_date ? `<span><i class="fa-regular fa-calendar"></i> ${sdShort(p.due_date)}</span>` : ''}</div></div>`).join('')}</div>` : '<div class="lu-empty">No group projects were made in this semester.</div>';
       } else {
-        body = !sem ? '<div class="ls" style="padding:8px 2px">Nothing here.</div>' : (SA.other && SA.other.semId === sem.id) ? saOtherHtml(SA.other.data) : '<div class="ls" style="padding:8px 2px">Loading…</div>';
+        body = !sem ? '<div class="lu-empty">Nothing here.</div>' : (SA.other && SA.other.semId === sem.id) ? saOtherHtml(SA.other.data) : '<div class="lu-empty">Loading…</div>';
       }
       root.innerHTML = remark + tiles + tabs + body;
     }
@@ -91,11 +91,11 @@
         + sec('Tasks', 'fa-square-check', d.tasks, t => row(t.title, (t.status === 'done' ? 'Done' : 'Open') + (t.due_date ? ' · due ' + sdShort(t.due_date) : '')))
         + sec('Notes', 'fa-note-sticky', d.notes, n => row(n.title, ''))
         + sec('Documents', 'fa-file', d.documents, x => row(x.name, ''));
-      return html || '<div class="ls" style="padding:8px 2px">Nothing else was added in this semester.</div>';
+      return html || '<div class="lu-empty">Nothing else was added in this semester.</div>';
     }
     function sdArchiveNotes(ids) {
       const list = SDN.notes.filter(n => ids.includes(n.course_id));
-      return list.length ? `<div class="grid-2">${list.map(n => `<div class="card sd-note" data-sa-note="${n.id}"><div class="sn-h"><b>${escapeHtml(n.title)}</b>${sdCC(sdCourse(n.course_id))}</div><p>${escapeHtml(sdSnippet(n.body)) || '<span class="ls">Empty note</span>'}</p><small>Updated ${sdShort(mytDayKey(n.updated_at))}</small></div>`).join('')}</div>` : '<div class="ls" style="padding:8px 2px">No notes for these subjects.</div>';
+      return list.length ? `<div class="grid-2">${list.map(n => `<div class="card sd-note" data-sa-note="${n.id}"><div class="sn-h"><b>${escapeHtml(n.title)}</b>${sdCC(sdCourse(n.course_id))}</div><p>${escapeHtml(sdSnippet(n.body)) || '<span class="ls">Empty note</span>'}</p><small>Updated ${sdShort(mytDayKey(n.updated_at))}</small></div>`).join('')}</div>` : '<div class="lu-empty">No notes for these subjects.</div>';
     }
     // delete for good: a semester with everything in it (or the subjects archived on their own). Two steps, because it cannot be undone.
     async function saDeleteForever() {

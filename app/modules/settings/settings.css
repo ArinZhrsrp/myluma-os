@@ -149,3 +149,9 @@
     .pc-gift .pc-name em { text-transform:none; letter-spacing:0; background:none; padding:0; border-radius:0; color:rgba(255,255,255,0.75); }
 
 .pc-btns { display:flex; flex-direction:column; gap:6px; align-items:stretch; } .pc-btns .np-btn { white-space:nowrap; }
+
+/* the "How easily a day counts as busy" dropdown: our own arrow, with room to its right (the browser's arrow touches the edge) */
+#busyLevel { -webkit-appearance: none; appearance: none; height: 40px; padding: 0 42px 0 16px; border-radius: 12px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffffcc' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 18px center; background-size: 14px; }
+#busyLevel option { color: #111; }

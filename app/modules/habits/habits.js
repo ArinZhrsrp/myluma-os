@@ -96,12 +96,13 @@
 
     function paintDashHabits() {
       const box = document.getElementById('dashHabits'); if (!box) return;
-      if (HABITS_ERR) { box.innerHTML = '<div class="wgt-sub">Habits aren\'t set up yet.</div>'; return; }
+      if (HABITS_ERR) { box.innerHTML = '<div class="wgt-sub lu-empty">Habits aren\'t set up yet.</div>'; return; }
       const today = hToday();
-      const top = HABITS.map(h => ({ h, n: hRuns(h, today).cur })).sort((a, b) => b.n - a.n).slice(0, 3);
-      if (!top.length) { box.innerHTML = '<div class="wgt-sub">No habits yet — add one on the Habits page.</div>'; return; }
-      box.innerHTML = top.map(({ h, n }) => `<div style="display:flex;align-items:center;gap:12px;"><div class="licon" style="width:34px;height:34px;color:${h.color};background:${h.color}22;"><i class="fa-solid ${h.icon}"></i></div><div style="flex:1;min-width:0;"><div class="wgt-it">${escapeHtml(h.name)}</div><div style="display:flex;gap:4px;margin-top:5px;">${hPeriods(h, today, 7).map(pk => `<span title="${hPeriodLabel(h, pk)}" style="width:11px;height:11px;border-radius:3px;background:${hPeriodDone(h, pk, today) ? h.color : 'rgba(255,255,255,0.08)'};"></span>`).join('')
+      const top = HABITS.map(h => ({ h, n: hRuns(h, today).cur })).sort((a, b) => b.n - a.n).slice(0, 12);
+      if (!top.length) { box.innerHTML = '<div class="wgt-sub lu-empty">No habits yet — add one on the Habits page.</div>'; return; }
+      box.innerHTML = top.map(({ h, n }) => `<div style="display:flex;align-items:center;gap:12px;"><div class="licon" style="width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:11px;font-size:0.95rem;color:${h.color};background:${h.color}22;"><i class="fa-solid ${h.icon}"></i></div><div style="flex:1;min-width:0;"><div class="wgt-it">${escapeHtml(h.name)}</div><div style="display:flex;gap:4px;margin-top:5px;">${hPeriods(h, today, 7).map(pk => `<span title="${hPeriodLabel(h, pk)}" style="width:11px;height:11px;border-radius:3px;background:${hPeriodDone(h, pk, today) ? h.color : 'rgba(255,255,255,0.08)'};"></span>`).join('')
         }</div></div><span style="color:#fb923c;font-size:0.82rem;font-weight:600;font-variant-numeric:tabular-nums;"><i class="fa-solid fa-fire" style="font-size:0.72rem;"></i> ${n}</span></div>`).join('');
+      if (typeof dashFade === 'function') dashFade(box);
     }
 
     function paintHabitsPage() {
@@ -344,7 +345,7 @@
       docEl('goneList').innerHTML = list.length ? list.map(h => {
         const n = [...(HLOGS.get(h.id) || new Map()).keys()].filter(k => hLogged(h, k)).length;
         return `<div class="hrow" data-id="${h.id}"><div class="licon" style="color:${h.color};background:${h.color}22"><i class="fa-solid ${h.icon}"></i></div><div style="flex:1;min-width:0"><div class="lt">${escapeHtml(h.name)}</div><div class="ls">Deleted ${hKeyLabel(mytDayKey(h.updated_at))} · done ${n} day${n === 1 ? '' : 's'}</div></div><button type="button" class="np-btn gone-restore">Restore</button></div>`;
-      }).join('') : '<div class="ls" style="text-align:center;padding:26px 0">No deleted habits.</div>';
+      }).join('') : '<div class="lu-empty">No deleted habits.</div>';
     }
     function openGone() { goneErr(''); paintGone(); docEl('goneOverlay').classList.add('open'); }
     const closeGone = () => docEl('goneOverlay').classList.remove('open');

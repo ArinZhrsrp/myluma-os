@@ -11,8 +11,10 @@
     //  Rows are created by database triggers (migration 008).
     // =====================================================
     let NOTIFS = [], notifChannel = null, notifFilter = 'all';
+    // the server is asked for 50 at a time; the rest load as the person scrolls the full list. The totals come from count queries, not from the loaded rows.
+    let notifCount = null, notifMore = false, notifBusy = false, notifLoadErr = false, notifIO = null, notifRecountT = null;
     const NOTIF_ICONS = {
-      gift: ['fa-gift', '#34d399'], busy_day: ['fa-fire', '#fb923c'], work_team: ['fa-people-group', '#fb923c'], work_invite: ['fa-briefcase', '#fb923c'], work_reply: ['fa-briefcase', '#fb923c'], work_task: ['fa-list-check', '#fb923c'], work_comment: ['fa-comment', '#fb923c'], work_mention: ['fa-at', '#fb923c'], work_budget: ['fa-stopwatch', '#f87171'], feedback: ['fa-lightbulb', '#fbbf24'], feedback_reply: ['fa-lightbulb', '#34d399'], reminder_work: ['fa-list-check', '#fb923c'], split: ['fa-receipt', '#a78bfa'], split_nudge: ['fa-bell', '#f59e0b'],
+      gift: ['fa-gift', '#34d399'], busy_day: ['fa-fire', '#fb923c'], birthday: ['fa-cake-candles', '#f472b6'], admin_birthday: ['fa-cake-candles', '#f472b6'], work_team: ['fa-people-group', '#fb923c'], work_invite: ['fa-briefcase', '#fb923c'], work_reply: ['fa-briefcase', '#fb923c'], work_task: ['fa-list-check', '#fb923c'], work_comment: ['fa-comment', '#fb923c'], work_mention: ['fa-at', '#fb923c'], work_budget: ['fa-stopwatch', '#f87171'], feedback: ['fa-lightbulb', '#fbbf24'], feedback_reply: ['fa-lightbulb', '#34d399'], reminder_work: ['fa-list-check', '#fb923c'], split: ['fa-receipt', '#a78bfa'], split_nudge: ['fa-bell', '#f59e0b'],
       welcome: ['fa-circle-check', '#22c55e'], share: ['fa-share-nodes', '#38bdf8'],
       contact_request: ['fa-user-plus', '#f59e0b'], nudge: ['fa-bell', '#f59e0b'], message: ['fa-comment', '#3b82f6'], reminder_water: ['fa-droplet', '#38bdf8'], reminder_steps: ['fa-shoe-prints', '#34d399'], reminder_active: ['fa-fire', '#fb923c'], reminder_habit: ['fa-bell', '#fb923c'], reminder_subscription: ['fa-repeat', '#f472b6'], reminder_sleep: ['fa-moon', '#a78bfa'], reminder_task: ['fa-list-check', '#60a5fa'], reminder_custom: ['fa-bell-concierge', '#f59e0b'], weekly_review: ['fa-chart-line', '#60a5fa'], reminder_bill: ['fa-file-invoice-dollar', '#fbbf24'], reminder_event: ['fa-calendar', '#8b5cf6'], reminder_goal: ['fa-bullseye', '#34d399'], reminder_study: ['fa-graduation-cap', '#34d399'], event_invite: ['fa-user-group', '#a78bfa'], reminder_class: ['fa-chalkboard-user', '#34d399'], note_share: ['fa-note-sticky', '#fbbf24'], project_invite: ['fa-people-group', '#a78bfa'], project_reply: ['fa-user-check', '#22c55e'], project_task: ['fa-thumbtack', '#60a5fa'], project_comment: ['fa-comments', '#60a5fa'], reminder_project: ['fa-people-group', '#34d399'], event_invite_reply: ['fa-user-check', '#22c55e'], budget_warn: ['fa-wallet', '#fbbf24'], budget_over: ['fa-triangle-exclamation', '#f87171'], contact_accepted: ['fa-user-check', '#22c55e'], system: ['fa-bell', '#94a3b8'],
     };
@@ -25,7 +27,12 @@
       if (k === mytDayKey(Date.now() - 86400000)) return 'Yesterday';
       return new Intl.DateTimeFormat('en-GB', { timeZone: MYT, day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso));
     }
-    const notifUnread = () => NOTIFS.filter(n => !n.read_at).length;
+    const notifUnread = () => notifCount ? notifCount.unread : NOTIFS.filter(n => !n.read_at).length;
+    const notifTotal = () => notifCount ? notifCount.total : NOTIFS.length;
+    function notifRecount(now) { // refresh the two totals (soon, so a burst of changes makes one request)
+      clearTimeout(notifRecountT);
+      notifRecountT = setTimeout(async () => { const c = await LumaNotifications.counts(); if (c) { notifCount = c; paintBadge(); renderNotifPanel(); const s = document.getElementById('notifSub'); if (s) renderNotifPage(true); } }, now ? 0 : 350);
+    }
 
     function notifItemHtml(n, withDelete) {
       const [icon, col] = NOTIF_ICONS[n.type] || NOTIF_ICONS.system;
@@ -43,33 +50,49 @@
     }
     function renderNotifPanel() {
       const list = document.getElementById('npList'); if (!list) return;
-      const today = NOTIFS.filter(isToday), unread = notifUnread(), olderUnread = NOTIFS.filter(n => !n.read_at && !isToday(n)).length;
+      const today = NOTIFS.filter(isToday), unread = notifUnread(), olderUnread = Math.max(0, unread - NOTIFS.filter(n => !n.read_at && isToday(n)).length);
       document.getElementById('npSub').textContent = unread ? `${unread} unread` : 'You\'re all caught up';
       document.getElementById('npMarkAll').disabled = !unread;
       list.innerHTML = today.length ? today.map(n => notifItemHtml(n, false)).join('') : '<div class="np-empty"><i class="fa-regular fa-bell-slash"></i>No notifications today</div>';
       document.getElementById('npOlder').textContent = olderUnread ? `${olderUnread} earlier unread` : '';
     }
-    function renderNotifPage() {
+    function renderNotifPage(keepScroll) {
       const list = document.getElementById('notifList'); if (!list) return;
       const unread = notifUnread();
-      document.getElementById('notifSub').textContent = `${NOTIFS.length} notification${NOTIFS.length === 1 ? '' : 's'} · ${unread} unread`;
+      document.getElementById('notifSub').textContent = `${notifTotal()} notification${notifTotal() === 1 ? '' : 's'} · ${unread} unread`;
       document.getElementById('notifReadAll').disabled = !unread;
       document.getElementById('notifFilters').innerHTML = [['all', 'All'], ['unread', `Unread${unread ? ' (' + unread + ')' : ''}`]].map(([k, l]) =>
         `<span class="suggestion-badge notif-filter" data-k="${k}" style="${k === notifFilter ? 'background:rgba(59,130,246,0.14);color:#93c5fd;border-color:rgba(59,130,246,0.3)' : ''};font-size:0.7rem;padding:0.35rem 0.9rem;cursor:pointer">${l}</span>`).join('');
       const shown = NOTIFS.filter(n => notifFilter === 'all' || !n.read_at);
       let html = '', last = '';
       shown.forEach(n => { const g = notifDayLabel(n.created_at); if (g !== last) { html += `<div class="notif-group">${g}</div>`; last = g; } html += notifItemHtml(n, true); });
-      list.innerHTML = html || `<div class="ls" style="padding:10px 2px">${notifFilter === 'unread' ? 'No unread notifications.' : 'No notifications yet.'}</div>`;
+      if (notifMore) html += notifLoadErr ? '<div class="lu-empty notif-more"><button type="button" class="np-btn" id="notifMoreBtn">Could not load more. Try again</button></div>' : '<div class="lu-empty notif-more" id="notifMore">Loading more…</div>';
+      list.innerHTML = html || `<div class="lu-empty">${notifFilter === 'unread' ? 'No unread notifications.' : 'No notifications yet.'}</div>`;
+      const s = document.getElementById('notifMore');
+      if (s && 'IntersectionObserver' in window) { if (!notifIO) notifIO = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) notifLoadMore(); }, { rootMargin: '300px' }); notifIO.disconnect(); notifIO.observe(s); }
     }
     function refreshNotifUI() { paintBadge(); renderNotifPanel(); renderNotifPage(); }
 
     async function loadNotifications() {
       const { data, error } = await LumaNotifications.list();
       if (error) { console.info('LUMA: notifications not available yet (run supabase/migrations/008_notifications.sql):', error.message); return; }
-      NOTIFS = data; refreshNotifUI();
+      NOTIFS = data; notifMore = data.length >= LumaNotifications.PAGE; notifLoadErr = false; refreshNotifUI();
+      const c = await LumaNotifications.counts(); if (c) { notifCount = c; refreshNotifUI(); }
+    }
+    // the next 50, older than the last one on screen (called when the end of the list scrolls into view)
+    async function notifLoadMore() {
+      if (notifBusy || !notifMore || notifLoadErr || !NOTIFS.length) return;
+      notifBusy = true;
+      try {
+        const before = NOTIFS[NOTIFS.length - 1].created_at, have = new Set(NOTIFS.map(n => n.id));
+        let r = await LumaNotifications.list(LumaNotifications.PAGE, before), fresh = r.error ? [] : r.data.filter(n => !have.has(n.id));
+        if (!r.error && !fresh.length && r.data.length >= LumaNotifications.PAGE) { r = await LumaNotifications.list(LumaNotifications.PAGE, before, true); fresh = r.error ? [] : r.data.filter(n => !have.has(n.id)); } // a whole page with the same time: step past it
+        if (r.error) notifLoadErr = true; else { NOTIFS = NOTIFS.concat(fresh); notifMore = r.data.length >= LumaNotifications.PAGE && fresh.length > 0; }
+      } finally { notifBusy = false; }
+      renderNotifPage();
     }
     async function openNotif(n) {
-      if (!n.read_at) { n.read_at = new Date().toISOString(); refreshNotifUI(); LumaNotifications.markRead(n.id); }
+      if (!n.read_at) { n.read_at = new Date().toISOString(); if (notifCount) notifCount.unread = Math.max(0, notifCount.unread - 1); refreshNotifUI(); LumaNotifications.markRead(n.id); }
       closeNotifPanel();
       if ((n.type === 'nudge' || n.type === 'message') && n.ref) pendingChatOpen = n.ref; // opens that chat once Contacts has loaded
       let target = (n.type === 'nudge' || n.type === 'message') ? null : n.ref;
@@ -80,11 +103,11 @@
     function markChatNotifsRead(contactId) {
       const now = new Date().toISOString(); let any = false;
       NOTIFS.forEach(n => { if (!n.read_at && n.ref === contactId && (n.type === 'message' || n.type === 'nudge')) { n.read_at = now; any = true; } });
-      if (any) { refreshNotifUI(); LumaNotifications.markContactRead(contactId); }
+      if (any) { refreshNotifUI(); notifRecount(); LumaNotifications.markContactRead(contactId).then(() => notifRecount()); }
     }
     async function markAllNotifsRead() {
       const now = new Date().toISOString();
-      NOTIFS.forEach(n => { if (!n.read_at) n.read_at = now; }); refreshNotifUI();
+      NOTIFS.forEach(n => { if (!n.read_at) n.read_at = now; }); if (notifCount) notifCount.unread = 0; refreshNotifUI();
       const { error } = await LumaNotifications.markAllRead();
       if (error) { luAlert('Could not mark as read: ' + error.message); loadNotifications(); }
     }
@@ -144,7 +167,7 @@
         }
         else if (type === 'UPDATE') { const i = NOTIFS.findIndex(n => n.id === row.id); if (i >= 0) NOTIFS[i] = { ...NOTIFS[i], ...row }; }
         else if (type === 'DELETE') NOTIFS = NOTIFS.filter(n => n.id !== row.id);
-        refreshNotifUI();
+        refreshNotifUI(); notifRecount();
       });
       // realtime can miss events while a tab sleeps — resync when it wakes
       document.addEventListener('visibilitychange', () => { if (!document.hidden) loadNotifications(); });
@@ -157,11 +180,12 @@
         pg.querySelector('#notifReadAll').onclick = markAllNotifsRead;
         pg.querySelector('#notifFilters').onclick = e => { const f = e.target.closest('.notif-filter'); if (f) { notifFilter = f.dataset.k; renderNotifPage(); } };
         pg.querySelector('#notifList').onclick = async e => {
+          if (e.target.closest('#notifMoreBtn')) { notifLoadErr = false; return notifLoadMore(); }
           const el = e.target.closest('.notif-item'); const n = el && NOTIFS.find(x => x.id === el.dataset.id); if (!n) return;
           if (e.target.closest('.ni-del')) {
             const { error } = await LumaNotifications.remove(n.id);
             if (error) return luAlert('Could not delete: ' + error.message);
-            NOTIFS = NOTIFS.filter(x => x !== n); return refreshNotifUI();
+            NOTIFS = NOTIFS.filter(x => x !== n); if (notifCount) { notifCount.total = Math.max(0, notifCount.total - 1); if (!n.read_at) notifCount.unread = Math.max(0, notifCount.unread - 1); } return refreshNotifUI();
           }
           openNotif(n);
         };

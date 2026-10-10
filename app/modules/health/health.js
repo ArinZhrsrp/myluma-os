@@ -145,7 +145,7 @@
           return `<div class="lrow h-row" data-date="${l.log_date}"><div class="licon" style="color:${l.mood ? MOOD_COL[l.mood - 1] : 'rgba(255,255,255,0.4)'}"><i class="fa-solid ${l.mood ? MOOD_ICO[l.mood - 1] : 'fa-notes-medical'}"></i></div>
             <div class="lmain"><div class="lt">${fmtKey(l.log_date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}${l.log_date === today() ? ' · Today' : ''}</div><div class="ls">${escapeHtml(bits.join(' · ') || 'Mood only')}${l.note ? ' — ' + escapeHtml(l.note.length > 70 ? l.note.slice(0, 70) + '…' : l.note) : ''}</div><div class="ls" style="opacity:.75"><i class="fa-regular fa-clock"></i> Last updated ${mytDateTime(l.updated_at)}</div></div>
             <div class="h-act"><i class="fa-solid fa-pen h-edit" title="Edit"></i><i class="fa-regular fa-trash-can h-del" title="Delete"></i></div></div>`;
-        }).join('') : '<div class="ls" style="padding:6px 2px">No entries yet — hit Log entry to add your first day.</div>'));
+        }).join('') : '<div class="lu-empty">No entries yet — hit Log entry to add your first day.</div>'));
       };
 
       // live range checking: a wrong value gets a red border and a short reason, and blocks Save

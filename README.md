@@ -290,21 +290,20 @@ Two Supabase projects, two websites, three git branches, one codebase:
 
 | Branch | Purpose | Website | Supabase |
 |---|---|---|---|
-| `staging` | where every change is built and tried first | the staging site (`myluma-os-staging.vercel.app`) | the **staging** project (test accounts) |
-| `main` | approved code, the source of truth (nothing deploys from it to users) | preview link only | none |
-| `production` | exactly what real users get | `myluma-os.vercel.app` | the **production** project |
+| `development` | where every change is built and tried first, on the developer's computer; never shown to anyone | a Vercel preview link only | none: **never run a development migration on the staging database before the code is merged to `staging`** |
+| `staging` | what the testers use; changes only when `development` is merged into it | the staging site (`myluma-os-staging.vercel.app`) | the **staging** project (test accounts) |
+| `main` | **the live site**: Vercel's Production Branch is `main`, so every push to `main` is published to real users | `myluma-os.vercel.app` | the **production** project |
+
+There is no separate `production` branch: `main` is production. Check it any time in Vercel → Settings → Environments → Production → Branch Tracking (it must say `main`).
 
 `shared/supabase-config.js` picks the Supabase project from the address the site is opened on (`PROD_HOSTS`), so the same code runs in both.
-Staging shows a yellow STAGING tag in the corner.
+Staging shows a yellow STAGING tag in the corner. Git branches do not separate databases: staging and every preview link use the staging database.
 
 **Releasing a change**
-1. `git checkout staging`, make the change, `git push`. Vercel updates the staging site.
-2. Database change? Add a numbered file in `supabase/migrations/` and run it in the **staging** SQL Editor. Function change? `./scripts/deploy-functions.sh staging`.
-3. Test on the staging site with test accounts.
-4. Approved: `git checkout main && git merge staging && git push`.
-5. Release: run the same migration in the **production** SQL Editor, `./scripts/deploy-functions.sh prod`, then
-   `git checkout production && git merge main && git push`. Vercel publishes production.
-6. `python3 scripts/build-all-migrations.py` refreshes `supabase/ALL_MIGRATIONS.sql` (used to set up a brand-new project).
+1. **Develop and test locally.** `git checkout development`, make the change, then run `docs/test-automation/run_all.sh` (it tests the database rules, every page and the phone layouts on your computer, without touching any real database). To look at the screens, serve the folder (`python3 -m http.server 8000`); the local page uses the *staging* database with test accounts, so a feature that needs a new migration cannot be tried on screen until that migration is on staging. Commit and `git push` (only a preview link updates).
+2. **Server test.** Ready for the testers: `git checkout staging && git merge development && git push`. Vercel updates the staging site. Database change? Run the new numbered file from `supabase/migrations/` in the **staging** SQL Editor now, not earlier. Function change? `./scripts/deploy-functions.sh staging`. Test with test accounts.
+3. **Release.** Approved: run the same migrations in the **production** SQL Editor, `./scripts/deploy-functions.sh prod`, then `git checkout main && git merge staging && git push`. Vercel publishes the live site. **Never push to `main` for anything that is not a release.**
+4. `python3 scripts/build-all-migrations.py` refreshes `supabase/ALL_MIGRATIONS.sql` (used to set up a brand-new project).
 
 Each Supabase project has its own settings that you set once: Authentication (confirm email, email template, SMTP, URL Configuration with that environment's address),
 the `luma` schema exposed in the Data API settings, the Edge Function secrets, and the database webhook for push.
@@ -464,3 +463,5 @@ reading its hardcoded mock array to querying Supabase.
   083_work_tiers.sql           Work and Work Pro: the add-on sets the Work limits, not the plan
   084_work_teams.sql           Teams in Work: groups of people you can give a task to
   085_work_team_notify.sql     People are told when they are added to a team
+  086_oauth_names.sql          Names for accounts made with Google or Apple
+  087_birthdays.sql            Birthdays: Admin list, wishes and a 9 am alert, optional birthday on profiles

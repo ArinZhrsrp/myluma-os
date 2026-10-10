@@ -46,7 +46,7 @@
       const note = ends && wkHas() ? ` · ${info.source === 'trial' ? 'free trial' : 'add-on'} until ${new Date(ends - 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}${left !== null && left <= 7 ? ' (' + Math.max(left, 0) + ' day' + (left === 1 ? '' : 's') + ' left)' : ''}` : '';
       if (!wkHas() && WK.tab !== 'projects' && WK.tab !== 'tasks') WK.tab = 'projects';
       return head('Work', `<button type="button" class="wk-co" id="wkCo" style="display:none"></button><span id="wkSub">Loading…</span>${note}`,
-        `<div class="wk-tabs" id="wkTabs">${WK_TABS.filter(t => wkHas() || (t[0] !== 'overview' && t[0] !== 'time' && t[0] !== 'teams')).map(([k, n, i]) => `<button type="button" data-wktab="${k}" class="${WK.tab === k ? 'on' : ''}"><i class="fa-solid ${i}"></i><span>${n}</span></button>`).join('')}</div><button type="button" class="create-btn wk-add" id="wkAdd"><i class="fa-solid fa-plus"></i> <span id="wkAddT">New task</span></button>`) + `<div id="wkRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>`;
+        `<div class="wk-tabs" id="wkTabs">${WK_TABS.filter(t => wkHas() || (t[0] !== 'overview' && t[0] !== 'time' && t[0] !== 'teams')).map(([k, n, i]) => `<button type="button" data-wktab="${k}" class="${WK.tab === k ? 'on' : ''}"><i class="fa-solid ${i}"></i><span>${n}</span></button>`).join('')}</div><button type="button" class="create-btn wk-add" id="wkAdd"><i class="fa-solid fa-plus"></i> <span id="wkAddT">New task</span></button>`) + `<div id="wkRoot"><div class="lu-empty">Loading…</div></div>`;
     };
 
     async function wkLoad() {
@@ -73,7 +73,7 @@
       if (pill) { pill.style.display = wkHas() && co ? '' : 'none'; if (co) { pill.innerHTML = `<i class="fa-regular fa-building"></i> <b>${escapeHtml(co.name)}</b>${co.archived_at ? ' <em>archived</em>' : ''} <i class="fa-solid fa-chevron-right"></i>`; pill.title = 'Change or add a company'; } }
       const addBtn = docEl('wkAdd'), canAdd = wkHas() && !setup && !(co && co.archived_at); addBtn.style.display = canAdd ? '' : 'none';
       docEl('wkAddT').textContent = WK.tab === 'projects' ? 'New project' : WK.tab === 'time' ? 'Log time' : WK.tab === 'teams' ? 'New team' : 'New task';
-      if (!WK.loaded) { root.innerHTML = '<div class="ls" style="padding:10px 2px">Loading…</div>'; return; }
+      if (!WK.loaded) { root.innerHTML = '<div class="lu-empty">Loading…</div>'; return; }
       if (WK.err) { sub.textContent = 'Could not load'; root.innerHTML = card(`<div class="ls">${escapeHtml(wkHint(WK.err))}</div><button type="button" class="np-btn" data-wkretry style="margin-top:10px"><i class="fa-solid fa-rotate"></i> Try again</button>`); return; }
       if (setup) { sub.textContent = 'Set up your company'; root.innerHTML = wkSetup(); return; }
       if (WK.tab === 'time') { sub.textContent = 'Your hours and timesheet'; wkTimePaint(); if (!WKTM.loaded) wkTimeRefresh(); return; }
@@ -119,9 +119,9 @@
       if (!WK.projects.length) return card(`<div class="h-empty"><div class="h-empty-ico" style="--c:#fb923c"><i class="fa-solid fa-briefcase"></i></div><div class="h-empty-t">Start your first project</div><div class="h-empty-s">A project holds the tasks for one piece of work, such as a client job or a launch. Add people from your contacts to share it.</div><div class="h-empty-chips"><button type="button" class="h-chip" data-wk-newproj><i class="fa-solid fa-plus" style="color:#fb923c"></i>New project</button></div></div>`);
       setTimeout(() => luPaintBusy('wkBusy'), 0);
       return `${wkInvites()}<div id="wkBusy" class="wk-busybox" style="display:none"></div><div class="sd-tiles wk-tiles">${tiles}</div><div class="grid-2">
-        ${card(`<div class="section-title"><i class="fa-solid fa-user-check"></i> Assigned to me</div>${mine.length ? mine.slice(0, 8).map(wkRowT).join('') : '<div class="ls" style="padding:6px 2px">Nothing is assigned to you.</div>'}`)}
-        ${card(`<div class="section-title"><i class="fa-solid fa-hourglass-half"></i> Due soon</div>${soon.length ? soon.map(wkRowT).join('') : '<div class="ls" style="padding:6px 2px">Nothing has a due date yet.</div>'}`)}
-        ${card(`<div class="section-title"><i class="fa-solid fa-chart-simple"></i> Project progress</div>${prog || '<div class="ls" style="padding:6px 2px">No active projects.</div>'}`)}</div>`;
+        ${card(`<div class="section-title"><i class="fa-solid fa-user-check"></i> Assigned to me</div>${mine.length ? mine.slice(0, 8).map(wkRowT).join('') : '<div class="lu-empty">Nothing is assigned to you.</div>'}`)}
+        ${card(`<div class="section-title"><i class="fa-solid fa-hourglass-half"></i> Due soon</div>${soon.length ? soon.map(wkRowT).join('') : '<div class="lu-empty">Nothing has a due date yet.</div>'}`)}
+        ${card(`<div class="section-title"><i class="fa-solid fa-chart-simple"></i> Project progress</div>${prog || '<div class="lu-empty">No active projects.</div>'}`)}</div>`;
     }
     // invitations waiting for an answer
     function wkInvites() {
@@ -140,7 +140,7 @@
       const guestNote = !wkHas() ? `<div class="wk-lock"><i class="fa-solid fa-lock"></i><div><b>You are viewing projects other people shared with you</b><span>Work lets you create your own projects, add and change tasks, and invite people. Without it you can look at the projects you were added to.</span></div><button type="button" class="create-btn" data-wk-get>Get Work</button></div>` : '';
       const ownHtml = wkHas() ? (own.length ? `<div class="grid-2">${own.map(p => wkProjCard(p, false)).join('')}</div>` : card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-folder-open"></i></div><div class="h-empty-t">No projects yet</div><div class="h-empty-s">Create one for each client job or piece of work, then add tasks and invite your team.</div><div class="h-empty-chips"><button type="button" class="h-chip" data-wk-newproj><i class="fa-solid fa-plus" style="color:#fb923c"></i>New project</button></div></div>`)) : '';
       const sharedHtml = shared.length ? `<div class="sd-gh" style="margin-top:18px"><b>Shared with me</b><span>${shared.length}</span></div><div class="grid-2">${shared.map(p => wkProjCard(p, true)).join('')}</div>` : '';
-      return `${guestNote}${wkInvites()}${ownHtml}${sharedHtml}${!wkHas() && !shared.length && !WK.shared.length ? card('<div class="ls">Nothing has been shared with you yet.</div>') : ''}`;
+      return `${guestNote}${wkInvites()}${ownHtml}${sharedHtml}${!wkHas() && !shared.length && !WK.shared.length ? card('<div class="lu-empty">Nothing has been shared with you yet.</div>') : ''}`;
     }
     function wkTasksView() {
       const projects = WK.projects, sel = WK.project && wkProj(WK.project) ? WK.project : '', view = WK.view === 'phases' && !sel ? 'board' : WK.view;
@@ -151,7 +151,7 @@
       if (view === 'phases') return bar + wkPhasesView(sel, tasks);
       if (view === 'gantt') return bar + wkGanttView(sel, tasks);
       if (view === 'timeline') return bar + wkTimelineView(sel, tasks);
-      if (view === 'list') return bar + (tasks.length ? `<div class="card">${tasks.slice().sort((a, b) => (a.status === 'done') - (b.status === 'done') || (a.due_date || '9999').localeCompare(b.due_date || '9999')).map(wkRowT).join('')}</div>` : card('<div class="ls">No tasks match.</div>'));
+      if (view === 'list') return bar + (tasks.length ? `<div class="card">${tasks.slice().sort((a, b) => (a.status === 'done') - (b.status === 'done') || (a.due_date || '9999').localeCompare(b.due_date || '9999')).map(wkRowT).join('')}</div>` : card('<div class="lu-empty">No tasks match.</div>'));
       return bar + `<div class="wk-board">${WK_STATUS.map(([k, n, col]) => { const items = tasks.filter(t => t.status === k).sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999') || a.position - b.position);
         return `<div class="wk-col"><div class="wk-ch"><span class="d" style="background:${col}"></span><b>${n}</b><em>${items.length}</em></div><div class="wk-cb">${items.map(t => wkCard(t, !sel)).join('') || '<div class="wk-empty">Nothing here</div>'}</div></div>`; }).join('')}</div>`;
     }
@@ -163,7 +163,7 @@
       const sect = (f, i) => { const ts = tasks.filter(t => t.folder_id === f.id), dn = ts.filter(t => t.status === 'done').length, note = (f.notes || '').trim();
         return `<div class="card wk-ph-card"><div class="wk-phh"><span class="wk-phn">${f.is_phase ? i + 1 : '<i class="fa-regular fa-folder"></i>'}</span><b>${escapeHtml(f.name)}</b><em>${dn}/${ts.length}</em><button type="button" class="np-btn" data-wkfolder="${f.id}"><i class="fa-regular fa-note-sticky"></i> ${note ? 'Notes' : edit ? 'Add notes' : 'Notes'}</button></div>
           ${note ? `<div class="wk-phnote">${escapeHtml(note.slice(0, 160))}${note.length > 160 ? '…' : ''}</div>` : ''}
-          ${ts.map(wkRowT).join('') || `<div class="ls" style="padding:4px 2px">No tasks in this ${word} yet.</div>`}
+          ${ts.map(wkRowT).join('') || `<div class="lu-empty">No tasks in this ${word} yet.</div>`}
           ${edit ? `<button type="button" class="np-btn wk-phadd" data-wkfaddt="${f.id}"><i class="fa-solid fa-plus"></i> Add task</button>` : ''}</div>`; };
       return `${fl.map(sect).join('')}${p.kind === 'general' && !fl.length ? card(`<div class="h-empty"><div class="h-empty-ico"><i class="fa-solid fa-folder-tree"></i></div><div class="h-empty-t">No folders yet</div><div class="h-empty-s">Make a folder for each kind of document or approval, then add tasks and notes inside it.</div></div>`) : ''}
         ${none.length ? `<div class="card wk-ph-card"><div class="wk-phh"><span class="wk-phn"><i class="fa-regular fa-circle"></i></span><b>Not in a ${word}</b><em>${none.length}</em></div>${none.map(wkRowT).join('')}</div>` : ''}
@@ -206,7 +206,7 @@
       docEl('wkProjColors').innerHTML = SD_COLORS.map(c => `<button type="button" class="sd-sw ${c === WKF.color ? 'on' : ''}" data-color="${c}" style="--c:${c}" aria-label="Colour ${c}"></button>`).join('');
       const box = docEl('wkTeamBox'); const id = WKF.projectId; box.style.display = id ? '' : 'none'; wkGrpPaintProj(id); if (!id) return;
       const rows = WK.people.filter(x => x.project_id === id);
-      docEl('wkTeamList').innerHTML = rows.map(x => `<div class="wk-tm"><span class="wk-av">${escapeHtml(wkInit(x.user_id === wkMe() ? 'You' : x.name))}</span><div class="wk-tn"><b>${escapeHtml(x.user_id === wkMe() ? 'You' : x.name)}</b><small>${x.role === 'owner' ? 'Owner' : x.status === 'pending' ? 'Invited · waiting' : x.role === 'viewer' ? 'Viewer' : 'Member'}</small></div>${x.role === 'owner' ? '' : `<button type="button" class="np-btn" data-wkrole="${x.user_id}|${x.role === 'viewer' ? 'member' : 'viewer'}" title="Change what they can do">${x.role === 'viewer' ? 'Make member' : 'Make viewer'}</button><button type="button" class="tk-x" data-wkrm="${x.user_id}" title="Remove"><i class="fa-solid fa-xmark"></i></button>`}</div>`).join('') || '<div class="ls">Just you so far.</div>';
+      docEl('wkTeamList').innerHTML = rows.map(x => `<div class="wk-tm"><span class="wk-av">${escapeHtml(wkInit(x.user_id === wkMe() ? 'You' : x.name))}</span><div class="wk-tn"><b>${escapeHtml(x.user_id === wkMe() ? 'You' : x.name)}</b><small>${x.role === 'owner' ? 'Owner' : x.status === 'pending' ? 'Invited · waiting' : x.role === 'viewer' ? 'Viewer' : 'Member'}</small></div>${x.role === 'owner' ? '' : `<button type="button" class="np-btn" data-wkrole="${x.user_id}|${x.role === 'viewer' ? 'member' : 'viewer'}" title="Change what they can do">${x.role === 'viewer' ? 'Make member' : 'Make viewer'}</button><button type="button" class="tk-x" data-wkrm="${x.user_id}" title="Remove"><i class="fa-solid fa-xmark"></i></button>`}</div>`).join('') || '<div class="lu-empty">Just you so far.</div>';
     }
     function wkOpenProj(p) {
       if (!p && !wkHas()) return openAddon('work');
@@ -271,7 +271,7 @@
     function wkPaintDeps(pid) {
       const all = WK.rawTasks.filter(x => x.project_id === pid && x.id !== WKT.id), chosen = WKT.deps.map(id => all.find(x => x.id === id)).filter(Boolean);
       WKT.deps = chosen.map(x => x.id);
-      docEl('wkTaskDeps').innerHTML = chosen.length ? chosen.map(x => `<button type="button" class="on" data-dep-rm="${x.id}" title="Remove"><i class="fa-solid fa-link"></i> ${escapeHtml(x.title)} <i class="fa-solid fa-xmark"></i></button>`).join('') : '<span class="ls" style="font-size:0.8rem">Nothing. This task can start any time.</span>';
+      docEl('wkTaskDeps').innerHTML = chosen.length ? chosen.map(x => `<button type="button" class="on" data-dep-rm="${x.id}" title="Remove"><i class="fa-solid fa-link"></i> ${escapeHtml(x.title)} <i class="fa-solid fa-xmark"></i></button>`).join('') : '<span class="lu-empty">Nothing. This task can start any time.</span>';
       const sel = docEl('wkTaskDepAdd'); sel.innerHTML = '<option value="">Add a task it waits for…</option>' + all.filter(x => !WKT.deps.includes(x.id)).slice(0, 300).map(x => `<option value="${x.id}">${escapeHtml(x.title)}</option>`).join(''); sel.value = ''; skinSelect(sel);
       sel.disabled = WKT.ro || !all.length; docEl('wkTaskDepsBox').style.display = WKT.ro && !chosen.length ? 'none' : '';
       const start = docEl('wkTaskStart').value || docEl('wkTaskDue').value, late = start ? chosen.filter(x => x.status !== 'done' && (x.due_date || x.start_date) && (x.due_date || x.start_date) >= start) : [], w = docEl('wkTaskDepWarn');
@@ -285,7 +285,7 @@
     // who the task can be given to: everyone on the project (tap to pick one, several or nobody)
     function wkPaintWho(pid) {
       const ppl = wkPeopleOf(pid); WKT.who = WKT.who.filter(u => ppl.some(x => x.user_id === u));
-      docEl('wkTaskAssignees').innerHTML = ppl.length ? ppl.map(x => `<button type="button" class="${WKT.who.includes(x.user_id) ? 'on' : ''}" data-who="${x.user_id}" ${WKT.ro ? 'disabled' : ''}><span class="wk-av">${escapeHtml(wkInit(x.user_id === wkMe() ? 'You' : x.name))}</span> ${escapeHtml(x.user_id === wkMe() ? 'You' : x.name)}</button>`).join('') : '<span class="ls" style="font-size:0.8rem">Nobody else is on this project yet.</span>';
+      docEl('wkTaskAssignees').innerHTML = ppl.length ? ppl.map(x => `<button type="button" class="${WKT.who.includes(x.user_id) ? 'on' : ''}" data-who="${x.user_id}" ${WKT.ro ? 'disabled' : ''}><span class="wk-av">${escapeHtml(wkInit(x.user_id === wkMe() ? 'You' : x.name))}</span> ${escapeHtml(x.user_id === wkMe() ? 'You' : x.name)}</button>`).join('') : '<span class="lu-empty">Nobody else is on this project yet.</span>';
     }
     function wkOpenTask(t, pre) {
       const editable = WK.projects.filter(wkCanEdit);
@@ -331,16 +331,16 @@
     });
     async function wkLoadComments() {
       if (!WKT.id) return; const r = await LumaWork.comments.list(WKT.id); if (r.error) return; const owner = wkRole(wkProj((WK.tasks.find(x => x.id === WKT.id) || {}).project_id)) === 'owner', can = wkCanTalk();
-      docEl('wkTaskComments').innerHTML = (r.data || []).length ? r.data.map(c => `<div class="sd-cmt"><span class="av">${escapeHtml((c.name[0] || '?').toUpperCase())}</span><div class="bd"><div class="h"><b>${escapeHtml(c.name)}${c.user_id === wkMe() ? ' <small>(you)</small>' : ''}</b><small>${wkAgo(c.created_at)}</small>${c.edited_at ? `<button type="button" class="wk-edited" data-cmt-hist="${c.id}" title="See the earlier wording">edited</button>` : ''}${can && c.user_id === wkMe() ? `<button type="button" data-cmt-edit="${c.id}" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen"></i></button>` : ''}${can && (c.user_id === wkMe() || owner) ? `<button type="button" data-cmt-del="${c.id}" title="Delete" aria-label="Delete"><i class="fa-solid fa-xmark"></i></button>` : ''}</div><p>${wkMentionHtml(c.body, c.mentions, (WK.tasks.find(x => x.id === WKT.id) || {}).project_id)}</p></div></div>`).join('') : `<div class="ls" style="padding:2px 0;font-size:0.78rem">No comments yet.${can ? ' Be the first to write one.' : ''}</div>`;
+      docEl('wkTaskComments').innerHTML = (r.data || []).length ? r.data.map(c => `<div class="sd-cmt"><span class="av">${escapeHtml((c.name[0] || '?').toUpperCase())}</span><div class="bd"><div class="h"><b>${escapeHtml(c.name)}${c.user_id === wkMe() ? ' <small>(you)</small>' : ''}</b><small>${wkAgo(c.created_at)}</small>${c.edited_at ? `<button type="button" class="wk-edited" data-cmt-hist="${c.id}" title="See the earlier wording">edited</button>` : ''}${can && c.user_id === wkMe() ? `<button type="button" data-cmt-edit="${c.id}" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen"></i></button>` : ''}${can && (c.user_id === wkMe() || owner) ? `<button type="button" data-cmt-del="${c.id}" title="Delete" aria-label="Delete"><i class="fa-solid fa-xmark"></i></button>` : ''}</div><p>${wkMentionHtml(c.body, c.mentions, (WK.tasks.find(x => x.id === WKT.id) || {}).project_id)}</p></div></div>`).join('') : `<div class="lu-empty">No comments yet.${can ? ' Be the first to write one.' : ''}</div>`;
     }
     async function wkLoadFiles() {
       if (!WKT.id) return; const r = await LumaWork.files.list(WKT.id); if (r.error) return; const t = WK.tasks.find(x => x.id === WKT.id), owner = wkRole(wkProj(t && t.project_id)) === 'owner', can = wkCanTalk();
-      docEl('wkTaskFiles').innerHTML = (r.data || []).length ? r.data.map(f => `<div class="sd-file"><i class="fa-solid fa-file"></i><button type="button" class="nm" data-file-open="${escapeHtml(f.storage_path)}">${escapeHtml(f.name)}</button><small>${LumaDocuments.formatSize(Number(f.size_bytes || 0))} · ${escapeHtml(f.added_by_name)}</small>${can && (f.added_by === wkMe() || owner) ? `<button type="button" class="ic" data-file-del="${f.id}" title="Remove from the task" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>` : ''}</div>`).join('') : '<div class="ls" style="padding:2px 0">No files attached.</div>';
+      docEl('wkTaskFiles').innerHTML = (r.data || []).length ? r.data.map(f => `<div class="sd-file"><i class="fa-solid fa-file"></i><button type="button" class="nm" data-file-open="${escapeHtml(f.storage_path)}">${escapeHtml(f.name)}</button><small>${LumaDocuments.formatSize(Number(f.size_bytes || 0))} · ${escapeHtml(f.added_by_name)}</small>${can && (f.added_by === wkMe() || owner) ? `<button type="button" class="ic" data-file-del="${f.id}" title="Remove from the task" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>` : ''}</div>`).join('') : '<div class="lu-empty">No files attached.</div>';
     }
     function wkPaintMore(t) {
       docEl('wkTaskMore').style.display = t ? '' : 'none'; if (!t) return; const can = wkCanTalk();
       docEl('wkTaskCmtAdd').style.display = can ? '' : 'none'; docEl('wkTaskAttach').style.display = can ? '' : 'none'; docEl('wkTaskCmtErr').textContent = ''; docEl('wkTaskCmtText').value = '';
-      docEl('wkTaskFiles').innerHTML = docEl('wkTaskComments').innerHTML = '<div class="ls" style="padding:2px 0">Loading…</div>'; wkLoadFiles(); wkLoadComments(); wkPaintTaskTime();
+      docEl('wkTaskFiles').innerHTML = docEl('wkTaskComments').innerHTML = '<div class="lu-empty">Loading…</div>'; wkLoadFiles(); wkLoadComments(); wkPaintTaskTime();
     }
     docEl('wkTaskAttach').onclick = () => docEl('wkTaskFile').click();
     docEl('wkTaskFile').onchange = async () => {
@@ -360,7 +360,7 @@
     docEl('wkTaskCmtText').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); docEl('wkTaskCmtSend').click(); } });
     // earlier wordings of a comment, newest first
     async function wkShowHistory(id) {
-      wkErr('wkHistError', ''); docEl('wkHistList').innerHTML = '<div class="ls">Loading…</div>'; sdOpen('wkHistOverlay');
+      wkErr('wkHistError', ''); docEl('wkHistList').innerHTML = '<div class="lu-empty">Loading…</div>'; sdOpen('wkHistOverlay');
       const r = await LumaWork.comments.history(id); if (r.error) { docEl('wkHistList').innerHTML = ''; return wkErr('wkHistError', /schema cache|does not exist/i.test(r.error.message) ? 'Run supabase/migrations/078_work_edit_move_team.sql first.' : r.error.message); }
       const when = iso => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
       docEl('wkHistList').innerHTML = (r.data || []).map(h => `<div class="wk-hv ${h.is_current ? 'cur' : ''}"><div class="wk-hvh"><b>${h.is_current ? 'Now' : 'Before'}</b><small>${when(h.edited_at)}</small></div><p>${escapeHtml(h.body)}</p></div>`).join('');
@@ -492,7 +492,7 @@
       const mins = WKTM.entries.filter(e => e.work_date === today).reduce((a, e) => a + e.minutes, 0), co = wkCoOf(WK.company);
       docEl('dashWorkSub').textContent = co ? co.name : '';
       docEl('dashWorkBody').innerHTML = `<div class="dw-stats"><div class="${over.length ? 'bad' : ''}"><b>${over.length}</b><span>Overdue</span></div><div><b>${due.length}</b><span>Due today</span></div><div><b>${mine.length}</b><span>Yours, open</span></div><div data-dw-time><b>${wkDur(mins)}</b><span>${WKTM.running ? 'Timer running' : 'Logged today'}</span></div></div>`
-        + (next.length ? next.map(t => { const du = wkDue(t); return `<div class="dw-row" data-dw-task="${t.id}"><span class="dw-dot" style="background:${(wkProj(t.project_id) || {}).color || '#fb923c'}"></span><b>${escapeHtml(t.title)}</b><small class="${du && du.cls}">${du ? escapeHtml(du.text) : 'no date'}</small></div>`; }).join('') : '<div class="wgt-sub">Nothing is waiting for you. Enjoy the quiet.</div>');
+        + (next.length ? next.map(t => { const du = wkDue(t); return `<div class="dw-row" data-dw-task="${t.id}"><span class="dw-dot" style="background:${(wkProj(t.project_id) || {}).color || '#fb923c'}"></span><b>${escapeHtml(t.title)}</b><small class="${du && du.cls}">${du ? escapeHtml(du.text) : 'no date'}</small></div>`; }).join('') : '<div class="wgt-sub lu-empty">Nothing is waiting for you. Enjoy the quiet.</div>');
     }
     document.addEventListener('click', e => {
       const card = e.target.closest('#dashWork'); if (!card) return;

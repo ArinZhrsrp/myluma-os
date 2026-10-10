@@ -5,7 +5,7 @@
 
     MODULES.company = function () {
       return head('Company', '<span id="wkcSub">Loading…</span>', '<button type="button" class="create-btn" id="wkcAdd"><i class="fa-solid fa-plus"></i> New company</button>')
-        + '<div id="wkcRoot"><div class="ls" style="padding:10px 2px">Loading…</div></div>';
+        + '<div id="wkcRoot"><div class="lu-empty">Loading…</div></div>';
     };
 
     const wkCoLimit = () => { const v = LumaPlan.get('work_companies'); return v == null ? 5 : v; };

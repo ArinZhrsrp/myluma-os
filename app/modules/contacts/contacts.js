@@ -7,10 +7,10 @@
         return `<div class="page-head"><div><h1>Contacts</h1><p id="contactsSub">Loading…</p></div><div class="head-actions"><button class="create-btn" id="addContactBtn"><i class="fa-solid fa-user-plus"></i> Add contact</button></div></div>
         <div style="display:grid;grid-template-columns:1fr 320px;gap:0.9rem">
           <div style="display:flex;flex-direction:column;gap:0.9rem">
-            ${card(`<div class="section-title"><i class="fa-solid fa-users"></i> All contacts</div><div id="contactsList"><div class="ls" style="padding:10px 2px">Loading…</div></div>`)}
-            ${card(`<div class="section-title"><i class="fa-solid fa-user-clock"></i> Requests</div><div id="incomingRequests"><div class="ls" style="padding:8px 2px">Loading…</div></div><div id="outgoingRequests"></div>`)}
+            ${card(`<div class="section-title"><i class="fa-solid fa-users"></i> All contacts</div><div id="contactsList"><div class="lu-empty">Loading…</div></div>`)}
+            ${card(`<div class="section-title"><i class="fa-solid fa-user-clock"></i> Requests</div><div id="incomingRequests"><div class="lu-empty">Loading…</div></div><div id="outgoingRequests"></div>`)}
           </div>
-          ${card(`<div class="section-title"><i class="fa-solid fa-robot"></i> Follow-ups</div><div id="contactsFollowups"><div class="ls" style="padding:8px 2px">Loading…</div></div>`)}
+          ${card(`<div class="section-title"><i class="fa-solid fa-robot"></i> Follow-ups</div><div id="contactsFollowups"><div class="lu-empty">Loading…</div></div>`)}
         </div>`;
     };
 
@@ -223,7 +223,7 @@
 
       const { data, error } = await LumaContacts.listContacts();
       if (error) {
-        list.innerHTML = `<div class="ls" style="padding:10px 2px">Couldn't load contacts: ${escapeHtml(error.message)} (has supabase/migrations/001_profiles_contacts_chat.sql been run and the luma schema exposed?)</div>`;
+        list.innerHTML = `<div class="lu-empty">Couldn't load contacts: ${escapeHtml(error.message)} (has supabase/migrations/001_profiles_contacts_chat.sql been run and the luma schema exposed?)</div>`;
         return;
       }
 
@@ -245,7 +245,7 @@
           <div class="lmain"><div class="lt">${escapeHtml(name)}</div><div class="ls">${escapeHtml(r.other_email)}</div></div>
           <div class="c-actions" style="display:flex;align-items:center;gap:14px"><button type="button" class="nudge-btn" data-nudge="${r.contact_id}" title="Send ${escapeHtml(name)} a nudge notification"><i class="fa-solid fa-bell"></i> Nudge</button>${LumaContacts.hasUnread(r) ? '<span class="pill pill-blue">New message</span>' : (LumaContacts.needsFollowUp(r) ? '<span class="pill pill-med">Follow up</span>' : '')}<span class="ls c-time">${r.last_message_at ? escapeHtml(LumaContacts.relativeTime(r.last_message_at)) : 'No chats yet'}</span><button type="button" class="nudge-btn msg-btn" data-chat title="Open chat with ${escapeHtml(name)}"><i class="fa-regular fa-comment"></i> Message</button></div>
         </div>`;
-      }).join('') : `<div class="ls" style="padding:10px 2px">No contacts yet — add someone by email to get started.</div>`;
+      }).join('') : `<div class="lu-empty">No contacts yet — add someone by email to get started.</div>`;
       // each action is its own button now (Message / Nudge); the row itself isn't a click target
       list.querySelectorAll('[data-chat]').forEach(b => b.addEventListener('click', () => {
         const row = b.closest('.lrow'); openContactChat(row.dataset.contactId, row.dataset.name, row.dataset.color);
@@ -264,7 +264,7 @@
       incomingEl.innerHTML = incoming.length ? incoming.map(r => {
         const name = contactDisplayName(r), color = colorForId(r.other_id);
         return `<div class="lrow"><div class="licon" style="border-radius:50%;background:${color};color:#fff;font-weight:600">${escapeHtml(name.charAt(0).toUpperCase())}</div><div class="lmain"><div class="lt">${escapeHtml(name)}</div><div class="ls">Wants to connect</div></div><div style="display:flex;gap:8px"><button class="pill pill-btn pill-low" data-accept="${r.contact_id}" style="cursor:pointer;border:none">Accept</button><button class="pill pill-btn pill-high" data-decline="${r.contact_id}" style="cursor:pointer;border:none">Decline</button></div></div>`;
-      }).join('') : `<div class="ls" style="padding:8px 2px">No incoming requests.</div>`;
+      }).join('') : `<div class="lu-empty">No incoming requests.</div>`;
       incomingEl.querySelectorAll('[data-accept]').forEach(b => b.addEventListener('click', async () => { b.disabled = true; await LumaContacts.acceptRequest(b.dataset.accept); loadContactsData(); }));
       incomingEl.querySelectorAll('[data-decline]').forEach(b => b.addEventListener('click', async () => { b.disabled = true; await LumaContacts.declineRequest(b.dataset.decline); loadContactsData(); }));
 
@@ -272,7 +272,7 @@
       outgoingEl.innerHTML = outgoing.length ? outgoing.map(r => {
         const name = contactDisplayName(r);
         return `<div class="lrow"><div class="licon" style="border-radius:50%;background:rgba(255,255,255,0.08);color:#fff;font-weight:600">${escapeHtml(name.charAt(0).toUpperCase())}</div><div class="lmain"><div class="lt">${escapeHtml(name)}</div><div class="ls">Request sent</div></div><div style="display:flex;align-items:center;gap:10px"><span class="pill pill-btn pill-med">Pending</span><button class="pill pill-btn" data-cancel="${r.contact_id}" style="cursor:pointer;border:none;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6)">Cancel</button></div></div>`;
-      }).join('') : `<div class="ls" style="padding:8px 2px">No outgoing requests.</div>`;
+      }).join('') : `<div class="lu-empty">No outgoing requests.</div>`;
       outgoingEl.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', async () => { b.disabled = true; await LumaContacts.removeContact(b.dataset.cancel); loadContactsData(); }));
 
       const fu = document.getElementById('contactsFollowups');
@@ -285,7 +285,7 @@
             ? `It's been ${LumaContacts.relativeTime(r.last_message_at)} — you usually check in around now.`
             : `You haven't messaged yet — say hi to break the ice.`;
         return `<div class="followup-card" data-contact-id="${r.contact_id}" data-name="${escapeHtml(name)}" data-color="${color}" style="cursor:pointer;padding:13px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid ${unread ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.05)'};margin-bottom:10px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="width:30px;height:30px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:0.75rem;flex-shrink:0">${escapeHtml(name.charAt(0).toUpperCase())}</div><span class="lt">${escapeHtml(name)}</span>${unread ? '<span class="pill pill-blue" style="margin-left:auto">New</span>' : ''}</div><div class="ls">${escapeHtml(copy)}</div></div>`;
-      }).join('') : `<div class="ls" style="padding:8px 2px">Nothing needs a follow-up right now.</div>`;
+      }).join('') : `<div class="lu-empty">Nothing needs a follow-up right now.</div>`;
       fu.querySelectorAll('.followup-card[data-contact-id]').forEach(card => {
         card.addEventListener('click', () => openContactChat(card.dataset.contactId, card.dataset.name, card.dataset.color));
       });

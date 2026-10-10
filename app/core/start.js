@@ -14,6 +14,15 @@
       if (window.lumaFocusLoad) window.lumaFocusLoad(); // timer lengths + ambience saved in the profile
       Object.keys(rendered).forEach(k => delete rendered[k]); // anything drawn before the plan was known is drawn again
       if (LumaPlan.admin) document.getElementById('menuAdmin').style.display = '';
+      // a first sign-in with Google or Apple brings no country or time zone (the sign-up form asks for them): use this browser's, once
+      try {
+        const prov = (LUMA_USER.app_metadata && LUMA_USER.app_metadata.provider) || '', f = {};
+        if (LUMA_PROFILE && (prov === 'google' || prov === 'apple')) {
+          if (!LUMA_PROFILE.timezone) f.timezone = LumaAuth.browserTimezone();
+          if (!LUMA_PROFILE.country) { const c = LumaAuth.countryForTimezone(f.timezone || LUMA_PROFILE.timezone || LumaAuth.browserTimezone()); if (c) f.country = c; }
+          if (Object.keys(f).length) LumaAuth.updateProfile(f).then(r => { if (!r.error && r.data) LUMA_PROFILE = r.data; });
+        }
+      } catch (e) { }
       setAppTimezone((LUMA_PROFILE && LUMA_PROFILE.timezone) || (LUMA_USER.user_metadata && LUMA_USER.user_metadata.timezone)); // the time zone chosen at sign-up / in Edit profile
       if (error) console.info("LUMA: luma.profiles not reachable yet (run supabase/migrations/001_profiles_contacts_chat.sql and expose the schema) — using signup metadata instead.", error.message);
 

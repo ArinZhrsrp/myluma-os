@@ -832,6 +832,9 @@
       display: flex;
       align-items: center;
       gap: 0.6rem;
+      margin-left: auto; /* when the buttons drop under the title they stay on the right, like on a wide screen */
+      flex-wrap: wrap;
+      justify-content: flex-end;
     }
 
     .section-title {
@@ -1048,7 +1051,6 @@
 
     .check-row.done .ct {
       color: rgba(255, 255, 255, 0.3);
-      text-decoration: line-through;
     }
 
     /* list row */
@@ -3510,3 +3512,12 @@
 /* hint text inside boxes must stay readable on any wallpaper */
 .main-content input::placeholder, .main-content textarea::placeholder, .modal-overlay input::placeholder, .modal-overlay textarea::placeholder { color: rgba(255,255,255,0.68); opacity: 1; }
 #planAddons .pa-size { margin-bottom:6px; } #planAddons .pa-size em { font-style:normal; color:#e2e8f0; } #planAddons .pa-size span { color:#fb923c; font-weight:600; } #planAddons .pa-size.mine { color:#e2e8f0; }
+
+
+/* one look for "nothing here yet" text on every page */
+.lu-empty { display: block; font-size: 0.84rem; line-height: 1.5; font-weight: 400; color: rgba(255,255,255,0.55); padding: 8px 2px; text-align: left; }
+span.lu-empty { display: inline; padding: 0; }
+
+/* "12 / 120" under a limited field: grey, amber near the limit, red at it */
+.lu-cc { text-align: right; font-size: 0.68rem; line-height: 1; margin: 4px 2px 0; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
+.lu-cc[data-st="near"] { color: #fcd34d; } .lu-cc[data-st="full"] { color: #fca5a5; font-weight: 600; }
