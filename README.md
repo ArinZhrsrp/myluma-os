@@ -1,3 +1,10 @@
+## User-manual website
+
+The [LUMA user guide](user-manual/index.html) includes searchable step-by-step
+instructions and real screenshots with fictional sample data. See
+[user-manual/README.md](user-manual/README.md) to preview or maintain it.
+This branch's Vercel output is the manual website in `user-manual/`.
+
 > **Documentation branch:** Maintain all project documentation and user manuals on
 > `documentations`. Application development and releases remain on `development`,
 > `staging`, and `main`. The application files on this branch are a reference

@@ -1,0 +1,84 @@
+{
+  "appVersion": "0.30.4",
+  "commit": "8c0e122",
+  "sampleData": true,
+  "pages": [
+    {
+      "id": "work-projects",
+      "url": "/app/?mode=work#work",
+      "selector": "[data-wktab=\"projects\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nWork\nWork\nCompany\nCalendar\nReminders\nDocuments\nContacts\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nWork\n 11 Oct 2026\nWork\n\nAcme Sdn Bhd\n2 active projects · 4 open tasks\n\nOverview\nProjects\nTasks\nTeams\nTime\nNew project\nAina Rahman added you to “Launch plan”\nYou can add and change tasks\nDecline\nAccept\nWebsite redesign\nACTIVE\n 6 phases\n Acme Sdn Bhd\n 31 Oct\n 2\n1 of 4 done\nOpen tasks\nShared with me\n1\nBrand kit\nACTIVE\n 6 phases\n 2\nby Aina Rahman\n0 of 1 done\nOpen tasks"
+    },
+    {
+      "id": "work-tasks",
+      "url": "/app/?mode=work#work",
+      "selector": "[data-wktab=\"tasks\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nWork\nWork\nCompany\nCalendar\nReminders\nDocuments\nContacts\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nWork\n 11 Oct 2026\nWork\n\nAcme Sdn Bhd\n2 active projects · 4 open tasks\n\nOverview\nProjects\nTasks\nTeams\nTime\nNew task\nAll projects\nAssigned to me\n Calendar file\nBoard\nList\nGantt\nTimeline\nTo do\n2\nWrite the copy\nWebsite redesign\n14 Oct\nTO DO\nCollect photos from client\nWebsite redesign\n20 Oct\nTO DO\nDoing\n1\nDesign the home page\nWebsite redesign\n8 Oct → Overdue · 10 Oct\n1/2\nY\nDOING\nReview\n1\nLogo ideas\nBrand kit\nREVIEW\nDone\n1\nSet up hosting\nWebsite redesign\nY\nDONE"
+    },
+    {
+      "id": "work-teams",
+      "url": "/app/?mode=work#work",
+      "selector": "[data-wktab=\"teams\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nWork\nWork\nCompany\nCalendar\nReminders\nDocuments\nContacts\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nWork\n 11 Oct 2026\nWork\n\nAcme Sdn Bhd\n2 active projects · 4 open tasks\n\nOverview\nProjects\nTasks\nTeams\nTime\nNew team\n0 of 5 teams used (all your companies together). A team groups the people you work with, such as Design or Finance. Give a task to a team and its people are ticked for you; you can still add anyone else.\nNo teams in Acme Sdn Bhd yet\nCreate a team for each department or squad. Then give a task to the whole team in one tap, or add the whole team to a project.\nCreate a team"
+    },
+    {
+      "id": "work-time",
+      "url": "/app/?mode=work#work",
+      "selector": "[data-wktab=\"time\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nWork\nWork\nCompany\nCalendar\nReminders\nDocuments\nContacts\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nWork\n 11 Oct 2026\nWork\n\nAcme Sdn Bhd\nYour hours and timesheet\n\nOverview\nProjects\nTasks\nTeams\nTime\nLog time\nGeneral · Acme Sdn Bhd (not on a project)\nStart timer\nOctober 2026\nAcme Sdn Bhd\nCSV\nPDF\n2h 15m\nThis month · Acme Sdn Bhd\n2\nDays with time\n1h 08m\nAverage per day\nWhere the time went\nWebsite redesign\n1h 30m\nGeneral\n45m\nFri 2 Oct\n45m\n45m\nGeneral\nteam meeting\nThu 1 Oct\n1h 30m\n1h 30m\nWebsite redesign › Design the home page\nwireframes\n Your hours are private, except that the owner of a project can see the hours people log on it. Time you log on your own projects is only yours."
+    },
+    {
+      "id": "study-timetable",
+      "url": "/app/?mode=study#study",
+      "selector": "[data-sdtab=\"timetable\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nStudy\nStudy\nArchive\nCalendar\nReminders\nNotes & Docs\nDocuments\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nStudy\n 11 Oct 2026\nStudy\n\n4 subjects · 2 to do\n\nOverview\nTimetable\nAssignments\nSubjects\nSemesters\nNotes\nCards\nGroups\nAdd class\nToday\n5 Oct to 11 Oct 2026 · Semester 2, 2026, week 5 of 15\n Week\n List\n Export\nGMT\n+08:00\n5\nMon\n6\nTue\n7\nWed\n8\nThu\n9\nFri\n10\nSat\n11\nSun\n12 am\n1 am\n2 am\n3 am\n4 am\n5 am\n6 am\n7 am\n8 am\n9 am\n10 am\n11 am\n12 pm\n1 pm\n2 pm\n3 pm\n4 pm\n5 pm\n6 pm\n7 pm\n8 pm\n9 pm\n10 pm\n11 pm\nCalculus\n2:00 PM – 3:00 PM\nDatabase Systems\n9:00 AM – 10:30 AM · Lab 3"
+    },
+    {
+      "id": "study-assignments",
+      "url": "/app/?mode=study#study",
+      "selector": "[data-sdtab=\"assignments\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nStudy\nStudy\nArchive\nCalendar\nReminders\nNotes & Docs\nDocuments\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nStudy\n 11 Oct 2026\nStudy\n\n4 subjects · 2 to do\n\nOverview\nTimetable\nAssignments\nSubjects\nSemesters\nNotes\nCards\nGroups\nAdd assignment\nTo do\nDone\nAll\nAll subjects\nPhysics 101\nOld elective\nDatabase Systems\nCalculus\nOverdue\n1\nMidterm\nExam\nCalculus\n1 day overdue\n30%\nNext 7 days\n1\nER diagram report\nAssignment\nDatabase Systems\nTuesday · 11:59 PM\n42/50"
+    },
+    {
+      "id": "study-subjects",
+      "url": "/app/?mode=study#study",
+      "selector": "[data-sdtab=\"subjects\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nStudy\nStudy\nArchive\nCalendar\nReminders\nNotes & Docs\nDocuments\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nStudy\n 11 Oct 2026\nStudy\n\n4 subjects · 2 to do\n\nOverview\nTimetable\nAssignments\nSubjects\nSemesters\nNotes\nCards\nGroups\nAdd subject\n Select\nSemester 2, 2026\nCURRENT\nGPA 3.62\nDatabase Systems\nCS2101 · Dr. Aisyah · 3 credit hours\n84%A\nGrade so far\n1\nTo do\n1\nClasses / week\n50 min\nThis week\nTo reach 80% you need 79% on the remaining 80%\nAttendance\n5 classes so far, none marked yet\n Attendance (5)\n What if?\nCalculus\n4 credit hours\n72%B+\nFinal mark\n1\nTo do\n1\nClasses / week\n—\nThis week\nAttendance\n4 classes so far, none marked yet\n Attendance (4)\n What if?\nShow archived subjects (2)"
+    },
+    {
+      "id": "study-semesters",
+      "url": "/app/?mode=study#study",
+      "selector": "[data-sdtab=\"semesters\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nStudy\nStudy\nArchive\nCalendar\nReminders\nNotes & Docs\nDocuments\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nStudy\n 11 Oct 2026\nStudy\n\n4 subjects · 2 to do\n\nOverview\nTimetable\nAssignments\nSubjects\nSemesters\nNotes\nCards\nGroups\nAdd semester\n Grade scale\n Breaks & holidays\nActive: Semester 2, 2026\nOnly one semester is active at a time. New subjects, notes, group projects, classes and reminders go into the active one. To work in another, archive the active semester first (Done with this semester).\n3.55\nCGPA (all semesters)\n4\nSubjects\n12\nCredit hours graded\nSemester 3, 2027INACTIVE\n8 Feb to 19 May · 15 weeks · Starts in 120 days\n—\nGPA\n Activate (archive Semester 2, 2026 first)\nNo subjects in this semester yet. New subjects you add go into the active semester.\nSemester 2, 2026ACTIVE\n13 Sept to 20 Dec · 15 weeks · Week 5 of 15\n3.62\nGPA\n Start from a previous semester\n Done with this semester\nDatabase Systems\nA\nCalculus\nB+\nArchived semesters (1) · open the archive"
+    },
+    {
+      "id": "study-notes",
+      "url": "/app/?mode=study#study",
+      "selector": "[data-sdtab=\"notes\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nStudy\nStudy\nArchive\nCalendar\nReminders\nNotes & Docs\nDocuments\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nStudy\n 11 Oct 2026\nStudy\n\n4 subjects · 2 to do\n\nOverview\nTimetable\nAssignments\nSubjects\nSemesters\nNotes\nCards\nGroups\nNew note\nAll subjects\nDatabase Systems\nCalculus\nER basics\nDatabase Systems\n\nEntities, relationships, cardinality\n\nUpdated 11 Oct\nShared with me\n1\nNormalisation cheat sheet\nDatabase Systems\n\n1NF, 2NF, 3NF explained\n\n From Aina Rahman ·  read only"
+    },
+    {
+      "id": "study-cards",
+      "url": "/app/?mode=study#study",
+      "selector": "[data-sdtab=\"cards\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nStudy\nStudy\nArchive\nCalendar\nReminders\nNotes & Docs\nDocuments\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nStudy\n 11 Oct 2026\nStudy\n\n4 subjects · 2 to do\n\nOverview\nTimetable\nAssignments\nSubjects\nSemesters\nNotes\nCards\nGroups\nNew deck\nMake flashcards to remember things\nAdd a deck for a subject, write a question and an answer on each card, then test yourself. Cards you find easy come back less often; the ones you miss come back sooner.\nMake your first deck"
+    },
+    {
+      "id": "study-groups",
+      "url": "/app/?mode=study#study",
+      "selector": "[data-sdtab=\"groups\"]",
+      "errors": [],
+      "text": "LUMA\n\nYour Personal OS\n\nVersion 0.30.4 · STAGING\n\nStudy\nStudy\nArchive\nCalendar\nReminders\nNotes & Docs\nDocuments\nLumi\nSettings\nSupport\nFeedback\nFocus Mode\n\nDeep work · 25 mins\n\nStudy\n 11 Oct 2026\nStudy\n\n4 subjects · 2 to do\n\nOverview\nTimetable\nAssignments\nSubjects\nSemesters\nNotes\nCards\nGroups\nNew project\nAina Rahman invited you to “Physics lab report”\nPhysics · due 20 Oct\nDecline\nJoin\nDB presentation\nDatabase Systems\n 3\n You\n Due 16 Oct\n1 of 4 tasks done\n25%"
+    }
+  ]
+}

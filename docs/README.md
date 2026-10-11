@@ -2,6 +2,10 @@
 
 Complete project documentation for LUMA (Personal, Work and Study modes), written from the code, the database migrations and the change log of version 0.26.x. **Start here.**
 
+## User manual
+
+Open the [user-manual website](../user-manual/index.html) for illustrated, step-by-step guidance based on v0.30.4. See its [preview and maintenance instructions](../user-manual/README.md). The older technical documents below retain their original version scope.
+
 ## Read this first
 
 | If you are… | Read |
