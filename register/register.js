@@ -33,13 +33,6 @@
       okEl.style.display = "flex";
     }
 
-    // Google / Apple: a new account is made the first time, so the Terms box must be ticked first
-    LumaAuth.wireSocialButtons({
-      intent: "register",
-      beforeStart: () => { if (agreeEl.checked) return true; showError("Tick the box to agree to the Terms of Service and Privacy Policy first."); return false; },
-      onError: (m) => showError(m),
-    });
-
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       errEl.style.display = "none";

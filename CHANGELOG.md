@@ -4,6 +4,10 @@ The newest version is on top. The version number lives in `shared/supabase-confi
 Rules: **patch** (0.9.1) = fixes and small tweaks · **minor** (0.10.0) = a new feature or module · **1.0.0** = the first production release.
 Versions before 0.9.0 were written down afterwards from the commit history, so their grouping is approximate.
 
+## 0.30.1 — 2026-10-11 (staging)
+### Removed
+- **Google and Apple sign-in and sign-up are gone.** The "Google" / "Apple" buttons and the "or continue with" / "or sign up with" lines are removed from the Login and Register pages, together with the code behind them (the provider hand-off, the "no account yet" clean-up and the first-sign-in country / time-zone fill). Sign-in and registration use e-mail and password only. Accounts already made with Google or Apple stay in the database but can no longer sign in through those buttons; the provider switches in the Supabase dashboard can be turned off. Migration `086_oauth_names.sql` is left in place (harmless).
+
 ## 0.30.0 — 2026-10-11 (staging)
 ### Changed — Dashboard layout
 - **Today's Schedule, Today's Priorities and Upcoming Reminders are now the same height.** Each list is exactly five rows tall (every row is 52 px, titles on one line with "…"), and scrolls inside after five. Priorities holds up to 15 tasks and Reminders up to 12.
