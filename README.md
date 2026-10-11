@@ -300,6 +300,18 @@ those accounts before rerunning it; no accounts are automatically deleted or mer
 Supabase may return a generic registration error for a rejected alias.
 Local verification: `cd docs/test-automation && node sql/pg_email_uniqueness_test.js`.
 
+For staging, run [`supabase/setup/staging_email_limit.sql`](supabase/setup/staging_email_limit.sql)
+in the **staging** project's SQL Editor. This permits **three accounts total per
+Gmail mailbox**, including the untagged address; dots, plus tags and
+`googlemail.com` share the same three slots. The database enforces the cap for
+signups and email changes, including concurrent requests. Deleting an account or
+changing its mailbox frees a slot. Other email providers retain their normal
+address rules. Existing mailboxes with more than three accounts cause setup to
+fail without deleting anything; resolve them before rerunning. This script is
+also excluded from normal migrations and refuses to run when the production
+unique index is present. Pushing a Git branch does not apply either setup script.
+Local verification: `cd docs/test-automation && node sql/pg_staging_email_limit_test.js`.
+
 **Version:** the line under "Your Personal OS" ("Version 0.9.0 · STAGING") comes from `window.LUMA_VERSION` in `shared/supabase-config.js`. Bump it when you push to staging: patch (0.9.1) for fixes and small tweaks, minor (0.10.0) for a new feature or module, and 1.0.0 for the first production release. Describe each change in `CHANGELOG.md`.
 
 Two Supabase projects, two websites, three git branches, one codebase:

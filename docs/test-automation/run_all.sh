@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 t() { perl -e 'alarm shift; exec @ARGV' "$@"; }   # timeout helper (macOS has no `timeout`)
 echo "=== database: apply every migration"; t 200 node sql/pg_boot.js 2>&1 | tail -1
 echo "=== production email uniqueness"; t 200 node sql/pg_email_uniqueness_test.js
+echo "=== staging email limit"; t 200 node sql/pg_staging_email_limit_test.js
 echo "=== database: rules"
 for t in pg_work_test pg_phase_test pg_company_test pg_wfiles_test pg_time_test pg_wreminder_test pg_move_test pg_extras_test pg_feedback_test pg_study_test pg_split_test pg_admin_test pg_tasks_test pg_gift_test pg_refs_test pg_busy_test pg_team_test pg_auth_test pg_birthday_test; do printf "%-22s" "$t:"; t 250 node sql/$t.js 2>&1 | tail -1 | cut -c1-70; done
 echo "=== user interface (jsdom)"
