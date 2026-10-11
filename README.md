@@ -1,3 +1,14 @@
+> **Documentation branch:** Maintain all project documentation and user manuals on
+> `documentations`. Application development and releases remain on `development`,
+> `staging`, and `main`. The application files on this branch are a reference
+> snapshot, not the current release.
+>
+> Switch here with `git switch documentations`, edit the documentation, then commit
+> and push with `git push origin documentations`. Add future user manuals under
+> `docs/user-manual/`. Do not merge this branch wholesale into application branches:
+> that would restore the documentation removed from them. When documentation needs
+> current code context, inspect the relevant application branch instead.
+
 # myluma-os
 
 > LUMA is an AI personal operating system with a calm glass dashboard for tasks, notes, documents, health and contacts, built with plain HTML/JS and Supabase.
