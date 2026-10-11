@@ -1,5 +1,5 @@
 #!/bin/bash
-# Runs every automated check (see README.md in this folder). Run from anywhere:  docs/test-automation/run_all.sh
+# Runs every automated check (documentation is on the documentations branch). Run from anywhere:  tests/automation/run_all.sh
 # Needs: Node 18+, `npm install` once in this folder, and (for the phone-width audits) Google Chrome on macOS and Python 3.
 # Set LUMA_ROOT if the project folder is not three levels above this file.
 cd "$(dirname "$0")"

@@ -5,4 +5,4 @@ the [`documentations` branch](https://github.com/ArinZhrsrp/myluma-os/tree/docum
 
 Use `git switch documentations` to edit documentation. Application code lives on
 `development`, `staging`, and `main`; executable tests remain in
-`docs/test-automation/`.
+`tests/automation/`.
