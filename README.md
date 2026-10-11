@@ -284,6 +284,22 @@ Empty the `luma-documents` Storage bucket by hand afterwards.
 
 ## Staging and production
 
+Production registration allows only one account per Gmail mailbox, including
+`+tag`, dot and `googlemail.com` variants. After configuring a **separate production
+Supabase project**, run [`supabase/setup/production_email_uniqueness.sql`](supabase/setup/production_email_uniqueness.sql)
+in that project's SQL Editor. This is a production-only setup step, deliberately
+excluded from normal migrations and `ALL_MIGRATIONS.sql`; do not run it on staging.
+The current empty `PROD` credentials must be filled in before the live hostname
+uses that project. A browser environment flag cannot enforce this database rule.
+
+The unique index blocks duplicate registrations and email changes, including
+concurrent requests, without rewriting login or delivery addresses. Other domains
+keep their dots and plus suffixes because their mailbox rules may differ. If
+existing accounts share a Gmail mailbox, setup fails atomically: review and resolve
+those accounts before rerunning it; no accounts are automatically deleted or merged.
+Supabase may return a generic registration error for a rejected alias.
+Local verification: `cd docs/test-automation && node sql/pg_email_uniqueness_test.js`.
+
 **Version:** the line under "Your Personal OS" ("Version 0.9.0 · STAGING") comes from `window.LUMA_VERSION` in `shared/supabase-config.js`. Bump it when you push to staging: patch (0.9.1) for fixes and small tweaks, minor (0.10.0) for a new feature or module, and 1.0.0 for the first production release. Describe each change in `CHANGELOG.md`.
 
 Two Supabase projects, two websites, three git branches, one codebase:

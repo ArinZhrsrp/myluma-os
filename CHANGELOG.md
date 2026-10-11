@@ -4,6 +4,10 @@ The newest version is on top. The version number lives in `shared/supabase-confi
 Rules: **patch** (0.9.1) = fixes and small tweaks · **minor** (0.10.0) = a new feature or module · **1.0.0** = the first production release.
 Versions before 0.9.0 were written down afterwards from the commit history, so their grouping is approximate.
 
+## Unreleased
+### Security
+- Added production-only database setup to prevent multiple accounts using the same Gmail mailbox through plus tags, dots or `googlemail.com`. Staging still supports test aliases. Requires running `supabase/setup/production_email_uniqueness.sql` on the dedicated production project; existing duplicates must be resolved first.
+
 ## 0.30.1 — 2026-10-11 (staging)
 ### Removed
 - **Google and Apple sign-in and sign-up are gone.** The "Google" / "Apple" buttons and the "or continue with" / "or sign up with" lines are removed from the Login and Register pages, together with the code behind them (the provider hand-off, the "no account yet" clean-up and the first-sign-in country / time-zone fill). Sign-in and registration use e-mail and password only. Accounts already made with Google or Apple stay in the database but can no longer sign in through those buttons; the provider switches in the Supabase dashboard can be turned off. Migration `086_oauth_names.sql` is left in place (harmless).
