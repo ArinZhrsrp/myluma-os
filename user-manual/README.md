@@ -64,6 +64,12 @@ Browser checks (with the manual preview server running):
 node user-manual/tools/check.cjs
 ```
 
-These check all guide routes, screenshot loading, guide links, search, image
+Captures wait for application initialisation, navigate to the requested page, and
+verify its active page ID, heading and tab before saving. The capture manifest
+records all 40 page states and image hashes; duplicate images or browser errors
+fail capture. Authentication screens use local session fixtures.
+
+The checks verify the screenshot hashes and page/tab identities as well as all
+guide routes, screenshot loading, guide links, search, image
 viewer, mobile navigation and horizontal overflow. Screenshots and code review
 do not replace end-to-end tests against a deployed application's services.

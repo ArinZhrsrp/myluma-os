@@ -11,7 +11,7 @@ let fixture = fs.readFileSync(fixturePath, 'utf8')
 const types = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp'};
 http.createServer((req,res)=>{
  let name = new URL(req.url,'http://localhost').pathname;
- if (name==='/__manual_fixture.js') {res.setHeader('Content-Type','text/javascript');return res.end(fixture);}
+ if (name==='/__manual_fixture.js') {res.setHeader('Content-Type','text/javascript');return res.end(req.url.includes('guest=1') ? fixture.replace('getSession: async () => ({ data: { session } })', 'getSession: async () => ({ data: { session: null } })') : fixture);}
  name=name.replace(/^\/(login|register|reset-password|verify-email)(?=\/|$)/,'/app/modules/$1');
  if(name.endsWith('/')) name+='index.html';
  const file=path.resolve(root,'.'+name);
@@ -19,6 +19,10 @@ http.createServer((req,res)=>{
  fs.readFile(file,(err,buf)=>{
   if(err){res.writeHead(404);return res.end('Not found');}
   if(name==='/app/index.html') buf=String(buf).replace(/<script[^>]*src="https:[^"]*supabase[^\"]*"[^>]*><\/script>/g,'').replace('<script defer src="../shared/supabase-config.js">','<script src="/__manual_fixture.js"></script><script defer src="../shared/supabase-config.js">');
+  if (/^\/app\/modules\/(login|register|verify-email|reset-password)\/index.html$/.test(name)) {
+   const guest = name.includes('/reset-password/') ? '' : '?guest=1';
+   buf=String(buf).replace(/<script[^>]*src="https:[^"]*supabase[^"]*"[^>]*><\/script>/g, '<script src="/__manual_fixture.js'+guest+'"></script>');
+  }
   res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');res.end(buf);
  });
 }).listen(8771,'127.0.0.1',()=>console.log('Fixture app: http://127.0.0.1:8771'));

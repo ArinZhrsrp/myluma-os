@@ -1,5 +1,17 @@
 const {chromium}=require(process.env.PLAYWRIGHT_CORE||'/tmp/luma-manual-tools/node_modules/playwright-core');
 const assert=require('node:assert/strict');
+const fs=require('fs'),path=require('path'),crypto=require('crypto');
+const imageRoot=path.resolve(__dirname,'../assets/screenshots');
+const captures=JSON.parse(fs.readFileSync(path.join(imageRoot,'capture-log.json'))).pages;
+assert.equal(captures.length,40,'Every screenshot must have a verified capture record');
+assert.equal(new Set(captures.map(c=>c.id)).size,40);
+assert.equal(new Set(captures.map(c=>c.sha256)).size,40,'Duplicate captures');
+for(const c of captures){
+ assert.deepEqual(c.errors,[]);
+ assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.join(imageRoot,c.id+'.png'))).digest('hex'),c.sha256,'Capture changed since verification: '+c.id);
+ if(c.page)assert.equal(c.activePage,'page-'+c.page,'Wrong application page: '+c.id);
+ if(c.tab)assert.equal(c.activeTab.toLowerCase(),c.tab,'Wrong application tab: '+c.id);
+}
 (async()=>{
  const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',headless:true});
  try{
@@ -13,6 +25,7 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(title=>document.querySelector('h1')?.textContent===title,g.title);
   assert.equal(await page.locator('.steps li').count(),g.steps.length);
   for(const id of [g.id,...(g.gallery||[]).map(x=>x.id)]){
+   assert(captures.some(c=>c.id===id),'Missing verified screenshot for '+id);
    const r=await page.request.get('http://127.0.0.1:8772/assets/screenshots/'+id+'.png');assert.equal(r.status(),200,id);screenshots++;
   }
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Desktop overflow '+g.id);
