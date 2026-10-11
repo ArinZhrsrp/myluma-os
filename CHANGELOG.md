@@ -4,6 +4,10 @@ The newest version is on top. The version number lives in `shared/supabase-confi
 Rules: **patch** (0.9.1) = fixes and small tweaks · **minor** (0.10.0) = a new feature or module · **1.0.0** = the first production release.
 Versions before 0.9.0 were written down afterwards from the commit history, so their grouping is approximate.
 
+## 0.30.3 — 2026-10-11
+### Fixed
+- Added a 5px gap between task status dropdown options and increased the menu padding so the selection and hover highlights no longer touch.
+
 ## 0.30.2 — 2026-10-11 (staging)
 ### Security
 - Staging allows three accounts total per Gmail mailbox, including the untagged account. Plus tags, dots and `googlemail.com` share the cap. Run `supabase/setup/staging_email_limit.sql` on staging to activate it. Existing mailboxes over the limit must be resolved first. Slots are freed by account deletion or a mailbox change.
