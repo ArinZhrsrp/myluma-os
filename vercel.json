@@ -23,5 +23,39 @@
       ]
     }
   ],
-  "trailingSlash": true
+  "trailingSlash": true,
+  "rewrites": [
+    {
+      "source": "/login/",
+      "destination": "/app/modules/login/index.html"
+    },
+    {
+      "source": "/login/:path*",
+      "destination": "/app/modules/login/:path*"
+    },
+    {
+      "source": "/register/",
+      "destination": "/app/modules/register/index.html"
+    },
+    {
+      "source": "/register/:path*",
+      "destination": "/app/modules/register/:path*"
+    },
+    {
+      "source": "/reset-password/",
+      "destination": "/app/modules/reset-password/index.html"
+    },
+    {
+      "source": "/reset-password/:path*",
+      "destination": "/app/modules/reset-password/:path*"
+    },
+    {
+      "source": "/verify-email/",
+      "destination": "/app/modules/verify-email/index.html"
+    },
+    {
+      "source": "/verify-email/:path*",
+      "destination": "/app/modules/verify-email/:path*"
+    }
+  ]
 }

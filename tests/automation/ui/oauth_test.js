@@ -8,7 +8,7 @@ const UA = { windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safa
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function page(which, ua, query, o) {
   o = o || {};
-  const html = fs.readFileSync(ROOTDIR + which + '/index.html', 'utf8').replace(/<script[^>]*><\/script>/g, '').replace(/<link[^>]*>/g, '');
+  const html = fs.readFileSync(ROOTDIR + 'app/modules/' + which + '/index.html', 'utf8').replace(/<script[^>]*><\/script>/g, '').replace(/<link[^>]*>/g, '');
   const dom = new JSDOM(html, { url: 'https://luma.test/' + which + '/' + (query || ''), userAgent: ua, runScripts: 'outside-only', pretendToBeVisual: true });
   const w = dom.window; Object.defineProperty(w.navigator, 'userAgent', { get: () => ua }); Object.defineProperty(w.navigator, 'platform', { get: () => '' });
   Object.assign(w, { __oauth: [], __inv: [], __upd: [], __go: [], __out: 0, __session: o.session || null }); w.fetch = () => Promise.resolve({ ok: true });
@@ -18,7 +18,7 @@ async function page(which, ua, query, o) {
   w.LUMA_SUPABASE_URL = 'https://x.supabase.co'; w.LUMA_SUPABASE_ANON_KEY = 'k';
   if (o.intent) w.localStorage.setItem('luma.oauth_intent', JSON.stringify({ intent: o.intent, provider: 'google', ts: o.ts || Date.now() }));
   w.eval(fs.readFileSync(ROOTDIR + 'shared/luma-auth.js', 'utf8')); w.LumaAuth.go = (u) => w.__go.push(u);
-  w.eval(fs.readFileSync(ROOTDIR + which + '/' + which + '.js', 'utf8'));
+  w.eval(fs.readFileSync(ROOTDIR + 'app/modules/' + which + '/' + which + '.js', 'utf8'));
   await wait(80); return w;
 }
 const sess = (o) => ({ user: Object.assign({ id: 'u1', email: 'new@x.com', created_at: new Date().toISOString(), user_metadata: {}, app_metadata: { provider: 'google' } }, o || {}) });

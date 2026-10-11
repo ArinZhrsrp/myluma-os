@@ -4,6 +4,8 @@ http.createServer((req,res)=>{ let p=decodeURIComponent(req.url.split('?')[0]); 
  if(p==='/__audit.js'){res.writeHead(200,{'Content-Type':'text/javascript'});return res.end(fs.readFileSync(__dirname+'/audit.js'));}
  if(p==='/__stub.js'){res.writeHead(200,{'Content-Type':'text/javascript'});return res.end(fs.readFileSync(__dirname+'/stub.js'));}
  if(p==='/__frame'){ const q=new URLSearchParams(req.url.split('?')[1]||''); const w=+q.get('w')||375,h=+q.get('h')||812; res.writeHead(200,{'Content-Type':'text/html'}); return res.end('<!doctype html><body style="margin:0;background:#222"><iframe src="'+((q.get('q')||'').startsWith('/')?q.get('q'):'/app/index.html'+(q.get('q')||''))+'" style="width:'+w+'px;height:'+h+'px;border:0;display:block;background:#000"></iframe></body>'); }
+ p=p.replace(/^\/(login|register|reset-password|verify-email)(?=\/|$)/, '/app/modules/$1');
+ if(/^\/app\/modules\/(login|register|reset-password|verify-email)$/.test(p)) p+='/';
  if(p.endsWith('/')) p+='index.html'; const f=path.join(ROOT,p); fs.readFile(f,(e,b)=>{ if(e){res.writeHead(404);return res.end('nf');} let body=b;
   if(p==='/app/index.html'){ body=String(b).replace(/<script[^>]*src="https:[^"]*supabase[^"]*"[^>]*><\/script>/g,'').replace('<script defer src="../shared/supabase-config.js">','<script src="/__stub.js"></script>'+(req.url.includes('audit=modals')?'<script src="/__audit_modals.js"></script>':req.url.includes('audit=1')?'<script src="/__audit.js"></script>':'')+'<script defer src="../shared/supabase-config.js">'); }
   res.writeHead(200,{'Content-Type':types[path.extname(f)]||'application/octet-stream','Cache-Control':'no-store'}); res.end(body); }); }).listen(8765,()=>console.log('up'));

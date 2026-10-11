@@ -1,7 +1,7 @@
 const ROOTDIR = (process.env.LUMA_ROOT || require('path').resolve(__dirname, '../../..')).replace(/\/?$/, '/');   // the project folder; set LUMA_ROOT to override
-const { JSDOM } = require('./node_modules/jsdom'); const fs=require('fs');
-let html=fs.readFileSync(ROOTDIR+'reset-password/index.html','utf8').replace(/<script[^>]*src="[^"]*"[^>]*><\/script>/g,'').replace(/<link[^>]*>/g,'');
-const js=fs.readFileSync(ROOTDIR+'reset-password/reset-password.js','utf8');
+const { JSDOM } = require('jsdom'); const fs=require('fs');
+let html=fs.readFileSync(ROOTDIR+'app/modules/reset-password/index.html','utf8').replace(/<script[^>]*src="[^"]*"[^>]*><\/script>/g,'').replace(/<link[^>]*>/g,'');
+const js=fs.readFileSync(ROOTDIR+'app/modules/reset-password/reset-password.js','utf8');
 (async()=>{
   const dom=new JSDOM(html,{runScripts:'outside-only',url:'http://localhost/reset-password/'}); const w=dom.window; let calls=0,out=0;
   w.LumaAuth={getSession:async()=>({user:1}),updatePassword:async()=>{calls++;await new Promise(r=>setTimeout(r,300));return {error:null}},signOut:async()=>{out++}};
