@@ -1,3 +1,5 @@
+> Application test code is maintained in `tests/` on `development`, `staging`, and `main`. Run the commands below from an application checkout, replacing historical `docs/test-automation/` paths with `tests/`. This branch retains only the test documentation.
+
 # Automated checks
 
 These scripts check LUMA automatically. They do **not** replace the manual test cases in `docs/tests/` (those cover what a script cannot: real phones, real files, real e-mail, look and feel). Each test case says in its **Automation** line which script covers it.

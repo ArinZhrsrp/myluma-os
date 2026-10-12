@@ -13,7 +13,7 @@ window.LUMA_GUIDES = [
       "If your email is not verified, follow the prompt to enter your verification code."
     ],
     "tips": [
-      "LUMA currently uses email and password sign-in. Google and Apple sign-in buttons are no longer available.",
+      "LUMA uses email and password sign-in.",
       "Use Forgot password? if you cannot remember your password; creating another account is not necessary."
     ],
     "related": [
