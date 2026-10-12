@@ -272,7 +272,7 @@
       const byDue = (a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999') || sdHM(a.due_time).localeCompare(sdHM(b.due_time));
       if (SD.filter !== 'open') return chips + card(list.sort((a, b) => byDue(b, a)).map(sdRow).join(''));
       const groups = [['Overdue', t => t.due_date && t.due_date < today], ['Next 7 days', t => t.due_date && t.due_date >= today && sdDiff(today, t.due_date) <= 7], ['Later', t => t.due_date && sdDiff(today, t.due_date) > 7], ['No due date', t => !t.due_date]];
-      return chips + groups.map(([n, f]) => { const g = list.filter(f).sort(byDue); return g.length ? card(`<div class="section-title">${n} <span class="sd-count">${g.length}</span></div>${g.map(sdRow).join('')}`) : ''; }).join('');
+      return chips + `<div class="sd-assignment-groups">` + groups.map(([n, f]) => { const g = list.filter(f).sort(byDue); return g.length ? card(`<div class="section-title">${n} <span class="sd-count">${g.length}</span></div>${g.map(sdRow).join('')}`) : ''; }).join('') + `</div>`;
     }
 
     function sdCourseCard(c) {

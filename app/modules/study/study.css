@@ -19,6 +19,7 @@
     .sd-tile span { color:rgba(255,255,255,0.6); font-size:0.7rem; }
 
     /* assignment rows */
+    .sd-assignment-groups { display:grid; gap:14px; }
     .sd-row { display:flex; align-items:center; gap:12px; padding:11px 8px; border-radius:12px; cursor:pointer; transition:.15s; }
     .sd-row + .sd-row { border-top:1px solid rgba(255,255,255,0.06); }
     .sd-row:hover { background:rgba(255,255,255,0.05); }
