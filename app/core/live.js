@@ -57,5 +57,9 @@
       window.lumaLiveNotif = function (row) {
         lastNotifAt = Date.now(); soon();
         if (row && (row.type === 'message' || /^contact/.test(row.type || ''))) contactsChanged();
+        if (row && (row.type === 'share' || row.type === 'document_deleted')) { // the Shared with me list follows what others share or delete
+          const dp = document.getElementById('page-documents');
+          if (dp && dp.classList.contains('active') && typeof loadDocuments === 'function') loadDocuments(dp);
+        }
       };
     })();

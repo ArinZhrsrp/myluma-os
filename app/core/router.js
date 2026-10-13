@@ -39,6 +39,7 @@
       pageTitle.textContent = titles[key];
       document.querySelectorAll('.menu').forEach(i => i.classList.toggle('active', i.dataset.page === (key === 'adminreport' ? 'admin' : key)));
       if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); fitWrap(pg, key); rendered[key] = true; LumaLoader.page(pg, key, wireModule(key)); } else if (key !== 'dashboard') LumaLoader.page(pg, key);
+      if (window.LumaUsage) LumaUsage.show(key); // "3 / 5 habits" in the page header
       const mc = document.querySelector('.main-content');
       mc.classList.toggle('fit', FIT_PAGES.has(key));
       if (key === 'calendar') calOnShow();

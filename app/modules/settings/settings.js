@@ -52,6 +52,11 @@
           <button type="button" class="pc-hist-link" data-pc-plans><i class="fa-solid fa-layer-group"></i> See what each plan includes <i class="fa-solid fa-chevron-right"></i></button>
           <button type="button" class="pc-hist-link" id="pcHistLink"><i class="fa-solid fa-clock-rotate-left"></i> Purchase history <i class="fa-solid fa-chevron-right"></i></button>
         </div>
+        <div class="card full-width" style="margin-top:0.9rem" id="usageCard">
+          <div class="section-title"><i class="fa-solid fa-gauge-high"></i> Your usage</div>
+          <p class="ls" style="margin:-4px 0 12px;font-size:0.74rem">How much of your plan you have used so far. Daily counts start again at midnight.</p>
+          <div id="settingsUsage"></div>
+        </div>
         <div class="card full-width" style="margin-top:0.9rem" id="remPrefs">
           <div class="section-title"><i class="fa-regular fa-clock"></i> Reminders</div>
           <p class="ls" style="font-size:0.72rem;line-height:1.5">Choose which reminders you get and when. Times follow your time zone (${tzOffsetLabel()}). They arrive in your inbox and as push notifications.</p>
@@ -251,6 +256,7 @@
     }
     WIRE.settings = function (pg, key) {
         wireReminderPrefs(pg);
+        if (window.LumaUsage) LumaUsage.paintList('settingsUsage');
         LumaPlan.loadGifts().then(() => { const box = pg.querySelector('#pcGifts'); if (box) box.innerHTML = settingsGiftsHtml(); }); // always show the latest
         pg.querySelector('#pcHistLink')?.addEventListener('click', () => goTo('purchases'));
           pg.querySelectorAll('[data-addon-pill]').forEach(b => b.addEventListener('click', () => pg.querySelector('#planCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' })));
