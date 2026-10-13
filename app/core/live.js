@@ -3,7 +3,7 @@
     // a new contact request or message arrives) shows up straight away, with no refresh. Three things start a check:
     //   1. Supabase Realtime (migration 094): the person's own profile, add-ons and contacts
     //   2. a new notification (the app already listens for those)
-    //   3. a slow timer and "the tab is visible again", for anything realtime missed (a sleeping tab, a dropped connection)
+    //   3. a 10-second timer and "the tab is visible again", for anything realtime missed (a sleeping tab, a dropped connection)
     (function () {
       let uid = null, busy = false, again = false, debounce = null, channel = null;
       const snap = () => JSON.stringify([LumaPlan.plan, LumaPlan.planExpires, LumaPlan.addons, LumaPlan.addonInfo, LumaPlan.lim, LumaPlan.admin]);
@@ -49,7 +49,7 @@
             .on('postgres_changes', { event: '*', schema: 'luma', table: 'contacts', filter: 'addressee_id=eq.' + userId }, contactsChanged)
             .subscribe();
         } catch (e) { /* the timer below still keeps things fresh */ }
-        setInterval(() => { if (!document.hidden) refreshAccount(); }, 30000);
+        setInterval(() => { if (!document.hidden) refreshAccount(); }, 10000);
         document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshAccount(); contactsChanged(); } });
         window.addEventListener('online', soon);
       };
