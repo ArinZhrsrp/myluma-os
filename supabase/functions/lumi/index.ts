@@ -734,7 +734,17 @@ Deno.serve(async (req) => {
   }
 
   if (limit === 0) return json({ error: mode === "chat" ? "Lumi isn't included in your plan." : "AI insights are available on the Glow and Zenith plans. Upgrade in Settings → Plans.", left: 0, limit: 0 }, 403);
-  const { data: left, error: qerr } = await client.rpc("use_assistant", { p_kind: mode, p_limit: limit });
+  // answering a delete confirmation (a short yes/no while a fresh preview is waiting) is free: the order already cost one question.
+  // The waiting preview is cleared after that turn, so each preview buys at most one free reply.
+  let freeTurn = false;
+  if (mode === "chat" && Array.isArray(body.messages) && body.messages.length) {
+    const lastMsg = body.messages[body.messages.length - 1], said = String(lastMsg?.content || "").trim().toLowerCase().replace(/[.!\s]+$/g, "");
+    if (lastMsg?.role !== "assistant" && said.length <= 40 && /^(yes|y|yep|yeah|yup|ok|okay|sure|confirm|confirmed|go ahead|do it|proceed|no|n|nope|cancel|stop|don'?t|never ?mind|delete( them| it| all)?)\b/.test(said)) {
+      const { data: pend } = await client.from("assistant_pending").select("created_at").eq("user_id", u.user.id).maybeSingle();
+      freeTurn = !!pend && Date.now() - Date.parse(pend.created_at) <= 15 * 60 * 1000;
+    }
+  }
+  const { data: left, error: qerr } = freeTurn ? await client.rpc("assistant_left", { p_kind: mode, p_limit: limit }) : await client.rpc("use_assistant", { p_kind: mode, p_limit: limit });
   if (qerr) return json({ error: "Lumi isn't set up yet — run migration 029_assistant.sql." }, 500);
   if (left < 0) return json({ error: mode === "chat" ? `You've used your ${limit} questions for today. Lumi resets at midnight.` : "Insight limit reached for today.", left: 0, limit }, 429);
 
@@ -753,21 +763,32 @@ Deno.serve(async (req) => {
     const msgs: any[] = [{ role: "system", content: SYSTEM(now, tz, name, view, page) + "\nAbout the user (from their LUMA profile; use it naturally, do not recite it): " + profileLine + (canAct ? "" : "\n- On the user's current plan you can only read and answer. You cannot add or log anything. If asked to, say that adding things through Lumi is available on the Glow and Zenith plans.") }, ...history];
     const tools = canAct ? TOOLS : TOOLS.filter((t: any) => t.function.name === "get_overview");
     const actions: unknown[] = [], reqId = crypto.randomUUID();
+    let toolCalls = 0, toolOk = 0;
+    const refundIfUseless = async () => { // an order Lumi could not carry out does not cost a question
+      if (freeTurn || (toolCalls > 0 && toolOk > 0)) return left;
+      await client.rpc("refund_assistant", { p_kind: mode }); return left + 1;
+    };
+    const endFreeTurn = async () => { if (freeTurn) await client.from("assistant_pending").delete().eq("user_id", u.user.id); };
     for (let i = 0; i < 4; i++) {
       const m = await chat(msgs, tools);
-      if (!m.tool_calls?.length) return json({ reply: String(m.content || "Done.").trim(), actions, left, limit });
+      if (!m.tool_calls?.length) {
+        await endFreeTurn();
+        return json({ reply: String(m.content || "Done.").trim(), actions, left: toolCalls > 0 ? await refundIfUseless() : left, limit });
+      }
       msgs.push({ role: "assistant", content: m.content || "", tool_calls: m.tool_calls });
       for (const tc of m.tool_calls) {
         let args: any = {}; try { args = JSON.parse(tc.function.arguments || "{}"); } catch { /* ignore */ }
         const out: any = await runTool(tc.function.name, args, client, today, u.user.id, view, { lastUser: history[history.length - 1].content, reqId });
+        toolCalls++; if (out?.ok) toolOk++;
         if (out?.ok && tc.function.name !== "get_overview" && !out.needs_confirmation && !(tc.function.name === "delete_items" && !out.deleted)) actions.push({ tool: tc.function.name, ...out });
         msgs.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(out).slice(0, 8000) });
       }
     }
-    return json({ reply: "I got a bit tangled on that one. Could you say it a different way?", actions, left, limit });
+    await endFreeTurn();
+    return json({ reply: "I got a bit tangled on that one. Could you say it a different way?", actions, left: freeTurn ? left : (await client.rpc("refund_assistant", { p_kind: mode }), left + 1), limit });
   } catch (e) {
-    await client.rpc("refund_assistant", { p_kind: mode }); // a failed answer doesn't cost a question
+    if (!freeTurn) await client.rpc("refund_assistant", { p_kind: mode }); // a failed answer doesn't cost a question
     console.error("lumi failed:", (e as Error).message);
-    return json({ error: "Lumi couldn't reach the AI service just now. Please try again in a moment.", detail: (e as Error).message, left: left + 1, limit }, 502);
+    return json({ error: "Lumi couldn't reach the AI service just now. Please try again in a moment.", detail: (e as Error).message, left: freeTurn ? left : left + 1, limit }, 502);
   }
 });
