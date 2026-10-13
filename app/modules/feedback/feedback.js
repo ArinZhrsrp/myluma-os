@@ -103,7 +103,7 @@
     };
 
     // ---------- the inbox (administrators) ----------
-    const FBA = { rows: [], status: 'new', module: '', q: '', urls: {} };
+    const FBA = { rows: [], status: '', module: '', q: '', urls: {} }; // status '' = All
     MODULES.adminfeedback = function () {
       return head('Feedback inbox', '<span id="fbaSub">Loading…</span>', '<button class="create-btn" id="fbaBack" style="background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-arrow-left"></i> Admin</button>') + '<div id="fbaRoot"></div>';
     };
@@ -136,6 +136,7 @@
       fbaPaint();
     }
     WIRE.adminfeedback = async function (pg) {
+      FBA.status = ''; FBA.module = ''; FBA.q = ''; // every visit starts on All, not on the filter used last time
       pg.querySelector('#fbaBack').onclick = () => goTo('admin');
       if (pg.dataset.fbaWired) return fbaLoad(); // the listeners below stay on the page: adding them again made one click run several times
       pg.dataset.fbaWired = '1';
