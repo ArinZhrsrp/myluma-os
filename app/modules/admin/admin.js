@@ -41,7 +41,7 @@
         const ab = e.target.closest('.adm-addons button'); if (ab) return admOpen(u, 'addon', ab.dataset.addon);
         if (e.target.closest('[data-plan-open]')) admOpen(u, 'plan');
       });
-      ADM_AFTER = async (id, own) => { await Promise.all([list(), stats(), admLogLoad()]); if (own) { await LumaPlan.load(); Object.keys(rendered).forEach(k => { if (k !== 'admin') delete rendered[k]; }); await enforceModeAccess(); flashToast('Your own plan or add-ons changed', 'The app now follows them', 'fa-user-shield', '#3b82f6'); } };
+      ADM_AFTER = async (id, own) => { await Promise.all([list(), stats(), admLogLoad()]); if (own) { await LumaPlan.load(); Object.keys(rendered).forEach(k => { if (k !== 'admin') delete rendered[k]; }); await enforceModeAccess(); } };
       let t = null; document.getElementById('admSearch').addEventListener('input', () => { clearTimeout(t); t = setTimeout(list, 300); });
       // the monthly report lives on its own page (opened from here)
       const report = async () => {

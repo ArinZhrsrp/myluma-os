@@ -5,7 +5,7 @@
     //   2. a new notification (the app already listens for those)
     //   3. a 10-second timer and "the tab is visible again", for anything realtime missed (a sleeping tab, a dropped connection)
     (function () {
-      let uid = null, busy = false, again = false, debounce = null, channel = null;
+      let uid = null, lastNotifAt = 0, busy = false, again = false, debounce = null, channel = null;
       const snap = () => JSON.stringify([LumaPlan.plan, LumaPlan.planExpires, LumaPlan.addons, LumaPlan.addonInfo, LumaPlan.lim, LumaPlan.admin]);
 
       async function refreshAccount() {
@@ -28,7 +28,7 @@
           await enforceModeAccess(); // sends the person out of Work / Study when that add-on is gone
           const pg = document.querySelector('.page.active'), key = pg ? pg.id.replace('page-', '') : '';
           if (key) goTo(key);
-          flashToast('Your account was updated', 'Your plan or add-ons changed.', 'fa-circle-check', '#3b82f6');
+          if (Date.now() - lastNotifAt > 6000) flashToast('Your account was updated', 'Your plan or add-ons changed.', 'fa-circle-check', '#3b82f6'); // when a notification just arrived, its own pop-up already said so
         } catch (e) { /* offline or signed out: the next check tries again */ }
         finally { busy = false; if (again) { again = false; setTimeout(refreshAccount, 500); } }
       }
@@ -55,7 +55,7 @@
       };
       // called for every new notification: a gift, a plan change, a contact request or a chat message all arrive this way
       window.lumaLiveNotif = function (row) {
-        soon();
+        lastNotifAt = Date.now(); soon();
         if (row && (row.type === 'message' || /^contact/.test(row.type || ''))) contactsChanged();
       };
     })();
