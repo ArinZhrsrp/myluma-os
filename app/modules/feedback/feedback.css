@@ -37,3 +37,4 @@
     .fb-radm { display:flex; flex-wrap:wrap; gap:8px; }
     .fb-rthread { margin-top:12px; }
     .fb-reply.adm { background:rgba(52,211,153,0.1); border-color:rgba(52,211,153,0.3); color:#a7f3d0; }
+    .fb-it .fb-thumb { margin:8px 0 4px; max-width:100%; } .fb-it .fb-thumb img { max-height:160px; }
