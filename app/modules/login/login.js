@@ -50,6 +50,10 @@
           window.location.href = "/verify-email/?sent=1&email=" + encodeURIComponent(email);
           return;
         }
+        if (/invalid login credentials/i.test(error.message || "") && (await LumaAuth.accountExists(email)) === false) {
+          showError("No account exists with this email. Check the address or sign up.");
+          return;
+        }
         showError(/banned|deactivated|disabled/i.test(error.message || '') ? 'This account has been deactivated. Please contact support if you think this is a mistake.' : error.message);
         return;
       }
@@ -66,6 +70,10 @@
       const email = document.getElementById("email").value.trim();
       if (!email) {
         showError("Enter your email above first, then click “Forgot password?”");
+        return;
+      }
+      if ((await LumaAuth.accountExists(email)) === false) {
+        showError("No account exists with this email. Check the address or sign up.");
         return;
       }
       const { error } = await LumaAuth.sendPasswordReset(email);

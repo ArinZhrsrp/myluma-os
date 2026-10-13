@@ -133,6 +133,11 @@
       return client.auth.signOut();
     },
 
+    async accountExists(email) {
+      const { data, error } = await client.rpc("account_exists", { p_email: email });
+      return error ? null : !!data; // null = could not check
+    },
+
     async sendPasswordReset(email) {
       return client.auth.resetPasswordForEmail(email, {
         redirectTo: new URL("/reset-password/", window.location.origin).href,
