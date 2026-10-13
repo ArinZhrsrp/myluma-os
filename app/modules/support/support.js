@@ -75,11 +75,21 @@
           else if (a) { window.open(a, '_blank'); }
         }));
         const sendBtn = pg.querySelector('#suppSend');
-        sendBtn && sendBtn.addEventListener('click', () => {
-          const msg = pg.querySelector('#suppMsg');
-          if (!msg.value.trim()) { msg.style.borderColor = '#ef4444'; return; }
-          msg.style.borderColor = 'rgba(255,255,255,0.1)'; msg.value = '';
-          pg.querySelector('#suppOk').style.display = 'flex';
+        sendBtn && sendBtn.addEventListener('click', async () => {
+          const msg = pg.querySelector('#suppMsg'), ok = pg.querySelector('#suppOk'), text = msg.value.trim();
+          ok.style.display = 'none';
+          if (text.length < 3) { msg.style.borderColor = '#ef4444'; return; }
+          msg.style.borderColor = 'rgba(255,255,255,0.1)'; sendBtn.disabled = true; sendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending…';
+          try {
+            // saved as a Feedback item (module "Support"): it lands in the Admin → Feedback inbox, the administrators are notified in the app and by push,
+            // and the person sees the answer under Feedback → Your messages
+            const topic = (pg.querySelector('#suppTopic') || {}).value || '';
+            const sb = LumaAuth.client, row = { kind: 'question', module: 'Support', part: topic.slice(0, 80), message: text, context: { page: 'support', mode: typeof LUMA_MODE !== 'undefined' ? LUMA_MODE : '', version: window.LUMA_VERSION || '', screen: `${innerWidth}x${innerHeight}` } };
+            const r = await sb.schema('luma').from('feedback').insert(row);
+            if (r.error) throw new Error(/10 messages/.test(r.error.message) ? r.error.message : /feedback|schema cache|does not exist/i.test(r.error.message) ? 'Support messages are not set up yet (run supabase/migrations/081_feedback.sql).' : r.error.message);
+            msg.value = ''; ok.innerHTML = '<i class="fa-solid fa-circle-check"></i> Thanks! Your message reached our team. We will reply under Feedback → Your messages, and you will get a notification.'; ok.style.color = '#6ee7b7'; ok.style.display = 'flex';
+          } catch (e) { ok.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + escapeHtml(e.message || 'Could not send. Please try again.'); ok.style.color = '#fca5a5'; ok.style.display = 'flex'; }
+          sendBtn.disabled = false; sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Send message';
         });
         pg.querySelectorAll('.faq-q').forEach(q => q.addEventListener('click', () => {
           const faq = q.closest('.faq');
