@@ -2,6 +2,16 @@
 <html lang="en">
 
 <head>
+  <script>
+    // Signed-out visitors go straight to Login, before any of the dashboard is drawn (the full check still happens in core/start.js).
+    (function () {
+      try {
+        if (/access_token=|[?&]code=|type=recovery/.test(location.hash + location.search)) return; // returning from Google / Apple / an email link: the session is still being set up
+        var has = function (st) { for (var i = 0; i < st.length; i++) if (/^sb-.*-auth-token$/.test(st.key(i))) return true; return false; };
+        if (!has(localStorage) && !has(sessionStorage)) { document.documentElement.style.display = 'none'; location.replace('/login/'); }
+      } catch (e) { }
+    })();
+  </script>
   <script src="../shared/luma-loader.js"></script>
   <script>LumaLoader.hold('app');</script>
   <meta charset="UTF-8">
