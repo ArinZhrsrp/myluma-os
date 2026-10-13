@@ -26,12 +26,12 @@
     </div>
     <div class="head">
       <h2>Check your email</h2>
-      <span id="headSub">We sent a 6-digit code to your email.</span>
+      <span id="headSub">We sent a code to your email.</span>
     </div>
     <div class="msg error" id="formError"></div>
     <div class="msg ok" id="formOk"></div>
     <div class="field" id="emailField" style="display:none"><label>Email</label><div class="inp"><i class="fa-regular fa-envelope"></i><input type="email" id="email" placeholder="you@luma.os"></div></div>
-    <div class="field codebox"><label>Verification code</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="••••••" required></div>
+    <div class="field codebox"><label>Verification code</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="••••••••" required></div>
     <button class="btn" type="submit" id="submitBtn">Verify and continue <i class="fa-solid fa-arrow-right"></i></button>
     <div class="resend">Didn't get it? <button type="button" id="resendBtn">Send a new code</button></div>
     <div class="tip">Check your spam folder too. The code works for a limited time, and a new code replaces the old one.</div>

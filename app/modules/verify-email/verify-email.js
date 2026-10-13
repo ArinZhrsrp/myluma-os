@@ -1,16 +1,19 @@
 // LUMA — verify-email page
     const form = document.getElementById("verifyForm"), errEl = document.getElementById("formError"), okEl = document.getElementById("formOk");
+    // the code is exactly this many digits (it must match Supabase → Authentication → Providers → Email → "Email OTP length"); nothing longer can be typed
+    const CODE_LENGTH = 8;
     const submitBtn = document.getElementById("submitBtn"), resendBtn = document.getElementById("resendBtn"), codeEl = document.getElementById("code"), emailEl = document.getElementById("email");
     const q = new URLSearchParams(location.search);
     let email = (q.get("email") || "").trim();
     const showError = (t) => { okEl.style.display = "none"; errEl.textContent = t; errEl.style.display = "flex"; };
     const showOk = (t) => { errEl.style.display = "none"; okEl.textContent = t; okEl.style.display = "flex"; };
 
-    if (email) document.getElementById("headSub").textContent = "We sent a 6-digit code to " + email + ".";
+    if (email) document.getElementById("headSub").textContent = "We sent a " + CODE_LENGTH + "-digit code to " + email + ".";
     else { document.getElementById("emailField").style.display = ""; document.getElementById("headSub").textContent = "Enter your email and the code we sent you."; }
     if (q.get("sent") === "1") showOk("Account created. We emailed you a code.");
+    codeEl.maxLength = CODE_LENGTH; codeEl.placeholder = "•".repeat(CODE_LENGTH);
     codeEl.focus();
-    codeEl.addEventListener("input", () => { codeEl.value = codeEl.value.replace(/\D/g, ""); });
+    codeEl.addEventListener("input", () => { codeEl.value = codeEl.value.replace(/\D/g, "").slice(0, CODE_LENGTH); });
 
     // "send a new code" waits 60 seconds between sends
     let wait = 0, timer = null;
@@ -37,7 +40,7 @@
       email = email || emailEl.value.trim();
       const code = codeEl.value.trim();
       if (!email) return showError("Enter your email first.");
-      if (code.length < 6) return showError("Enter the full code from the email.");
+      if (code.length !== CODE_LENGTH) return showError("Enter the full " + CODE_LENGTH + "-digit code from the email.");
       submitBtn.disabled = true; submitBtn.innerHTML = "Verifying\u2026";
       const { data, error } = await LumaAuth.verifyEmailCode(email, code);
       if (error || !data || !data.session) {

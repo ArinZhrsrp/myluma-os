@@ -13,7 +13,7 @@
       standard: { name: 'Work', price: 'RM15 / month', lim: [5, 20, 8, 600, 5] },
       pro: { name: 'Work Pro', price: 'RM25 / month', lim: [20, 60, 15, 1500, 20] },
     };
-    const workLimText = l => `${l[0]} companies · ${l[1]} projects · ${l[2]} people on a project · ${l[3]} tasks in a project · ${l[4]} teams`;
+    const workLimText = l => `${l[0] ?? '∞'} companies · ${l[1] ?? '∞'} projects · ${l[2] ?? '∞'} people on a project · ${l[3] ?? '∞'} tasks in a project · ${l[4] ?? '∞'} teams`;
     // both together, cheaper than buying them one by one
     const ADDON_BUNDLE = { name: 'Work + Study', price: 'RM19 / month', save: 'Save RM3 a month', keys: ['work', 'study'] };
     const MODE_HOME = { personal: 'dashboard', work: 'work', study: 'study' };

@@ -189,6 +189,22 @@
       });
     }
 
+    // an administrator opens a chat with any account (migration 089), e.g. to ask about their feedback
+    async function adminMessageUser(userId, name, intro) {
+      const { data, error } = await LumaAuth.client.schema('luma').rpc('admin_start_chat', { p_user: userId });
+      if (error) { luAlert(/could not find the function|schema cache/i.test(error.message) ? 'Run supabase/migrations/089_admin_chat.sql in the SQL Editor first.' : error.message); return false; }
+      if (intro) { // an opening line, sent once (not again when the administrator reopens the chat)
+        const prev = await LumaContacts.listMessages(data, { limit: 30 });
+        if (!prev.error && !(prev.data || []).some(m => m.body === intro)) {
+          const sent = await LumaContacts.sendMessage(data, intro);
+          if (sent.error) luAlert("The chat is open, but the first message was not sent: " + sent.error.message);
+        }
+      }
+      goTo('contacts');
+      openContactChat(data, name, colorForId(String(data)));
+      return true;
+    }
+
     function closeContactChat() {
       chatOverlay.classList.remove('open');
       if (activeChatChannel) { LumaContacts.unsubscribe(activeChatChannel); activeChatChannel = null; }

@@ -15,21 +15,58 @@
       { id: 'glow', name: 'Glow', icon: 'fa-sun', color: '#fbbf24', tag: 'The full toolkit', price: 'RM9 / month', rank: 1, perks: ['Lumi: 10 questions a day, and it can add things for you', '3 AI insights a day in Analytics', '300 MB of file storage (20 MB per file)', '25 custom reminders', '10 habits, 5 goals, 12 bills', '12 contacts', 'Adjustable reminder times', 'Malaysian payroll calculator', '8 wallpapers and all 3 themes', 'Chat with contacts: up to 50 messages a day'] },
       { id: 'zenith', name: 'Zenith', icon: 'fa-rocket', color: '#a78bfa', tag: 'No limits', price: 'RM19 / month', rank: 2, perks: ['Lumi: 15 questions a day, and it can add things for you', '10 AI insights a day in Analytics', '1 GB of file storage (50 MB per file)', 'Unlimited reminders, habits, goals, bills and contacts', 'Everything in Glow', 'All 11 wallpapers, and upload your own', 'Early access to new features', 'Chat with contacts: up to 50 messages a day'] },
     ];
+    // The limits every plan has right now (luma.plan_limits, the table Admin → Plan limits edits). Plans: dawn, glow, zenith, and "work" / "work_pro" for the two Work sizes.
+    let PLAN_LIMS = null;
+    async function loadPlanLimits() {
+      try {
+        const { data, error } = await LumaAuth.client.schema('luma').from('plan_limits').select('plan, key, value');
+        if (error || !data || !data.length) return false;
+        const next = {}; data.forEach(r => { (next[r.plan] = next[r.plan] || {})[r.key] = r.value; });
+        const changed = JSON.stringify(next) !== JSON.stringify(PLAN_LIMS); PLAN_LIMS = next;
+        ['standard', 'pro'].forEach(z => { const l = next[z === 'pro' ? 'work_pro' : 'work']; if (l) WORK_SIZES[z].lim = ['work_companies', 'work_projects', 'work_people', 'work_tasks', 'work_teams'].map(k => l[k] === undefined ? WORK_SIZES[z].lim[['work_companies', 'work_projects', 'work_people', 'work_tasks', 'work_teams'].indexOf(k)] : l[k]); });
+        return changed;
+      } catch (e) { return false; }
+    }
+    // the list of what a plan includes, written from its live limits (the fixed text in PLANS is the fallback)
+    function planPerks(p) {
+      const l = PLAN_LIMS && PLAN_LIMS[p.id]; if (!l || l.lumi_questions === undefined) return p.perks;
+      const n = v => v === null || v === undefined ? 'Unlimited' : v, mb = v => v === null || v === undefined ? 'Unlimited' : v >= 1000 && v % 1000 === 0 ? v / 1000 + ' GB' : v + ' MB';
+      const out = [`Lumi: ${n(l.lumi_questions)} questions a day${l.lumi_actions > 0 ? ', and it can add things for you' : ' (answers only)'}`];
+      if (l.insights === null || l.insights > 0) out.push(`${n(l.insights)} AI insights a day in Analytics`);
+      out.push(`${mb(l.storage_mb)} of file storage (${mb(l.file_mb)} per file)`);
+      const five = ['reminders', 'habits', 'goals', 'bills', 'contacts'];
+      if (five.every(k => l[k] === null)) out.push('Unlimited reminders, habits, goals, bills and contacts');
+      else out.push(`${n(l.reminders)} custom reminders`, `${n(l.habits)} habits, ${n(l.goals)} goals, ${n(l.bills)} bills`, `${n(l.contacts)} contacts`);
+      if (p.id === 'dawn') out.push('Core calendar, tasks, notes, money and health');
+      if (p.id === 'zenith') out.push('Everything in Glow');
+      if (l.timing > 0) out.push('Adjustable reminder times');
+      if (l.payroll > 0) out.push('Malaysian payroll calculator');
+      out.push(`${n(l.wallpapers)} wallpapers${l.own_wallpaper > 0 ? ', and upload your own' : ''}, ${n(l.themes)} theme${l.themes === 1 ? '' : 's'}`);
+      if (p.id === 'zenith') out.push('Early access to new features');
+      if (l.chat_messages !== undefined) out.push(`Chat with contacts: ${l.chat_messages === null ? 'no daily limit' : 'up to ' + l.chat_messages + ' messages a day'}`);
+      return out;
+    }
+    const workLimLine = l => { const names = ['companies', 'projects', 'people on a project', 'tasks in a project', 'teams'], parts = l.map((v, i) => (v === null || v === undefined ? 'unlimited' : v) + ' ' + names[i]); return (l[0] === null ? '' : 'Up to ') + parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1]; };
     let planFirst = false, planResolve = null; // planFirst: the welcome version shown once after the first login
     function openPlans(first) {
       planFirst = first === true;
       const cur = PLANS.find(p => p.id === LumaPlan.plan) || PLANS[0];
       docEl('planTitle').textContent = planFirst ? 'Welcome to LUMA! Pick your plan' : 'Plans';
       docEl('planNote').innerHTML = planFirst ? 'You start on <b>Dawn</b>, free forever. Want more? Tap a plan to upgrade. We\'ll open WhatsApp with your details filled in. Not now? You can always upgrade later from Settings.' : 'To upgrade, tap a plan. We\'ll open WhatsApp with your name, email, plan and price filled in.';
+      paintPlans();
+      docEl('planOverlay').classList.add('open');
+      docEl('planOverlay').querySelectorAll('.pem-body, .profile-edit-modal').forEach(el => { el.scrollTop = 0; });
+      loadPlanLimits().then(changed => { if (changed && docEl('planOverlay').classList.contains('open')) paintPlans(); }); // the numbers come from Admin → Plan limits, so they follow every edit
+    }
+    function paintPlans() {
+      const cur = PLANS.find(p => p.id === LumaPlan.plan) || PLANS[0];
       docEl('planGrid').innerHTML = PLANS.map(p => `<div class="plan-card ${p.id === cur.id ? 'cur' : ''}" style="--pc:${p.color}">
         ${p.id === cur.id ? '<span class="pb">Your plan</span>' : ''}
         <div class="pn"><span class="pi"><i class="fa-solid ${p.icon}"></i></span>${p.name}</div><div class="pt">${p.tag}</div><div class="pp">${p.price}</div>
         ${p.id === cur.id && p.id !== 'dawn' && LumaPlan.planExpires ? planEndLine(LumaPlan.planExpires) : ''}
-        <ul>${p.perks.map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('')}</ul>
+        <ul>${planPerks(p).map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('')}</ul>
         ${p.rank > cur.rank ? `<button type="button" class="pbtn up" data-up="${p.id}"><i class="fa-brands fa-whatsapp"></i> Upgrade to ${p.name}</button>` : p.id === cur.id ? (planFirst ? `<button type="button" class="pbtn" data-stay>Stay on ${p.name}</button>` : p.id !== 'dawn' && LumaPlan.planExpires ? `<button type="button" class="pbtn up" data-renew="plan:${p.id}"><i class="fa-brands fa-whatsapp"></i> Renew ${p.name}</button>` : '<button type="button" class="pbtn" disabled>Current plan</button>') : '<button type="button" class="pbtn" disabled>Included</button>'}</div>`).join('');
       paintPlanAddons();
-      docEl('planOverlay').classList.add('open');
-      docEl('planOverlay').querySelectorAll('.pem-body, .profile-edit-modal').forEach(el => { el.scrollTop = 0; });
     }
     // "Until 8 Nov 2026 · 23 days left" (red when a week or less is left)
     function planEndLine(iso) {
@@ -54,12 +91,13 @@
       box.style.display = '';
       box.innerHTML = `<div class="pa-head"><div class="pa-t">Add-ons</div><div class="ls">Work and Study go on top of any plan.</div></div><div class="pa-grid">` + Object.keys(ADDONS).map(k => {
         const a = ADDONS[k], on = LumaPlan.hasAddon(k), info = LumaPlan.addonInfo[k] || {};
-        const status = on && k === 'work' && LumaPlan.workTier() === 'pro' ? `Work Pro${info.expires_at ? ' · until ' + when(info.expires_at) : ''}` : on ? (info.source === 'trial' && info.expires_at ? `Trial until ${when(info.expires_at)}` : info.expires_at ? `Active until ${when(info.expires_at)}` : 'Active') : a.price;
+        const price = on && k === 'work' ? WORK_SIZES[LumaPlan.workTier()].price : a.price; // the price stays visible while it is active, like a plan
+        const status = k === 'work' && LumaPlan.workTier() === 'pro' ? 'Work Pro' : info.source === 'trial' ? 'Free trial' : 'Active';
         return `<div class="plan-card ${on ? 'cur' : ''}" style="--pc:${a.color}">
           ${on ? '<span class="pb">Active</span>' : ''}
-          <div class="pn"><span class="pi"><i class="fa-solid ${a.icon}"></i></span>${a.name}</div><div class="pt">${a.tag}</div><div class="pp">${status}</div>
+          <div class="pn"><span class="pi"><i class="fa-solid ${a.icon}"></i></span>${a.name}</div><div class="pt">${on ? a.tag + ' · ' + status : a.tag}</div><div class="pp">${price}</div>
           <ul>${a.perks.slice(0, 3).map(x => `<li><i class="fa-solid fa-check"></i><span>${x}</span></li>`).join('')}</ul>
-          ${k === 'work' ? `<div class="pa-lim">${['standard', 'pro'].map(z => { const w = WORK_SIZES[z], mine = on && LumaPlan.workTier() === z; return `<div class="pa-size ${mine ? 'mine' : ''}"><b>${w.name}</b> <em>${w.price}</em>${mine ? ' <span>· yours</span>' : ''}<br>Up to ${w.lim[0]} companies, ${w.lim[1]} projects, ${w.lim[2]} people on a project, ${w.lim[3]} tasks in a project and ${w.lim[4]} teams</div>`; }).join('')}<i>The same on every plan.</i></div>` : ''}
+          ${k === 'work' ? `<div class="pa-lim">${['standard', 'pro'].map(z => { const w = WORK_SIZES[z], mine = on && LumaPlan.workTier() === z; return `<div class="pa-size ${mine ? 'mine' : ''}"><b>${w.name}</b> <em>${w.price}</em>${mine ? ' <span>· yours</span>' : ''}<br>${workLimLine(w.lim)}</div>`; }).join('')}<i>The same on every plan.</i></div>` : ''}
           ${on && info.expires_at ? planEndLine(info.expires_at) : ''}
           ${k === 'work' && on && LumaPlan.workTier() === 'standard' ? `<button type="button" class="pbtn up" data-addon-buy="workpro"><i class="fa-brands fa-whatsapp"></i> Upgrade to Work Pro</button>` : ''}
           ${on && info.expires_at ? `<button type="button" class="pbtn up" data-renew="addon:${k}${k === 'work' ? ':' + LumaPlan.workTier() : ''}"><i class="fa-brands fa-whatsapp"></i> Renew ${k === 'work' ? LumaPlan.addonName('work') + ' · ' + WORK_SIZES[LumaPlan.workTier()].price : a.name}</button>` : ''}

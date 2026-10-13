@@ -11,13 +11,16 @@
       const root = pg.querySelector('#admRoot'), sub = pg.querySelector('#admSub');
       if (!LumaPlan.admin) { sub.textContent = 'Not allowed'; root.innerHTML = card('<div class="ls">This page is only for administrators.</div>'); return; }
       const db = () => LumaAuth.client.schema('luma'), ago = iso => { if (!iso) return 'never'; const d = Math.floor((Date.now() - Date.parse(iso)) / 864e5); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; };
-      root.innerHTML = '<div class="adm-stats" id="admStats"></div><div id="admReport"></div><div class="adm-search"><i class="fa-solid fa-search"></i><input id="admSearch" type="text" placeholder="Search by name or email…" autocomplete="off"></div><div class="adm-bar" id="admBar"></div><div id="admList"><div class="lu-empty">Loading…</div></div><div id="admLog"></div>';
+      root.innerHTML = '<div class="adm-stats" id="admStats"></div><div id="admReport"></div><div class="adm-search"><i class="fa-solid fa-search"></i><input id="admSearch" type="text" placeholder="Search by name or email…" autocomplete="off"></div><div class="adm-tabs" id="admTabs"></div><div class="adm-bar" id="admBar"></div><div id="admList"><div class="lu-empty">Loading…</div></div><div id="admLog"></div>';
       const stats = async () => { const { data } = await db().rpc('admin_stats'); if (!data) return; sub.textContent = `${data.total} account${data.total === 1 ? '' : 's'} · ${data.new_7d} new this week`; document.getElementById('admStats').innerHTML = [['Accounts', data.total], ['Dawn', data.dawn], ['Glow', data.glow], ['Zenith', data.zenith], ['New in 7 days', data.new_7d]].map(([l, v]) => `<div class="adm-stat"><div class="l">${l}</div><div class="v">${v}</div></div>`).join(''); };
       const list = async () => {
         const box = document.getElementById('admList'), q = document.getElementById('admSearch').value.trim();
         const { data, error } = await db().rpc('admin_list_users', { p_search: q, p_limit: 500 });
         if (error) { box.innerHTML = card(`<div class="lu-empty">Could not load accounts: ${escapeHtml(error.message)}. Has <b>supabase/migrations/036_admin.sql</b> been run?</div>`); return; }
-        box.innerHTML = (data || []).length ? data.map(u => {
+        const all = data || [], offN = all.filter(u => u.disabled_at).length, shown = all.filter(u => ADM_TAB === 'off' ? u.disabled_at : !u.disabled_at);
+        document.getElementById('admTabs').innerHTML = [['on', 'Active', all.length - offN], ['off', 'Deactivated', offN]].map(([k, n, c]) => `<button type="button" class="sp-chip ${ADM_TAB === k ? 'active' : ''}" data-admtab="${k}">${n} <em>${c}</em></button>`).join('');
+        document.getElementById('admBar').style.display = ADM_TAB === 'off' ? 'none' : ''; // bulk gifts are for active accounts
+        box.innerHTML = shown.length ? shown.map(u => {
           const nm = [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email, me = LUMA_USER && u.id === LUMA_USER.id;
           const planPaid = u.plan !== 'dawn', planEnd = planPaid ? admEndText(u.plan_expires_at) : 'free';
           const tile = (k, label, on, sub, cls, attrs) => `<button type="button" class="adm-tile ${on ? 'on' : ''} ${cls || ''}" ${attrs}><span class="k">${label}</span><b>${on ? (k === 'plan' ? LumaPlan.NAMES[u.plan] : 'On') : (k === 'plan' ? LumaPlan.NAMES[u.plan] : 'Off')}</b><small>${sub}</small></button>`;
@@ -25,10 +28,11 @@
             <div class="adm-who"><div class="adm-name">${escapeHtml(nm)}${u.is_admin ? '<span class="b">Admin</span>' : ''}${me ? '<span class="b" style="background:rgba(59,130,246,0.2);color:#93c5fd">You</span>' : ''}${u.email_confirmed_at ? '' : '<span class="u">Unverified</span>'}${u.disabled_at ? '<span class="u">Deactivated</span>' : ''}</div><div class="adm-sub">${escapeHtml(u.email)}${u.country ? ' · ' + escapeHtml(u.country) : ''}</div><div class="adm-seen">Joined ${ago(u.created_at)} · Seen ${ago(u.last_sign_in_at)}</div></div>
             <div class="adm-tiles">${tile('plan', 'Plan', planPaid, planEnd, 'plan ' + (planPaid ? 'paid ' : '') + admEndClass(planPaid && u.plan_expires_at), 'data-plan-open')}<div class="adm-addons">${['work', 'study'].map(k => { const on = (u.addons || []).includes(k), ex = (u.addon_expiry || {})[k]; return tile(k, k === 'work' && on && (u.addon_tier || {}).work === 'pro' ? 'Work Pro' : LumaPlan.ADDON_NAMES[k], on, on ? ((u.addon_source || {})[k] === 'trial' ? 'trial · ' : '') + (ex ? admShort(ex) : 'no end date') : 'tap to give', k + ' ' + (on ? admEndClass(ex) : ''), `data-addon="${k}" title="${LumaPlan.ADDON_NAMES[k]} add-on${on ? ' · ' + admEndText(ex) : ''}"`); }).join('')}</div></div>
             <button type="button" class="adm-more" data-acct title="Account actions"><i class="fa-solid fa-ellipsis"></i></button></div>`;
-        }).join('') : '<div class="lu-empty">No accounts match.</div>';
-        ADM_USERS = Object.fromEntries((data || []).map(u => [u.id, u]));
-        ADM_ORDER = (data || []).map(u => u.id); ADM_SEL = new Set([...ADM_SEL].filter(id => ADM_USERS[id])); admBar();
+        }).join('') : `<div class="lu-empty">${ADM_TAB === 'off' ? 'No deactivated accounts.' : 'No accounts match.'}</div>`;
+        ADM_USERS = Object.fromEntries(all.map(u => [u.id, u]));
+        ADM_ORDER = shown.map(u => u.id); ADM_SEL = new Set([...ADM_SEL].filter(id => ADM_USERS[id])); admBar();
       };
+      document.getElementById('admTabs').addEventListener('click', e => { const b = e.target.closest('[data-admtab]'); if (!b || b.dataset.admtab === ADM_TAB) return; ADM_TAB = b.dataset.admtab; list(); });
       // a plan or an add-on is changed in a popup: what, for how long, and whether to ADD time to what is left
       document.getElementById('admList').addEventListener('click', e => {
         const row = e.target.closest('.adm-row'); if (!row) return; const u = ADM_USERS[row.dataset.id]; if (!u) return;
@@ -127,7 +131,7 @@
         }
         undo.disabled = false; refresh();
         if (bad) { msg.textContent = `${ok ? ok + ' saved, then ' : ''}it stopped: ${bad}`; msg.style.color = '#fca5a5'; }
-        else { msg.textContent = `Saved ${ok} change${ok === 1 ? '' : 's'}. They apply straight away.`; msg.style.color = '#86efac'; if (window.LumaPlan && LumaPlan.refresh) try { LumaPlan.refresh(); } catch (e) { } }
+        else { msg.textContent = `Saved ${ok} change${ok === 1 ? '' : 's'}. They apply straight away.`; msg.style.color = '#86efac'; if (window.LumaPlan) try { LumaPlan.load(); } catch (e) { } }
       };
       refresh();
     }
@@ -217,6 +221,7 @@
     };
 
     // ---------- pick many people, then give them free access ----------
+    let ADM_TAB = 'on'; // Admin page list: active accounts, or the deactivated ones
     const ADMB = { addon: 'study', dur: '14d', until: '', ext: 'skip', pick: 10, pickAddon: 'study', when: 'now', claim: '60' };
     const admName = u => [u.first_name, u.last_name].filter(Boolean).join(' ') || u.email;
     function admBar() {
@@ -224,7 +229,10 @@
       if (!bar.dataset.built) {
         bar.dataset.built = '1';
         bar.innerHTML = `<div class="adm-bar-row"><button type="button" class="np-btn" data-bar="all"><i class="fa-regular fa-square-check"></i> Select all shown</button><button type="button" class="np-btn" data-bar="none" id="admBarClear">Clear</button><span class="adm-bar-n" id="admBarN"></span></div>
-          <div class="adm-bar-row adm-pick"><span>Pick</span><input id="admPickN" type="text" inputmode="numeric" value="${ADMB.pick}" maxlength="3"><span>people who do not have</span><span class="adm-pick-chips" id="admPickChips"></span><button type="button" class="np-btn" data-bar="pick">Pick them</button><button type="button" class="create-btn" data-bar="give" id="admBarGive"><i class="fa-solid fa-gift"></i> Give free access…</button></div>`;
+          <div class="adm-bar-title">Quick pick</div>
+          <div class="adm-bar-row adm-pick"><span>Select the first</span><input id="admPickN" type="text" inputmode="numeric" value="${ADMB.pick}" maxlength="3" aria-label="How many people"><span>people who do not have the</span><span class="adm-pick-chips" id="admPickChips"></span><span>add-on yet</span><button type="button" class="np-btn" data-bar="pick">Select them</button></div>
+          <div class="ls adm-hint">Skips administrators and deactivated accounts. You can still tick or untick anyone by hand.</div>
+          <div class="adm-bar-row"><button type="button" class="create-btn" data-bar="give" id="admBarGive"><i class="fa-solid fa-gift"></i> Give free access…</button><span class="ls adm-hint" style="margin:0">Gives the selected people a free trial of an add-on. You choose which one and for how long next.</span></div>`;
         bar.addEventListener('click', e => {
           const b = e.target.closest('[data-bar]'), pc = e.target.closest('[data-pickaddon]');
           if (pc) { ADMB.pickAddon = pc.dataset.pickaddon; return admBar(); }
@@ -236,7 +244,7 @@
             const n = Math.max(1, Math.min(500, parseInt(docEl('admPickN').value, 10) || 0)); ADMB.pick = n; ADM_SEL.clear();
             ADM_ORDER.forEach(id => { const u = ADM_USERS[id]; if (ADM_SEL.size < n && !u.is_admin && !u.disabled_at && !(u.addons || []).includes(ADMB.pickAddon)) ADM_SEL.add(id); });
             document.querySelectorAll('#admList [data-sel]').forEach(c => { c.checked = ADM_SEL.has(c.closest('.adm-row').dataset.id); });
-            ADMB.pickNote = ADM_SEL.size ? '' : 'Nobody to pick: administrators, deactivated accounts and people who already have ' + LumaPlan.ADDON_NAMES[ADMB.pickAddon] + ' are skipped. Tick someone by hand to include them.';
+            ADMB.pickNote = ADM_SEL.size ? '' : 'Nobody to select: administrators, deactivated accounts and people who already have ' + LumaPlan.ADDON_NAMES[ADMB.pickAddon] + ' are skipped. Tick someone by hand to include them.';
             if (ADM_SEL.size < n && ADM_SEL.size) flashToast('Only ' + ADM_SEL.size + ' found', 'That is everyone shown who does not have ' + LumaPlan.ADDON_NAMES[ADMB.pickAddon] + ' yet', 'fa-circle-info', '#60a5fa');
           } else if (k === 'give') return admBulkOpen();
           admBar();
@@ -298,6 +306,7 @@
       const u = ADM_ACCT, me = LUMA_USER && u.id === LUMA_USER.id, locked = u.is_admin || me, off = !!u.disabled_at;
       docEl('admAcctTitle').textContent = admName(u);
       docEl('admAcctWho').innerHTML = `${escapeHtml(u.email)}${u.country ? ' · ' + escapeHtml(u.country) : ''}<br>${LumaPlan.NAMES[u.plan]} plan · joined ${admShort(u.created_at)}${off ? `<br><b style="color:#fca5a5">Deactivated ${admShort(u.disabled_at)}</b>${u.disabled_reason ? ' · ' + escapeHtml(u.disabled_reason) : ''}` : ''}`;
+      docEl('admAcctChat').style.display = me || off ? 'none' : '';
       docEl('admAcctRole').style.display = me ? 'none' : '';
       docEl('admAcctRoleBtn').innerHTML = u.is_admin ? '<i class="fa-solid fa-user-minus"></i> Remove administrator access' : '<i class="fa-solid fa-user-shield"></i> Make administrator';
       docEl('admAcctRoleBtn').disabled = !u.is_admin && off;
@@ -319,6 +328,10 @@
       docEl('admAcctToggle').disabled = false; admAcctPaint();
       if (error) return sdErr('admAcctError', /could not find the function|schema cache/i.test(error.message) ? 'Run supabase/migrations/065_admin_tools.sql in the SQL Editor first.' : error.message);
       sdClose('admAcctOverlay'); flashToast(off ? 'Account reactivated' : 'Account deactivated', admName(u), off ? 'fa-user-check' : 'fa-user-slash', off ? '#22c55e' : '#f59e0b'); if (ADM_AFTER) ADM_AFTER(null, false);
+    };
+    docEl('admAcctChatBtn').onclick = async () => {
+      const u = ADM_ACCT; sdErr('admAcctError', ''); docEl('admAcctChatBtn').disabled = true;
+      const ok = await adminMessageUser(u.id, admName(u)); docEl('admAcctChatBtn').disabled = false; if (ok) sdClose('admAcctOverlay');
     };
     docEl('admAcctRoleBtn').onclick = async () => {
       const u = ADM_ACCT, make = !u.is_admin; if (!await luConfirm({ title: make ? `Make ${admName(u)} an administrator?` : `Remove ${admName(u)} as administrator?`, message: make ? 'They will be able to see every account and change plans, add-ons and accounts.' : 'They will no longer be able to open the Admin page.', ok: make ? 'Make administrator' : 'Remove', icon: 'fa-user-shield', tone: make ? 'warn' : 'danger' })) return;

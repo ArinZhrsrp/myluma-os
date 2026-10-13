@@ -21,3 +21,11 @@
     .fb-thumb { display:inline-flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.05); color:#fff; border-radius:12px; padding:0; cursor:pointer; overflow:hidden; font:inherit; font-size:0.76rem; } .fb-thumb img { display:block; max-width:100%; max-height:200px; } .fb-thumb:not(:has(img)) { padding:8px 14px; }
     .fb-adm { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; } .fb-adm select { flex:0 1 140px; min-width:0; } .fb-adm input { flex:1 1 220px; min-width:0; height:42px; border-radius:11px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0 12px; font-family:inherit; font-size:0.8rem; box-sizing:border-box; outline:none; } .fb-adm .danger { color:#fca5a5; }
     .adm-fbnew { margin-left:8px; font-size:0.66rem; font-weight:600; padding:2px 9px; border-radius:99px; background:rgba(251,191,36,0.2); color:#fcd34d; } .adm-fbnew:empty { display:none; }
+    .fb-it .fb-ith { display:flex; flex-wrap:wrap; align-items:center; gap:14px; } /* "Your messages": space between the type, the page and the status */
+    .fb-it > small.fb-dim { display:block; margin-top:8px; } /* "with a picture" and the date on their own lines */
+    #fbMine > .card { max-width:760px; margin-top:16px; } /* the "Your messages" card: a gap under the New message card, and the same width */
+    .fb-item .fb-who { display:flex; flex-wrap:wrap; align-items:center; gap:14px; margin:10px 0 14px; } /* sender, then the Message button with room around it */
+    .fb-item .fb-who .np-btn { margin:0; padding:6px 14px !important; min-height:0 !important; font-size:0.74rem !important; }
+    .fb-adm { display:flex; flex-direction:column; align-items:stretch; gap:10px; margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08); }
+    .fb-adm-h { font-size:0.78rem; font-weight:600; color:rgba(255,255,255,0.75); } .fb-adm-h i { margin-right:6px; opacity:0.7; }
+    .fb-adm-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; } .fb-adm-act { justify-content:space-between; }

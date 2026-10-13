@@ -90,6 +90,8 @@
     }
     WIRE.feedback = async function (pg) {
       FB.prev = window.LU_PREV_PAGE || ''; FB.file = null; FB.kind = 'idea'; fbPaint();
+      if (pg.dataset.fbWired) return fbLoadMine(); // wire the page's listeners once, not on every visit
+      pg.dataset.fbWired = '1';
       pg.addEventListener('click', e => {
         const k = e.target.closest('[data-fbk]'); if (k) { FB.kind = k.dataset.fbk; pg.querySelectorAll('[data-fbk]').forEach(b => b.classList.toggle('on', b === k)); }
         if (e.target.closest('#fbPick')) docEl('fbFile').click(); if (e.target.closest('#fbDrop')) { FB.file = null; docEl('fbPrev').style.display = 'none'; docEl('fbFile').value = ''; }
@@ -114,17 +116,19 @@
         <select id="fbaMod"><option value="">All modules</option>${mods.map(m => `<option ${m === FBA.module ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}</select><input id="fbaQ" type="text" placeholder="Search…" value="${escapeHtml(FBA.q)}" autocomplete="off"></div>`
         + (rows.length ? rows.map(f => { const k = FB_KINDS.find(x => x[0] === f.kind) || FB_KINDS[1], c = f.context || {};
           return `<div class="card fb-item" data-id="${f.id}"><div class="fb-ith"><span class="fb-k" style="--c:${k[3]}"><i class="fa-solid ${k[2]}"></i> ${k[1]}</span><b>${escapeHtml(f.module)}${f.part ? ' › ' + escapeHtml(f.part) : ''}</b><small class="fb-dim">${fbDate(f.created_at)}</small></div>
-            <div class="fb-who">${escapeHtml(f.user_label || 'Deleted account')}</div><p>${escapeHtml(f.message)}</p>
+            <div class="fb-who">${escapeHtml(f.user_label || 'Deleted account')}${f.user_id && f.user_id !== LUMA_USER.id ? ' <button type="button" class="np-btn" data-fbchat title="Ask them about this"><i class="fa-regular fa-comment-dots"></i> Message</button>' : ''}</div><p>${escapeHtml(f.message)}</p>
             ${f.image_path ? `<button type="button" class="fb-thumb" data-fbimg="${f.id}" title="Open the picture">${FBA.urls[f.image_path] ? `<img src="${FBA.urls[f.image_path]}" alt="Picture sent with the message">` : '<i class="fa-regular fa-image"></i> Open picture'}</button>` : ''}
             <div class="fb-ctx">${[c.page && 'from ' + c.page, c.mode && c.mode + ' mode', c.version && 'v' + c.version, c.screen].filter(Boolean).map(escapeHtml).join(' · ')}</div>
-            <div class="fb-adm"><select data-fbst>${FB_STATUS.map(s => `<option value="${s[0]}" ${s[0] === f.status ? 'selected' : ''}>${s[1]}</option>`).join('')}</select><input type="text" data-fbnote maxlength="1000" placeholder="Note to the person (sent when you mark it Planned or Done)" value="${escapeHtml(f.admin_note || '')}"><button type="button" class="np-btn" data-fbsave>Save</button><button type="button" class="np-btn danger" data-fbdel title="Delete" aria-label="Delete"><i class="fa-regular fa-trash-can"></i></button></div></div>`; }).join('')
+            <div class="fb-adm"><div class="fb-adm-h"><i class="fa-solid fa-sliders"></i> Handle this feedback <small class="fb-dim">(this does not send a chat message)</small></div>
+              <div class="fb-adm-row"><select data-fbst aria-label="Status">${FB_STATUS.map(s => `<option value="${s[0]}" ${s[0] === f.status ? 'selected' : ''}>${s[1]}</option>`).join('')}</select><input type="text" data-fbnote maxlength="1000" placeholder="Note to the person (sent when you mark it Planned or Done)" value="${escapeHtml(f.admin_note || '')}" aria-label="Note to the person"></div>
+              <div class="fb-adm-row fb-adm-act"><button type="button" class="np-btn" data-fbsave><i class="fa-solid fa-floppy-disk"></i> Save status &amp; note</button><button type="button" class="np-btn danger" data-fbdel title="Delete this feedback" aria-label="Delete this feedback"><i class="fa-regular fa-trash-can"></i></button></div></div></div>`; }).join('')
           : card('<div class="h-empty"><div class="h-empty-ico"><i class="fa-regular fa-comment-dots"></i></div><div class="h-empty-t">Nothing here</div><div class="h-empty-s">No messages match these filters.</div></div>'));
       root.querySelectorAll('select').forEach(s => skinSelect(s));
     }
     async function fbaLoad() {
       const sub = docEl('fbaSub'), root = docEl('fbaRoot');
       if (!LumaPlan.admin) { sub.textContent = 'Not allowed'; root.innerHTML = card('<div class="ls">This page is only for administrators.</div>'); return; }
-      const r = await LumaAuth.client.schema('luma').from('feedback').select('id, user_label, kind, module, part, message, image_path, context, status, admin_note, created_at').order('created_at', { ascending: false }).limit(500);
+      const r = await LumaAuth.client.schema('luma').from('feedback').select('id, user_id, user_label, kind, module, part, message, image_path, context, status, admin_note, created_at').order('created_at', { ascending: false }).limit(500);
       if (r.error) { sub.textContent = 'Could not load'; root.innerHTML = card(`<div class="ls">${/feedback|schema cache|does not exist/i.test(r.error.message) ? 'Run <b>supabase/migrations/081_feedback.sql</b> first.' : escapeHtml(r.error.message)}</div>`); return; }
       FBA.rows = r.data || [];
       const paths = FBA.rows.filter(f => f.image_path).map(f => f.image_path).slice(0, 60);
@@ -133,10 +137,14 @@
     }
     WIRE.adminfeedback = async function (pg) {
       pg.querySelector('#fbaBack').onclick = () => goTo('admin');
+      if (pg.dataset.fbaWired) return fbaLoad(); // the listeners below stay on the page: adding them again made one click run several times
+      pg.dataset.fbaWired = '1';
       pg.addEventListener('click', async e => {
         const s = e.target.closest('[data-fbs]'); if (s) { FBA.status = s.dataset.fbs; return fbaPaint(); }
         const card0 = e.target.closest('.fb-item'); if (!card0) return; const id = card0.dataset.id, f = FBA.rows.find(x => x.id === id); if (!f) return;
         const im = e.target.closest('[data-fbimg]'); if (im) { const u = FBA.urls[f.image_path] || (await LumaAuth.client.storage.from('luma-feedback').createSignedUrl(f.image_path, 3600)).data?.signedUrl; if (u) window.open(u, '_blank', 'noopener'); return; }
+        if (e.target.closest('[data-fbchat]')) { const topic = f.module + (f.part ? ' › ' + f.part : ''), snip = f.message.replace(/\s+/g, ' ').trim(), quote = snip.length > 80 ? snip.slice(0, 80).trim() + '…' : snip;
+          return void adminMessageUser(f.user_id, f.user_label || 'User', `Hi, this is the LUMA admin. I'm reaching out about your feedback on ${topic}: "${quote}". Could you tell me a little more about it?`); }
         if (e.target.closest('[data-fbsave]')) { const st = card0.querySelector('[data-fbst]').value, note = card0.querySelector('[data-fbnote]').value; const r = await LumaAuth.client.schema('luma').rpc('admin_feedback_update', { p_id: id, p_status: st, p_note: note }); if (r.error) return luAlert(r.error.message); f.status = st; f.admin_note = note; flashToast('Saved', f.module, 'fa-check', '#34d399'); return fbaPaint(); }
         if (e.target.closest('[data-fbdel]')) { if (!await luConfirm({ title: 'Delete this feedback?', message: 'It is removed for good, with its picture.', ok: 'Delete' })) return; const r = await LumaAuth.client.schema('luma').rpc('admin_feedback_delete', { p_id: id }); if (r.error) return luAlert(r.error.message); if (f.image_path) LumaAuth.client.storage.from('luma-feedback').remove([f.image_path]); FBA.rows = FBA.rows.filter(x => x !== f); fbaPaint(); }
       });
