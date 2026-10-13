@@ -29,3 +29,11 @@
     .fb-adm { display:flex; flex-direction:column; align-items:stretch; gap:10px; margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08); }
     .fb-adm-h { font-size:0.78rem; font-weight:600; color:rgba(255,255,255,0.75); } .fb-adm-h i { margin-right:6px; opacity:0.7; }
     .fb-adm-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; } .fb-adm-act { justify-content:space-between; }
+    .fb-reply { display:flex; gap:8px; align-items:baseline; margin:6px 0 6px 18px; padding:8px 12px; border-radius:10px; background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.28); color:#bfdbfe; font-size:0.78rem; overflow-wrap:anywhere; }
+    .fb-reply i { transform:rotate(90deg); opacity:0.7; } .fb-reply span { flex:1; min-width:0; white-space:pre-wrap; } .fb-reply small { white-space:nowrap; }
+    .fb-rbtn { margin:8px 0 2px 18px; padding:6px 14px !important; min-height:0 !important; font-size:0.74rem !important; }
+    .fb-rform { margin:8px 0 2px 18px; display:flex; flex-direction:column; gap:8px; }
+    .fb-rform textarea { width:100%; box-sizing:border-box; resize:vertical; min-height:70px; padding:10px 12px; border-radius:11px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12); color:#fff; font-family:inherit; font-size:0.82rem; outline:none; }
+    .fb-radm { display:flex; flex-wrap:wrap; gap:8px; }
+    .fb-rthread { margin-top:12px; }
+    .fb-reply.adm { background:rgba(52,211,153,0.1); border-color:rgba(52,211,153,0.3); color:#a7f3d0; }

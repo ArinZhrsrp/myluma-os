@@ -23,6 +23,7 @@
       lumaModesDone();
       if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { }); // lets the browser offer to install LUMA (the same worker shows push notifications)
       initNotifications(session.user.id);
+      if (window.lumaLiveStart) lumaLiveStart(session.user.id); // plan, add-ons and contacts follow server changes without a refresh
       initReminders();
       loadDashboard().catch(e => console.error('LUMA: dashboard failed to load', e)).then(() => LumaLoader.release('app'));
       resyncPush();

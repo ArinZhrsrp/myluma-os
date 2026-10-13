@@ -21,7 +21,7 @@
     const FB_KINDS = [['bug', 'Bug', 'fa-bug', '#f87171'], ['idea', 'Idea', 'fa-lightbulb', '#fbbf24'], ['question', 'Question', 'fa-circle-question', '#60a5fa'], ['praise', 'Praise', 'fa-heart', '#f472b6']];
     const FB_STATUS = [['new', 'New', '#60a5fa'], ['seen', 'Seen', '#94a3b8'], ['planned', 'Planned', '#a78bfa'], ['done', 'Done', '#34d399'], ['wontfix', 'Won\'t do', '#f87171']];
     const FB_PAGE_TO_MODULE = { studyarchive: 'study', purchases: 'settings', adminreport: 'admin', adminfeedback: 'admin', feedback: 'other' };
-    const FB = { kind: 'idea', file: null, busy: false, mine: [], prev: '' };
+    const FB = { kind: 'idea', file: null, busy: false, mine: [], prev: '', replies: {}, replying: '' };
     const fbDate = iso => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
     MODULES.feedback = function () {
@@ -51,9 +51,26 @@
     function fbPaintMine() {
       const box = docEl('fbMine'); if (!box) return;
       box.innerHTML = FB.mine.length ? card(`<div class="section-title"><i class="fa-solid fa-inbox"></i> Your messages <small class="fb-dim">${FB.mine.length}</small></div>${FB.mine.map(f => { const st = FB_STATUS.find(x => x[0] === f.status) || FB_STATUS[0], k = FB_KINDS.find(x => x[0] === f.kind) || FB_KINDS[1];
-        return `<div class="fb-it"><div class="fb-ith"><span class="fb-k" style="--c:${k[3]}"><i class="fa-solid ${k[2]}"></i> ${k[1]}</span><b>${escapeHtml(f.module)}${f.part ? ' › ' + escapeHtml(f.part) : ''}</b><span class="fb-st" style="--c:${st[2]}">${st[1]}</span></div><p>${escapeHtml(f.message)}</p>${f.image_path ? '<small class="fb-dim"><i class="fa-regular fa-image"></i> with a picture</small>' : ''}${f.admin_note ? `<div class="fb-note"><i class="fa-solid fa-reply"></i> ${escapeHtml(f.admin_note)}</div>` : ''}<small class="fb-dim">${fbDate(f.created_at)}</small></div>`; }).join('')}`) : '';
+        return `<div class="fb-it" data-id="${f.id}"><div class="fb-ith"><span class="fb-k" style="--c:${k[3]}"><i class="fa-solid ${k[2]}"></i> ${k[1]}</span><b>${escapeHtml(f.module)}${f.part ? ' › ' + escapeHtml(f.part) : ''}</b><span class="fb-st" style="--c:${st[2]}">${st[1]}</span></div><p>${escapeHtml(f.message)}</p>${f.image_path ? '<small class="fb-dim"><i class="fa-regular fa-image"></i> with a picture</small>' : ''}${f.admin_note ? `<div class="fb-note"><i class="fa-solid fa-reply"></i> ${escapeHtml(f.admin_note)}</div>` : ''}${(FB.replies[f.id] || []).map(x => fbBubble(x, !x.from_admin)).join('')}${f.admin_note || (FB.replies[f.id] || []).some(x => x.from_admin) ? (FB.replying === f.id ? `<div class="fb-rform"><textarea data-fbrtext maxlength="1000" rows="3" placeholder="Write your reply…"></textarea><div class="fb-radm"><button type="button" class="np-btn" data-fbrsend><i class="fa-solid fa-paper-plane"></i> Send reply</button><button type="button" class="np-btn" data-fbrcancel>Cancel</button></div></div>` : `<button type="button" class="np-btn fb-rbtn" data-fbreply="${f.id}"><i class="fa-solid fa-reply"></i> Reply</button>`) : ''}<small class="fb-dim">${fbDate(f.created_at)}</small></div>`; }).join('')}`) : '';
     }
-    async function fbLoadMine() { const r = await LumaAuth.client.schema('luma').from('feedback').select('id, kind, module, part, message, image_path, status, admin_note, created_at').order('created_at', { ascending: false }).limit(30); FB.mine = r.error ? [] : (r.data || []); fbPaintMine(); return r; }
+    async function fbLoadMine() { const r = await LumaAuth.client.schema('luma').from('feedback').select('id, kind, module, part, message, image_path, status, admin_note, created_at').eq('user_id', LUMA_USER.id).order('created_at', { ascending: false }).limit(30); FB.mine = r.error ? [] : (r.data || []); await fbLoadReplies(FB.mine, FB.replies); fbPaintMine(); return r; }
+    // the replies people sent to an administrator's note (migration 092); without the table, feedback still works
+    async function fbLoadReplies(rows, into) {
+      Object.keys(into).forEach(k => delete into[k]); const ids = rows.map(f => f.id); if (!ids.length) return;
+      const r = await LumaAuth.client.schema('luma').from('feedback_replies').select('id, feedback_id, body, created_at, from_admin').in('feedback_id', ids).order('created_at'); if (r.error) return;
+      (r.data || []).forEach(x => { (into[x.feedback_id] = into[x.feedback_id] || []).push(x); });
+    }
+    // one reply, from the person (their Feedback page) or from an administrator (the inbox); `scope` is the card holding the text box
+    async function fbSendReply(id, scope, replies, done) {
+      const box = scope && scope.querySelector('[data-fbrtext]'), body = box ? box.value.trim() : '';
+      if (!body) return luAlert('Write your reply first.');
+      const btn = scope.querySelector('[data-fbrsend]'); if (btn) btn.disabled = true;
+      const r = await LumaAuth.client.schema('luma').from('feedback_replies').insert({ feedback_id: id, body }).select('id, feedback_id, body, created_at, from_admin').single();
+      if (r.error) { if (btn) btn.disabled = false; return luAlert(/could not find the table|relation .* does not exist/i.test(r.error.message) ? 'Replies are not switched on yet (run supabase/migrations/092_feedback_replies.sql, then wait a few seconds).' : r.error.message); }
+      (replies[id] = replies[id] || []).push(r.data); done(); flashToast('Reply sent', LumaPlan.admin && r.data.from_admin ? 'They will be notified.' : 'The developer will see it.', 'fa-reply', '#34d399');
+    }
+    // a reply as a bubble: the developer's side is green like the note, the person's is blue
+    const fbBubble = (x, mine) => `<div class="fb-reply ${x.from_admin ? 'adm' : ''}"><i class="fa-solid fa-turn-up"></i> <span>${escapeHtml(x.body)}</span> <small class="fb-dim">${mine ? 'You' : x.from_admin ? 'Developer' : 'Them'} · ${fbDate(x.created_at)}</small></div>`;
 
     // shrink big screenshots before they are sent (GIFs are sent as they are)
     async function fbPrepare(file) {
@@ -96,6 +113,9 @@
         const k = e.target.closest('[data-fbk]'); if (k) { FB.kind = k.dataset.fbk; pg.querySelectorAll('[data-fbk]').forEach(b => b.classList.toggle('on', b === k)); }
         if (e.target.closest('#fbPick')) docEl('fbFile').click(); if (e.target.closest('#fbDrop')) { FB.file = null; docEl('fbPrev').style.display = 'none'; docEl('fbFile').value = ''; }
         if (e.target.closest('#fbSend')) fbSend();
+        const rp = e.target.closest('[data-fbreply]'); if (rp) { FB.replying = rp.dataset.fbreply; fbPaintMine(); const t = pg.querySelector('[data-fbrtext]'); if (t) t.focus(); }
+        if (e.target.closest('[data-fbrcancel]')) { FB.replying = ''; fbPaintMine(); }
+        const rs = e.target.closest('[data-fbrsend]'); if (rs) { const it = rs.closest('.fb-it'); fbSendReply(it.dataset.id, it, FB.replies, () => { FB.replying = ''; fbPaintMine(); }); }
       });
       pg.addEventListener('change', e => { if (e.target.id === 'fbModule') fbPaintPart(); if (e.target.id === 'fbFile' && e.target.files[0]) fbSetFile(e.target.files[0]); });
       pg.addEventListener('input', e => { if (e.target.id === 'fbText') docEl('fbLen').textContent = e.target.value.length; });
@@ -103,7 +123,7 @@
     };
 
     // ---------- the inbox (administrators) ----------
-    const FBA = { rows: [], status: '', module: '', q: '', urls: {} }; // status '' = All
+    const FBA = { rows: [], status: 'new', module: '', q: '', urls: {}, replies: {}, replying: '' }; // status '' = All (the last pill); the inbox opens on New
     MODULES.adminfeedback = function () {
       return head('Feedback inbox', '<span id="fbaSub">Loading…</span>', '<button class="create-btn" id="fbaBack" style="background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-arrow-left"></i> Admin</button>') + '<div id="fbaRoot"></div>';
     };
@@ -112,13 +132,14 @@
       const all = FBA.rows, rows = all.filter(f => (!FBA.status || f.status === FBA.status) && (!FBA.module || f.module === FBA.module) && (!FBA.q || (f.message + ' ' + f.user_label + ' ' + f.part).toLowerCase().includes(FBA.q.toLowerCase())));
       const count = s => all.filter(f => f.status === s).length, mods = [...new Set(all.map(f => f.module))].sort();
       sub.textContent = `${count('new')} new · ${all.length} in total`;
-      root.innerHTML = `<div class="fb-fbar"><div class="fb-chips" id="fbaChips">${[['', 'All', all.length]].concat(FB_STATUS.map(s => [s[0], s[1], count(s[0])])).map(([k, n, c]) => `<button type="button" data-fbs="${k}" class="${FBA.status === k ? 'on' : ''}">${n} <em>${c}</em></button>`).join('')}</div>
+      root.innerHTML = `<div class="fb-fbar"><div class="fb-chips" id="fbaChips">${FB_STATUS.map(s => [s[0], s[1], count(s[0])]).concat([['', 'All', all.length]]).map(([k, n, c]) => `<button type="button" data-fbs="${k}" class="${FBA.status === k ? 'on' : ''}">${n} <em>${c}</em></button>`).join('')}</div>
         <select id="fbaMod"><option value="">All modules</option>${mods.map(m => `<option ${m === FBA.module ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}</select><input id="fbaQ" type="text" placeholder="Search…" value="${escapeHtml(FBA.q)}" autocomplete="off"></div>`
         + (rows.length ? rows.map(f => { const k = FB_KINDS.find(x => x[0] === f.kind) || FB_KINDS[1], c = f.context || {};
           return `<div class="card fb-item" data-id="${f.id}"><div class="fb-ith"><span class="fb-k" style="--c:${k[3]}"><i class="fa-solid ${k[2]}"></i> ${k[1]}</span><b>${escapeHtml(f.module)}${f.part ? ' › ' + escapeHtml(f.part) : ''}</b><small class="fb-dim">${fbDate(f.created_at)}</small></div>
             <div class="fb-who">${escapeHtml(f.user_label || 'Deleted account')}${f.user_id && f.user_id !== LUMA_USER.id ? ' <button type="button" class="np-btn" data-fbchat title="Ask them about this"><i class="fa-regular fa-comment-dots"></i> Message</button>' : ''}</div><p>${escapeHtml(f.message)}</p>
             ${f.image_path ? `<button type="button" class="fb-thumb" data-fbimg="${f.id}" title="Open the picture">${FBA.urls[f.image_path] ? `<img src="${FBA.urls[f.image_path]}" alt="Picture sent with the message">` : '<i class="fa-regular fa-image"></i> Open picture'}</button>` : ''}
             <div class="fb-ctx">${[c.page && 'from ' + c.page, c.mode && c.mode + ' mode', c.version && 'v' + c.version, c.screen].filter(Boolean).map(escapeHtml).join(' · ')}</div>
+            ${(FBA.replies[f.id] || []).length || f.user_id ? `<div class="fb-rthread">${(FBA.replies[f.id] || []).length ? `<div class="fb-adm-h"><i class="fa-regular fa-comments"></i> Replies with ${escapeHtml((f.user_label || 'the person').split(' <')[0])}</div>${FBA.replies[f.id].map(x => fbBubble(x, x.from_admin)).join('')}` : ''}${f.user_id ? (FBA.replying === f.id ? `<div class="fb-rform"><textarea data-fbrtext maxlength="1000" rows="3" placeholder="Reply to ${escapeHtml((f.user_label || 'the person').split(' <')[0])}…"></textarea><div class="fb-radm"><button type="button" class="np-btn" data-fbrsend><i class="fa-solid fa-paper-plane"></i> Send reply</button><button type="button" class="np-btn" data-fbrcancel>Cancel</button></div></div>` : `<button type="button" class="np-btn fb-rbtn" data-fbreply="${f.id}"><i class="fa-solid fa-reply"></i> Reply</button>`) : ''}</div>` : ''}
             <div class="fb-adm"><div class="fb-adm-h"><i class="fa-solid fa-sliders"></i> Handle this feedback <small class="fb-dim">(this does not send a chat message)</small></div>
               <div class="fb-adm-row"><select data-fbst aria-label="Status">${FB_STATUS.map(s => `<option value="${s[0]}" ${s[0] === f.status ? 'selected' : ''}>${s[1]}</option>`).join('')}</select><input type="text" data-fbnote maxlength="1000" placeholder="Note to the person (sent when you mark it Planned or Done)" value="${escapeHtml(f.admin_note || '')}" aria-label="Note to the person"></div>
               <div class="fb-adm-row fb-adm-act"><button type="button" class="np-btn" data-fbsave><i class="fa-solid fa-floppy-disk"></i> Save status &amp; note</button><button type="button" class="np-btn danger" data-fbdel title="Delete this feedback" aria-label="Delete this feedback"><i class="fa-regular fa-trash-can"></i></button></div></div></div>`; }).join('')
@@ -130,13 +151,13 @@
       if (!LumaPlan.admin) { sub.textContent = 'Not allowed'; root.innerHTML = card('<div class="ls">This page is only for administrators.</div>'); return; }
       const r = await LumaAuth.client.schema('luma').from('feedback').select('id, user_id, user_label, kind, module, part, message, image_path, context, status, admin_note, created_at').order('created_at', { ascending: false }).limit(500);
       if (r.error) { sub.textContent = 'Could not load'; root.innerHTML = card(`<div class="ls">${/feedback|schema cache|does not exist/i.test(r.error.message) ? 'Run <b>supabase/migrations/081_feedback.sql</b> first.' : escapeHtml(r.error.message)}</div>`); return; }
-      FBA.rows = r.data || [];
+      FBA.rows = r.data || []; await fbLoadReplies(FBA.rows, FBA.replies);
       const paths = FBA.rows.filter(f => f.image_path).map(f => f.image_path).slice(0, 60);
       if (paths.length) { try { const s = await LumaAuth.client.storage.from('luma-feedback').createSignedUrls(paths, 3600); (s.data || []).forEach(x => { if (x.signedUrl) FBA.urls[x.path] = x.signedUrl; }); } catch (e) { /* the pictures just show as links */ } }
       fbaPaint();
     }
     WIRE.adminfeedback = async function (pg) {
-      FBA.status = ''; FBA.module = ''; FBA.q = ''; // every visit starts on All, not on the filter used last time
+      FBA.status = 'new'; FBA.module = ''; FBA.q = ''; // every visit starts on New, not on the filter used last time
       pg.querySelector('#fbaBack').onclick = () => goTo('admin');
       if (pg.dataset.fbaWired) return fbaLoad(); // the listeners below stay on the page: adding them again made one click run several times
       pg.dataset.fbaWired = '1';
@@ -144,6 +165,9 @@
         const s = e.target.closest('[data-fbs]'); if (s) { FBA.status = s.dataset.fbs; return fbaPaint(); }
         const card0 = e.target.closest('.fb-item'); if (!card0) return; const id = card0.dataset.id, f = FBA.rows.find(x => x.id === id); if (!f) return;
         const im = e.target.closest('[data-fbimg]'); if (im) { const u = FBA.urls[f.image_path] || (await LumaAuth.client.storage.from('luma-feedback').createSignedUrl(f.image_path, 3600)).data?.signedUrl; if (u) window.open(u, '_blank', 'noopener'); return; }
+        const ar = e.target.closest('[data-fbreply]'); if (ar) { FBA.replying = ar.dataset.fbreply; fbaPaint(); const t = pg.querySelector('[data-fbrtext]'); if (t) t.focus(); return; }
+        if (e.target.closest('[data-fbrcancel]')) { FBA.replying = ''; return fbaPaint(); }
+        if (e.target.closest('[data-fbrsend]')) return void fbSendReply(id, card0, FBA.replies, () => { FBA.replying = ''; fbaPaint(); });
         if (e.target.closest('[data-fbchat]')) { const topic = f.module + (f.part ? ' › ' + f.part : ''), snip = f.message.replace(/\s+/g, ' ').trim(), quote = snip.length > 80 ? snip.slice(0, 80).trim() + '…' : snip;
           return void adminMessageUser(f.user_id, f.user_label || 'User', `Hi, this is the LUMA admin. I'm reaching out about your feedback on ${topic}: "${quote}". Could you tell me a little more about it?`); }
         if (e.target.closest('[data-fbsave]')) { const st = card0.querySelector('[data-fbst]').value, note = card0.querySelector('[data-fbnote]').value; const r = await LumaAuth.client.schema('luma').rpc('admin_feedback_update', { p_id: id, p_status: st, p_note: note }); if (r.error) return luAlert(r.error.message); f.status = st; f.admin_note = note; flashToast('Saved', f.module, 'fa-check', '#34d399'); return fbaPaint(); }

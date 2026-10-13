@@ -160,6 +160,7 @@
             // the database replaced the previous unread message notification for this chat; mirror that here
             if (row.type === 'message') NOTIFS = NOTIFS.filter(n => !(n.type === 'message' && n.ref === row.ref && !n.read_at));
             NOTIFS.unshift(row);
+            if (window.lumaLiveNotif) lumaLiveNotif(row);
             const watching = row.type === 'message' && row.ref && row.ref === activeChatContactId && document.getElementById('contactChatOverlay').classList.contains('open');
             const quiet = prefOn('focus', false) && !/^(reminder_|budget_)/.test(row.type); // Focus mode: only urgent things pop up
             if (watching) markChatNotifsRead(row.ref); else if (!quiet) { showNotifToast(row); uiSound(880, 0.12); } // already looking at that chat: no pop-up

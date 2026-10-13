@@ -75,8 +75,8 @@
       else if (!this.ready) { this.plan = "dawn"; this.lim = DAWN; this.ready = true; } // could not find out: strictest plan, never a bigger one
       try {
         const a = await client.schema("luma").rpc("is_admin");
-        this.admin = !a.error && a.data === true;
-      } catch (e) { this.admin = false; }
+        if (!a.error) this.admin = a.data === true; // a failed check keeps the last answer, so a hiccup never drops admin access
+      } catch (e) { /* keep the last answer */ }
       this.loadedAt = Date.now();
       resolveLoaded();
       this.loadGifts(); // after the plan is known; does not hold anything up
