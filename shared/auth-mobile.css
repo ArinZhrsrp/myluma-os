@@ -12,3 +12,14 @@
   .two { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .row { flex-wrap: wrap; gap: 10px; }
 }
+
+/* Browser autofill (Chrome, Edge, Safari) paints a pale blue box behind a filled field. Keep the field's own look: the colour
+   change is delayed for good, and the text stays white. */
+.inp input:-webkit-autofill, .inp input:-webkit-autofill:hover, .inp input:-webkit-autofill:focus,
+.inp select:-webkit-autofill, .inp select:-webkit-autofill:hover, .inp select:-webkit-autofill:focus,
+.field input:-webkit-autofill, .field select:-webkit-autofill {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+  transition: background-color 600000s 0s, color 600000s 0s;
+}
+.inp input:autofill, .inp select:autofill, .field input:autofill, .field select:autofill { -webkit-text-fill-color: #fff; transition: background-color 600000s 0s, color 600000s 0s; }

@@ -15,13 +15,23 @@
 
       const fmt = s => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
       const cap = k => k[0].toUpperCase() + k.slice(1);
+      // the Focus card in the sidebar says what is going on: idle, in progress (with the time left) or paused
+      const widget = document.querySelector('.focus'), widgetSub = document.getElementById('focusWidgetSub'), widgetBtn = widget && widget.querySelector('button');
+      function paintWidget() {
+        if (!widget || !widgetSub) return;
+        const started = running || remaining < total, name = mode === 'focus' ? 'Focus' : mode === 'short' ? 'Short break' : 'Long break';
+        widget.classList.toggle('running', running); widget.classList.toggle('paused', !running && started);
+        widgetSub.textContent = running ? `In progress · ${fmt(remaining)} left` : started ? `Paused · ${fmt(remaining)} left` : (mode === 'focus' ? 'Deep work' : name) + ' · ' + durs[mode] + ' mins';
+        if (widgetBtn) widgetBtn.innerHTML = running ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
+      }
       function render() {
+        paintWidget();
         timeEl.textContent = fmt(remaining);
         ringEl.style.width = (100 - remaining / total * 100) + '%';
       }
       function paintDurs() {
         Object.keys(durs).forEach(k => { document.getElementById('dur' + cap(k)).textContent = durs[k]; document.getElementById('lbl' + cap(k)).textContent = durs[k]; });
-        const w = document.getElementById('focusWidgetSub'); if (w) w.textContent = 'Deep work · ' + durs.focus + ' mins';
+        paintWidget();
       }
       function setMode(m) {
         mode = m; total = durs[m] * 60; remaining = total; stop();
@@ -29,9 +39,9 @@
         phaseEl.textContent = phaseLabel[m];
         render();
       }
-      function stop() { running = false; clearInterval(tick); playBtn.innerHTML = '<i class="fa-solid fa-play"></i>'; Ambience.stop(); }
+      function stop() { running = false; clearInterval(tick); playBtn.innerHTML = '<i class="fa-solid fa-play"></i>'; Ambience.stop(); paintWidget(); }
       function start() {
-        running = true; playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'; clearTimeout(previewTimer);
+        running = true; playBtn.innerHTML = '<i class="fa-solid fa-pause"></i>'; clearTimeout(previewTimer); paintWidget();
         if (mode === 'focus' && remaining === total) startedAt = new Date().toISOString();
         Ambience.play(curSound, volume);
         tick = setInterval(() => {
