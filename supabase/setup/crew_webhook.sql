@@ -6,7 +6,7 @@
 --   • its secrets are set (see the top of supabase/functions/feedback-crew/index.ts)
 --
 -- It uses the SAME WEBHOOK_SECRET as push (supabase/setup/push_webhook.sql), so fill in the same two values.
--- Fill in the two values marked  <<< CHANGE ME >>>  then run the whole file.
+-- Fill in the two values marked  <<< CHANGE ME >>>  (keep the 'single quotes' around them), then run the whole file.
 -- To stop the crew at any time:  drop trigger if exists crew_on_feedback on luma.feedback;
 -- ============================================================
 
@@ -18,11 +18,15 @@ language plpgsql
 security definer set search_path = ''
 as $$
 declare
-  -- <<< CHANGE ME >>> your project's reference (the code in https://<REF>.supabase.co)
-  v_ref text := 'YOUR-PROJECT-REF';
-  -- <<< CHANGE ME >>> exactly the same text as the WEBHOOK_SECRET you set for the functions
-  v_secret text := 'YOUR-WEBHOOK-SECRET';
+  v_ref text;
+  v_secret text;
 begin
+  -- the two values are set INSIDE begin … exception, so a typo here (for example "double quotes" instead of
+  -- 'single quotes') can never stop a feedback from being saved: the crew just doesn't start
+  -- <<< CHANGE ME >>> your project's reference (the code in https://<REF>.supabase.co), in 'single quotes'
+  v_ref := 'YOUR-PROJECT-REF';
+  -- <<< CHANGE ME >>> exactly the same text as the WEBHOOK_SECRET you set for the functions, in 'single quotes'
+  v_secret := 'YOUR-WEBHOOK-SECRET';
   perform net.http_post(
     url := 'https://' || v_ref || '.supabase.co/functions/v1/feedback-crew',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-webhook-secret', v_secret),
@@ -30,6 +34,7 @@ begin
   );
   return new;
 exception when others then
+  raise warning 'feedback crew webhook skipped: %', sqlerrm;   -- shows in the database logs
   return new;   -- the crew must never stop feedback from being saved
 end;
 $$;
