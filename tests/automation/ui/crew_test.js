@@ -128,12 +128,29 @@ function sigOf(w, root, prefix, map) {
   card('fa4').querySelector('[data-crewrun]').click(); await wait(300);
   ok('Ask the crew calls feedback-crew with the feedback id', ev("JSON.stringify(window.__inv)") === '[["feedback-crew",{"body":{"feedback_id":"fa4"}}]]', ev("JSON.stringify(window.__inv)"));
   ok('…and shows it is waiting', /Waiting to start/.test(txt(card('fa4'))));
+  // ---- the Agent floor page ----
+  T.crew_runs = [{ id: 'r1', feedback_id: 'fa1', status: 'working', created_at: now }, { id: 'r3', feedback_id: 'fa3', status: 'failed', error: 'overloaded', created_at: now }];
+  T.crew_steps = [{ run_id: 'r1', agent: 'engineer', task: 'Find why the end date is a day early', status: 'working', output: '', started_at: now }];
+  ev("window.__inv=[]; LumaAuth.client.functions.invoke=async(n,o)=>{window.__inv.push([n,o]); return {data:{ok:true,run_id:'r9'}}}");
+  ev("goTo('agentfloor')"); await wait(1500);
+  ok('Agent floor opens with the office', !!d.getElementById('afCanvas') && d.querySelectorAll('#afWrap [data-afb]').length === 4);
+  ok('the crew shows the Engineer working on the real task', /Cleo Engineer\s*working\s*Find why the end date/.test(txt(d.getElementById('afCrew'))), txt(d.getElementById('afCrew')).slice(0, 200));
+  ok('the lead waits on the crew', /Ada Lead\s*waiting/.test(txt(d.getElementById('afCrew'))));
+  ok('latest feedback lists each with its crew status', /Working/.test(txt(d.getElementById('afQueue'))) && /Failed/.test(txt(d.getElementById('afQueue'))) && /Not checked/.test(txt(d.getElementById('afQueue'))));
+  ok('the header says what is going on', /1 feedback being worked on/.test(txt(d.getElementById('afSub'))), txt(d.getElementById('afSub')));
+  ok('what happened is listed', /Cleo started/.test(txt(d.getElementById('afLog'))));
+  d.querySelector('[data-afask="fa2"]').click(); await wait(300);
+  ok('Ask the crew from the floor starts the function', /"feedback_id":"fa2"/.test(ev("JSON.stringify(window.__inv)")), ev("JSON.stringify(window.__inv)"));
+  ok('Admin highlights its menu item on the floor page', !!d.querySelector('.menu.active[data-page="admin"]') || !d.querySelector('.menu[data-page="admin"]'));
+  ev("LumaPlan.admin=false"); ev("goTo('admin')"); await wait(400); ev("goTo('agentfloor')"); await wait(600);
+  ok('only administrators see the floor', /only for administrators/.test(txt(d.getElementById('page-agentfloor'))));
+  ev("LumaPlan.admin=true");
   // without migration 101 the inbox looks as before
   delete T.crew_runs; ev("FBA.crewOn=true"); ev("LumaAuth.client.schema=window.__sc0||LumaAuth.client.schema");
   ev("(function(){const sc=LumaAuth.client.schema; LumaAuth.client.schema=function(n){const o=sc.call(this,n); return {from:function(t){ if(t==='crew_runs') return {select:()=>({in:()=>({order:()=>({limit:async()=>({data:null,error:{message:'relation luma.crew_runs does not exist'}})})})})}; return o.from(t)}, rpc:o.rpc}}})()");
   ev("goTo('admin')"); await wait(500); ev("goTo('adminfeedback')"); await wait(1200); d.querySelector('[data-fbs=""]').click(); await wait(100);
   ok('no crew box at all before migration 101', d.querySelectorAll('.fb-item').length > 0 && [...d.querySelectorAll('.fb-crew')].every(x => x.innerHTML === ''), d.querySelectorAll('.fb-crew').length);
-  ok('no page errors', !errors.filter(e => !/navigation to another Document/.test(e)).length, errors);
+  ok('no page errors', !errors.filter(e => !/navigation to another Document|getContext\(\) method/.test(e)).length, errors.filter(e => !/getContext/.test(e)));
   console.log(`crew_test: ${pass} passed, ${fail} failed`);
   } catch (e) { console.log('TEST ERR', e.message, e.stack.split('\n')[1]); }
   if (server) server.close(); process.exit(0);

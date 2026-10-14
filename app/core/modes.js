@@ -19,7 +19,7 @@
     const MODE_HOME = { personal: 'dashboard', work: 'work', study: 'study' };
     // what each add-on mode shows in the menu (Personal shows everything that is not mode-only); Settings, Support and Admin always show
     const MODE_MENUS = { work: ['work', 'company', 'calendar', 'reminders', 'documents', 'contacts', 'assistant'], study: ['study', 'studyarchive', 'calendar', 'reminders', 'notes', 'documents', 'assistant'] };
-    const MODE_ALWAYS = ['settings', 'support', 'feedback', 'admin', 'adminreport', 'adminfeedback', 'notifications'];
+    const MODE_ALWAYS = ['settings', 'support', 'feedback', 'admin', 'adminreport', 'adminfeedback', 'agentfloor', 'notifications'];
     let LUMA_MODE = 'personal';
 
     function applyModeMenus() {

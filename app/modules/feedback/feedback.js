@@ -131,7 +131,7 @@
     // ---------- the inbox (administrators) ----------
     const FBA = { rows: [], status: 'new', module: '', q: '', urls: {}, replies: {}, replying: '' }; // status '' = All (the last pill); the inbox opens on New
     MODULES.adminfeedback = function () {
-      return head('Feedback inbox', '<span id="fbaSub">Loading…</span>', '<button class="create-btn" id="fbaBack" style="background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-arrow-left"></i> Admin</button>') + '<div id="fbaRoot"></div>';
+      return head('Feedback inbox', '<span id="fbaSub">Loading…</span>', '<button class="create-btn" id="fbaBack" style="background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-arrow-left"></i> Admin</button><button class="create-btn" id="fbaFloor" style="background:rgba(255,255,255,0.06);box-shadow:none"><i class="fa-solid fa-robot"></i> Agent floor</button>') + '<div id="fbaRoot"></div>';
     };
     function fbaPaint() {
       const root = docEl('fbaRoot'), sub = docEl('fbaSub'); if (!root) return;
@@ -165,7 +165,7 @@
     }
     WIRE.adminfeedback = async function (pg) {
       FBA.status = 'new'; FBA.module = ''; FBA.q = ''; // every visit starts on New, not on the filter used last time
-      pg.querySelector('#fbaBack').onclick = () => goTo('admin');
+      pg.querySelector('#fbaBack').onclick = () => goTo('admin'); pg.querySelector('#fbaFloor').onclick = () => goTo('agentfloor');
       if (pg.dataset.fbaWired) return fbaLoad(); // the listeners below stay on the page: adding them again made one click run several times
       pg.dataset.fbaWired = '1';
       pg.addEventListener('click', async e => {

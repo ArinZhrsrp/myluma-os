@@ -6,19 +6,19 @@
     // ---------- Nav item click: set active + switch page ----------
     const pageTitle = document.getElementById('pageTitle');
     const titles = {
-      dashboard: 'Dashboard', calendar: 'Calendar', reminders: 'Reminders', work: 'Work', company: 'Company', feedback: 'Feedback', adminfeedback: 'Feedback inbox', study: 'Study', studyarchive: 'Study archive', admin: 'Admin', adminreport: 'Plan report', tasks: 'Tasks & Work', money: 'Money',
+      dashboard: 'Dashboard', calendar: 'Calendar', reminders: 'Reminders', work: 'Work', company: 'Company', feedback: 'Feedback', adminfeedback: 'Feedback inbox', agentfloor: 'Agent floor', study: 'Study', studyarchive: 'Study archive', admin: 'Admin', adminreport: 'Plan report', tasks: 'Tasks & Work', money: 'Money',
       subscriptions: 'Subscriptions', bills: 'Bills', goals: 'Goals', habits: 'Habits', health: 'Health',
       notes: 'Notes & Docs', documents: 'Documents', contacts: 'Contacts', assistant: 'Lumi',
       analytics: 'Analytics', settings: 'Settings', purchases: 'Purchase history', split: 'Split expenses', support: 'Support', notifications: 'Notifications'
     };
     const rendered = {};
-    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'purchases', 'split', 'admin', 'adminreport', 'dashboard', 'settings', 'purchases', 'split', 'health', 'contacts', 'assistant', 'support', 'work', 'company', 'study', 'studyarchive', 'work', 'feedback', 'adminfeedback']); // pages whose header stays fixed while their list scrolls
+    const FIT_PAGES = new Set(['documents', 'notes', 'notifications', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'tasks', 'calendar', 'analytics', 'reminders', 'purchases', 'split', 'admin', 'adminreport', 'dashboard', 'settings', 'purchases', 'split', 'health', 'contacts', 'assistant', 'support', 'work', 'company', 'study', 'studyarchive', 'work', 'feedback', 'adminfeedback', 'agentfloor']); // pages whose header stays fixed while their list scrolls
     // Contacts, Tasks, Documents and Notes hold live data instead of static mock content, so
     // they re-fetch on every visit instead of rendering once.
-    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin', 'adminreport', 'study', 'studyarchive', 'work', 'company', 'feedback', 'adminfeedback']);
+    const LIVE_MODULES = new Set(['contacts', 'tasks', 'documents', 'notes', 'notifications', 'health', 'habits', 'goals', 'bills', 'subscriptions', 'money', 'analytics', 'reminders', 'admin', 'adminreport', 'study', 'studyarchive', 'work', 'company', 'feedback', 'adminfeedback', 'agentfloor']);
 
     // pages whose markup is "heading + content": the content goes into one scrolling box so the heading stays put
-    const FIT_WRAP = new Set(['split', 'health', 'contacts', 'assistant', 'support', 'work', 'company', 'study', 'studyarchive', 'feedback', 'adminfeedback']);
+    const FIT_WRAP = new Set(['split', 'health', 'contacts', 'assistant', 'support', 'work', 'company', 'study', 'studyarchive', 'feedback', 'adminfeedback', 'agentfloor']);
     function fitWrap(pg, key) {
       if (!FIT_WRAP.has(key) || pg.querySelector(':scope > .fit-root')) return;
       const head = pg.querySelector(':scope > .page-head'), box = document.createElement('div'); box.className = 'fit-root';
@@ -37,7 +37,7 @@
       const pg = document.getElementById('page-' + key);
       if (pg) pg.classList.add('active');
       pageTitle.textContent = titles[key];
-      document.querySelectorAll('.menu').forEach(i => i.classList.toggle('active', i.dataset.page === (key === 'adminreport' ? 'admin' : key)));
+      document.querySelectorAll('.menu').forEach(i => i.classList.toggle('active', i.dataset.page === (key === 'adminreport' || key === 'agentfloor' ? 'admin' : key)));
       if (MODULES[key] && (!rendered[key] || LIVE_MODULES.has(key))) { pg.innerHTML = MODULES[key](); fitWrap(pg, key); rendered[key] = true; LumaLoader.page(pg, key, wireModule(key)); } else if (key !== 'dashboard') LumaLoader.page(pg, key);
       if (window.LumaUsage) LumaUsage.show(key); // "3 / 5 habits" in the page header
       const mc = document.querySelector('.main-content');
