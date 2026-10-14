@@ -677,12 +677,13 @@ window.LUMA_GUIDES = [
       "Open Reminders to review built-in reminder categories and times.",
       "Choose Background and Theme to personalise the app within your plan’s options.",
       "Select your plan name to compare plans and add-ons or start a renewal request.",
-      "Open Account & data to export records, request a password reset or see every device signed in to your account and sign out the others."
+      "Open Account & data to export records, request a password reset, install LUMA or review your devices."
     ],
     "tips": [
       "Plan and add-on requests open WhatsApp. Send the message to arrange the change; selecting a plan does not complete an online payment.",
       "Prices, quotas and available features can change. Use the current plan comparison in your account.",
-      "Deleting your account is permanent. Export records and download important files first."
+      "Deleting your account is permanent. Export records and download important files first.",
+      "Don’t recognise a device in Your devices? Sign out other devices, then change your password."
     ],
     "related": [
       "purchases",
@@ -697,6 +698,14 @@ window.LUMA_GUIDES = [
       {
         "title": "Install on your device",
         "text": "Use Account & data → Install LUMA when offered. On iPhone or iPad, open LUMA in Safari, choose Share and Add to Home Screen. The installed experience still needs an internet connection for account data."
+      },
+      {
+        "title": "See where you are signed in",
+        "text": "In Account & data, choose Your devices (View). The list shows every phone and computer signed in to your account: its name, such as “iPhone · LUMA app” or “Mac · Chrome”, when it was last active and when it first signed in. The device you are using is tagged “This device”. A device appears the first time it opens LUMA and its time is refreshed while LUMA stays open. When you log out on a device it leaves the list."
+      },
+      {
+        "title": "Sign out your other devices",
+        "text": "At the bottom of Your devices, choose Sign out other devices and confirm. Every other phone and computer is logged out and removed from the list; you stay signed in on this one. This is all-or-nothing: you cannot sign out one device on its own. If you see a device you do not recognise, sign out the others and then change your password from Account & data → Change password."
       },
       {
         "title": "Delete your account",

@@ -1,7 +1,7 @@
 # LUMA user-manual website
 
 A buildless, responsive user guide maintained only on `documentations`.
-The guide covers application v0.30.4 (application commit `8c0e122`), with 29
+The guide covers application v0.30.4 (the Your devices text was added for v0.41.1 and has no screenshot) (application commit `8c0e122`), with 29
 articles and 40 screenshots captured from actual application screens using
 fictional fixture data. No live user account or database was used.
 
