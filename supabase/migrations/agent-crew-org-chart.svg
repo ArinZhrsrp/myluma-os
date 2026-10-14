@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800">
+  <rect x="0" y="0" width="1200" height="800" fill="#ffffff"/>
+  <text x="600" y="60" font-family="Arial, sans-serif" font-size="32" font-weight="bold" text-anchor="middle" fill="#222222">Agent Crew Organization Chart</text>
+
+  <line x1="600" y1="180" x2="100" y2="300" stroke="#555555" stroke-width="2"/>
+  <line x1="600" y1="180" x2="300" y2="300" stroke="#555555" stroke-width="2"/>
+  <line x1="600" y1="180" x2="500" y2="300" stroke="#555555" stroke-width="2"/>
+  <line x1="600" y1="180" x2="700" y2="300" stroke="#555555" stroke-width="2"/>
+  <line x1="600" y1="180" x2="900" y2="300" stroke="#555555" stroke-width="2"/>
+  <line x1="600" y1="180" x2="1100" y2="300" stroke="#555555" stroke-width="2"/>
+
+  <rect x="490" y="110" width="220" height="70" rx="8" fill="#f5f7fa" stroke="#333333" stroke-width="2"/>
+  <text x="600" y="141" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#222222">Ada</text>
+  <text x="600" y="163" font-family="Arial, sans-serif" font-size="15" text-anchor="middle" fill="#444444">Team Lead</text>
+
+  <rect x="10" y="300" width="180" height="70" rx="8" fill="#f5f7fa" stroke="#333333" stroke-width="2"/>
+  <text x="100" y="331" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#222222">Basil</text>
+  <text x="100" y="353" font-family="Arial, sans-serif" font-size="15" text-anchor="middle" fill="#444444">Researcher</text>
+
+  <rect x="210" y="300" width="180" height="70" rx="8" fill="#f5f7fa" stroke="#333333" stroke-width="2"/>
+  <text x="300" y="331" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#222222">Cleo</text>
+  <text x="300" y="353" font-family="Arial, sans-serif" font-size="15" text-anchor="middle" fill="#444444">Engineer</text>
+
+  <rect x="410" y="300" width="180" height="70" rx="8" fill="#f5f7fa" stroke="#333333" stroke-width="2"/>
+  <text x="500" y="331" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#222222">Dex</text>
+  <text x="500" y="353" font-family="Arial, sans-serif" font-size="15" text-anchor="middle" fill="#444444">Reviewer</text>
+
+  <rect x="610" y="300" width="180" height="70" rx="8" fill="#f5f7fa" stroke="#333333" stroke-width="2"/>
+  <text x="700" y="331" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#222222">Mira</text>
+  <text x="700" y="353" font-family="Arial, sans-serif" font-size="15" text-anchor="middle" fill="#444444">Writer</text>
+
+  <rect x="810" y="300" width="180" height="70" rx="8" fill="#f5f7fa" stroke="#333333" stroke-width="2"/>
+  <text x="900" y="331" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#222222">Otto</text>
+  <text x="900" y="353" font-family="Arial, sans-serif" font-size="15" text-anchor="middle" fill="#444444">Analyst</text>
+
+  <rect x="1010" y="300" width="180" height="70" rx="8" fill="#f5f7fa" stroke="#333333" stroke-width="2"/>
+  <text x="1100" y="331" font-family="Arial, sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="#222222">Rue</text>
+  <text x="1100" y="353" font-family="Arial, sans-serif" font-size="15" text-anchor="middle" fill="#444444">Planner</text>
+</svg>

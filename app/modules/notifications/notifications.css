@@ -200,6 +200,13 @@
       gap: 10px;
       pointer-events: none;
     }
+/* pop-up toasts: long text stops with "…" instead of running off the card, and on phones the toast fills the width with an even gutter */
+.notif-toast .ni-title { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.notif-toast .ni-body { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+@media (max-width: 768px) {
+  .notif-toasts { left: 16px; right: 16px; top: 76px; align-items: stretch; }
+  .notif-toast { width: 100%; max-width: none; box-sizing: border-box; }
+}
 /* the small notification panel: a little space between rows, and a thin line so unread rows don't merge */
 .notif-item + .notif-item { margin-top: 6px; }
 .notif-item.unread { border: 1px solid rgba(59, 130, 246, 0.22); }
