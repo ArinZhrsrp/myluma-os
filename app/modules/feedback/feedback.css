@@ -38,3 +38,19 @@
     .fb-rthread { margin-top:12px; }
     .fb-reply.adm { background:rgba(52,211,153,0.1); border-color:rgba(52,211,153,0.3); color:#a7f3d0; }
     .fb-it .fb-thumb { margin:8px 0 4px; max-width:100%; } .fb-it .fb-thumb img { max-height:160px; }
+    /* the AI crew's first look, inside each inbox card (migration 101) */
+    .fb-crew:empty { display:none; }
+    .fb-crew { margin-top:14px; padding:12px 14px; border-radius:12px; background:rgba(167,139,250,0.07); border:1px solid rgba(167,139,250,0.25); }
+    .fb-crew-h { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:0.78rem; font-weight:600; color:rgba(255,255,255,0.85); }
+    .fb-crew-h > i { color:#c4b5fd; } .fb-crew-h .np-btn { margin-left:auto; padding:5px 12px !important; min-height:0 !important; font-size:0.72rem !important; }
+    .fb-crew-sum { margin:8px 0 6px !important; color:#fff !important; }
+    .fb-crew-who { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .fb-crew-ag { display:inline-flex; align-items:center; gap:6px; font-size:0.68rem; font-weight:600; padding:3px 10px; border-radius:99px; background:color-mix(in srgb, var(--c) 16%, transparent); color:var(--c); }
+    .fb-crew-err { color:#fca5a5; font-weight:600; }
+    .fb-crew-dup { font-size:0.74rem; color:#fcd34d; margin:4px 0 8px; overflow-wrap:anywhere; } .fb-crew-dup i { margin-right:6px; }
+    .fb-crew-lbl { font-size:0.7rem; font-weight:600; color:rgba(255,255,255,0.6); margin:10px 0 4px; }
+    .fb-crew-reply { font-size:0.8rem; line-height:1.55; color:rgba(255,255,255,0.9); padding:8px 12px; border-radius:10px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); white-space:pre-wrap; overflow-wrap:anywhere; }
+    .fb-crew-act { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; } .fb-crew-act .np-btn { margin:0; padding:6px 14px !important; min-height:0 !important; font-size:0.74rem !important; }
+    .fb-crew-d { margin-top:8px; font-size:0.76rem; } .fb-crew-d summary { cursor:pointer; color:#c4b5fd; font-weight:600; padding:4px 0; }
+    .fb-crew-d pre { margin:0; padding:8px 10px; border-radius:8px; background:rgba(0,0,0,0.25); color:rgba(255,255,255,0.85); font-size:0.72rem; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; max-height:340px; overflow:auto; }
+    .fb-crew-foot { margin-top:8px; }

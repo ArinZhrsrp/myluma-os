@@ -10500,3 +10500,703 @@ begin
   return new;
 end;
 $$;
+
+
+-- ################################################################
+-- 088_account_exists.sql
+-- ################################################################
+
+-- Lets the login and forgot-password screens tell people when no account
+-- uses the email they typed. Returns only true/false.
+create or replace function public.account_exists(p_email text)
+returns boolean
+language sql
+security definer
+set search_path = public, auth
+as $$
+  select exists (select 1 from auth.users where lower(email) = lower(trim(p_email)));
+$$;
+
+revoke all on function public.account_exists(text) from public;
+grant execute on function public.account_exists(text) to anon, authenticated;
+
+
+-- ################################################################
+-- 089_admin_chat.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 089: an administrator can start a chat with any account (to ask about feedback, etc.).
+--   • luma.admin_start_chat(user) opens an accepted contact between the administrator and that person, so the
+--     conversation appears in both people's Contacts and works like any other chat (the person can still remove it).
+--   • These chats do not count toward anybody's contact limit. Every use is written to the admin log.
+-- Depends on 001, 033, 036, 065. Safe to re-run.
+-- ============================================================
+
+alter table luma.contacts add column if not exists admin_chat boolean not null default false;
+
+-- same rule as before (033), but a chat started by an administrator is not counted and is never blocked
+create or replace function luma.enforce_contact_limit()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  v_user uuid;
+  v_limit int;
+  v_n int;
+begin
+  if new.admin_chat then return new; end if;
+  if tg_op = 'INSERT' then v_user := new.requester_id;
+  elsif new.status = 'accepted' and old.status <> 'accepted' then v_user := new.addressee_id;
+  else return new; end if;
+  v_limit := luma.limit_of(v_user, 'contacts');
+  if v_limit is null then return new; end if;
+  select count(*) into v_n from luma.contacts c
+    where c.id <> new.id and not c.admin_chat
+      and ((c.status = 'accepted' and (c.requester_id = v_user or c.addressee_id = v_user))
+        or (c.status = 'pending' and c.requester_id = v_user));
+  if v_n >= v_limit then
+    raise exception 'Plan limit: the % plan allows up to % contacts. Upgrade your plan in Settings to add more.', initcap(luma.plan_of(v_user)), v_limit;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function luma.admin_start_chat(p_user uuid)
+returns uuid
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_email text; v_off timestamptz; v_id uuid; v_status text;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_user = auth.uid() then raise exception 'You can not chat with yourself'; end if;
+  select email, disabled_at into v_email, v_off from luma.profiles where id = p_user;
+  if not found then raise exception 'No such user'; end if;
+  if v_off is not null then raise exception 'This account is deactivated'; end if;
+
+  select id, status into v_id, v_status from luma.contacts
+    where least(requester_id, addressee_id) = least(auth.uid(), p_user)
+      and greatest(requester_id, addressee_id) = greatest(auth.uid(), p_user);
+  if v_id is null then
+    insert into luma.contacts (requester_id, addressee_id, status, admin_chat)
+      values (auth.uid(), p_user, 'accepted', true) returning id into v_id;
+  elsif v_status <> 'accepted' then
+    update luma.contacts set requester_id = auth.uid(), addressee_id = p_user, status = 'accepted', admin_chat = true where id = v_id;
+  end if;
+  perform luma.admin_log('start_chat', p_user, v_email, '{}'::jsonb);
+  return v_id;
+end;
+$$;
+revoke execute on function luma.admin_start_chat(uuid) from public, anon;
+grant execute on function luma.admin_start_chat(uuid) to authenticated;
+
+
+-- ################################################################
+-- 090_feedback_update_once.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 090: saving a feedback twice at the same moment told the person twice.
+--   The row is now locked while it is saved, so only the first save sees the status change and sends the notification.
+-- Depends on 081. Safe to re-run.
+-- ============================================================
+create or replace function luma.admin_feedback_update(p_id uuid, p_status text, p_note text)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_f record;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  if p_status not in ('new', 'seen', 'planned', 'done', 'wontfix') then raise exception 'Unknown status'; end if;
+  select * into v_f from luma.feedback where id = p_id for update;
+  if not found then raise exception 'Not found'; end if;
+  update luma.feedback set status = p_status, admin_note = left(coalesce(p_note, ''), 1000), handled_by = auth.uid(), updated_at = now() where id = p_id;
+  if v_f.user_id is not null and p_status in ('planned', 'done') and p_status <> v_f.status then
+    perform luma.notify(v_f.user_id, 'feedback_reply', case when p_status = 'done' then '✅ Your feedback was done: ' else '🗓 Your feedback is planned: ' end || v_f.module, coalesce(nullif(btrim(p_note), ''), left(v_f.message, 100)), 'feedback', p_id);
+  end if;
+end;
+$$;
+revoke execute on function luma.admin_feedback_update(uuid, text, text) from public, anon;
+grant execute on function luma.admin_feedback_update(uuid, text, text) to authenticated;
+
+
+-- ################################################################
+-- 091_admin_stats_active.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 091: the Admin page numbers (Accounts, Dawn, Glow, Zenith, New in 7 days) count active accounts only.
+--   Deactivated accounts are counted separately as "deactivated". Depends on 036 and 065 (disabled_at). Safe to re-run.
+-- ============================================================
+create or replace function luma.admin_stats()
+returns jsonb
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v jsonb;
+begin
+  if not luma.is_admin() then raise exception 'Not allowed'; end if;
+  select jsonb_build_object(
+    'total', count(*) filter (where disabled_at is null),
+    'dawn', count(*) filter (where disabled_at is null and plan = 'dawn'),
+    'glow', count(*) filter (where disabled_at is null and plan = 'glow'),
+    'zenith', count(*) filter (where disabled_at is null and plan = 'zenith'),
+    'new_7d', count(*) filter (where disabled_at is null and created_at > now() - interval '7 days'),
+    'deactivated', count(*) filter (where disabled_at is not null))
+  into v from luma.profiles;
+  return v;
+end;
+$$;
+revoke execute on function luma.admin_stats() from public, anon;
+grant execute on function luma.admin_stats() to authenticated;
+
+
+-- ################################################################
+-- 092_feedback_replies.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 092: a person can reply to the note an administrator left on their feedback.
+--   • luma.feedback_replies: one row per reply. Only the person who sent the feedback can add one (up to 10 a day, 1000 characters);
+--     that person and the administrators can read them.
+--   • Every administrator is told about a new reply (same notification as new feedback, opening the Feedback inbox).
+-- Depends on 081. Safe to re-run.
+-- ============================================================
+
+create table if not exists luma.feedback_replies (
+  id          uuid primary key default gen_random_uuid(),
+  feedback_id uuid not null references luma.feedback (id) on delete cascade,
+  user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  body        text not null check (length(btrim(body)) between 1 and 1000),
+  created_at  timestamptz not null default now()
+);
+create index if not exists feedback_replies_fb_idx on luma.feedback_replies (feedback_id, created_at);
+
+alter table luma.feedback_replies enable row level security;
+drop policy if exists feedback_replies_read on luma.feedback_replies;
+drop policy if exists feedback_replies_insert on luma.feedback_replies;
+create policy feedback_replies_read on luma.feedback_replies for select to authenticated
+  using (user_id = auth.uid() or luma.is_admin() or exists (select 1 from luma.feedback f where f.id = feedback_id and f.user_id = auth.uid()));
+create policy feedback_replies_insert on luma.feedback_replies for insert to authenticated
+  with check (user_id = auth.uid() and exists (select 1 from luma.feedback f where f.id = feedback_id and f.user_id = auth.uid()));
+revoke all on luma.feedback_replies from anon, authenticated;
+grant select, insert on luma.feedback_replies to authenticated;
+
+create or replace function luma.feedback_reply_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if (select count(*) from luma.feedback_replies where user_id = new.user_id and created_at > now() - interval '24 hours') >= 10 then
+    raise exception 'You can send up to 10 replies a day. Please try again tomorrow.';
+  end if;
+  new.body := btrim(new.body);
+  return new;
+end;
+$$;
+drop trigger if exists feedback_reply_guard on luma.feedback_replies;
+create trigger feedback_reply_guard before insert on luma.feedback_replies for each row execute function luma.feedback_reply_guard();
+
+create or replace function luma.feedback_reply_notify()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_a uuid; v_f record;
+begin
+  select module, part into v_f from luma.feedback where id = new.feedback_id;
+  for v_a in select a.user_id from luma.admin_users a where a.user_id <> new.user_id limit 20 loop
+    perform luma.notify(v_a, 'feedback', '💬 Reply on feedback: ' || coalesce(v_f.module, ''), left(new.body, 120), 'adminfeedback', new.feedback_id);
+  end loop;
+  return null;
+end;
+$$;
+drop trigger if exists feedback_reply_notify on luma.feedback_replies;
+create trigger feedback_reply_notify after insert on luma.feedback_replies for each row execute function luma.feedback_reply_notify();
+
+-- make the API see the new table straight away
+notify pgrst, 'reload schema';
+
+
+-- ################################################################
+-- 093_feedback_admin_replies.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 093: administrators can reply on a feedback too (a two-way thread with the person).
+--   • feedback_replies.from_admin tells whose reply it is (set by the database, not by the page).
+--   • A reply from an administrator tells the person who sent the feedback; a reply from the person tells the administrators.
+--   • The 10-a-day limit is for people; administrators are not limited.
+-- Depends on 092. Safe to re-run.
+-- ============================================================
+
+alter table luma.feedback_replies add column if not exists from_admin boolean not null default false;
+
+drop policy if exists feedback_replies_insert on luma.feedback_replies;
+create policy feedback_replies_insert on luma.feedback_replies for insert to authenticated
+  with check (user_id = auth.uid() and (luma.is_admin() or exists (select 1 from luma.feedback f where f.id = feedback_id and f.user_id = auth.uid())));
+
+create or replace function luma.feedback_reply_guard()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  new.from_admin := luma.is_admin();
+  if not new.from_admin and (select count(*) from luma.feedback_replies where user_id = new.user_id and created_at > now() - interval '24 hours') >= 10 then
+    raise exception 'You can send up to 10 replies a day. Please try again tomorrow.';
+  end if;
+  new.body := btrim(new.body);
+  return new;
+end;
+$$;
+
+create or replace function luma.feedback_reply_notify()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_a uuid; v_f record;
+begin
+  select module, part, user_id into v_f from luma.feedback where id = new.feedback_id;
+  if new.from_admin then
+    if v_f.user_id is not null and v_f.user_id <> new.user_id then
+      perform luma.notify(v_f.user_id, 'feedback_reply', '💬 New reply on your feedback: ' || coalesce(v_f.module, ''), left(new.body, 120), 'feedback', new.feedback_id);
+    end if;
+  else
+    for v_a in select a.user_id from luma.admin_users a where a.user_id <> new.user_id limit 20 loop
+      perform luma.notify(v_a, 'feedback', '💬 Reply on feedback: ' || coalesce(v_f.module, ''), left(new.body, 120), 'adminfeedback', new.feedback_id);
+    end loop;
+  end if;
+  return null;
+end;
+$$;
+
+notify pgrst, 'reload schema';
+
+
+-- ################################################################
+-- 094_realtime_account.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 094: changes show up in the app without a refresh.
+--   Adds the person's profile (plan, deactivation), add-ons and contacts to Supabase Realtime, so the app hears about
+--   a plan or add-on change, a deactivation, or a new contact request the moment it happens.
+--   (Row-level security still decides who hears what: each person only gets their own rows.)
+-- Safe to re-run.
+-- ============================================================
+do $$
+declare t text;
+begin
+  foreach t in array array['profiles', 'user_addons', 'contacts'] loop
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'luma' and tablename = t) then
+      execute format('alter publication supabase_realtime add table luma.%I', t);
+    end if;
+  end loop;
+end $$;
+
+
+-- ################################################################
+-- 095_plan_addon_inbox.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 095: every plan and add-on change reaches the person's notification inbox.
+--   Before: an administrator got no inbox message when changing their OWN plan or add-ons, and switching an add-on OFF
+--   sent no message until the daily check ran (the live toast and the push were all the person got).
+--   Now, whoever makes the change:
+--     • an add-on switched ON for yourself            → "🎉 Study mode is on"            (for other people the admin tool already sends it)
+--     • an add-on switched OFF                        → "Your Study add-on has ended"    (same title the daily check uses, so it is not sent twice)
+--     • your own plan changed by an administrator     → "🎉 Your plan is now Glow"       (for other people the admin tool already sends it)
+--   Every notification row is also what sends the push, so the push and the inbox always match.
+-- Depends on 044, 062, 083. Safe to re-run.
+-- ============================================================
+
+create or replace function luma.addon_change_inbox()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_name text := initcap(new.addon) || case when new.addon = 'work' and new.tier = 'pro' then ' Pro' else '' end; v_was_on boolean; v_on boolean;
+begin
+  v_on := new.expires_at is null or new.expires_at > now();
+  if tg_op = 'UPDATE' then v_was_on := old.expires_at is null or old.expires_at > now(); else v_was_on := false; end if;
+
+  if not v_on and v_was_on then -- switched off (or ended)
+    perform luma.notify(new.user_id, 'system', 'Your ' || initcap(new.addon) || ' add-on has ended',
+      'Everything you made is kept, but you can not add new ' || initcap(new.addon) || ' items until it is switched on again.', 'settings');
+  elsif v_on and not v_was_on and new.source = 'admin' and auth.uid() is not distinct from new.user_id and luma.is_admin() then -- an administrator switched it on for themselves
+    perform luma.notify(new.user_id, 'system', '🎉 ' || v_name || ' mode is on',
+      'The ' || v_name || ' add-on is active' || case when new.expires_at is null then '.' else ' until ' || to_char(new.expires_at at time zone luma.user_tz(new.user_id), 'FMDD Mon YYYY') || '.' end || ' Switch to it at the top of the menu.', 'dashboard');
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists addon_change_inbox on luma.user_addons;
+create trigger addon_change_inbox after insert or update of expires_at on luma.user_addons for each row execute function luma.addon_change_inbox();
+
+create or replace function luma.plan_change_inbox()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  -- only when an administrator changes their own plan (for everyone else the admin tool sends this message itself)
+  if new.id is not distinct from auth.uid() and current_setting('luma.allow_plan_change', true) = 'on'
+     and (old.plan is distinct from new.plan or old.plan_expires_at is distinct from new.plan_expires_at) and luma.is_admin() then
+    perform luma.notify(new.id, 'system', '🎉 Your plan is now ' || initcap(new.plan),
+      case when new.plan = 'dawn' then 'You are on the free Dawn plan.'
+           else 'Your new limits are active' || case when new.plan_expires_at is null then '.' else ' until ' || to_char(new.plan_expires_at at time zone luma.user_tz(new.id), 'FMDD Mon YYYY') || '.' end end, 'settings');
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists plan_change_inbox on luma.profiles;
+create trigger plan_change_inbox after update of plan, plan_expires_at on luma.profiles for each row execute function luma.plan_change_inbox();
+
+
+-- ################################################################
+-- 096_my_usage.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 096: luma.my_usage() tells the app how much of each plan limit the signed-in person has used,
+--   so every page can show "3 / 5 habits", "20.4 / 50 MB" and so on. The counts follow the same rules as the limits themselves (033, 037, 029).
+-- Depends on 029, 033, 037. Safe to re-run.
+-- ============================================================
+create or replace function luma.my_usage()
+returns jsonb
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v uuid := auth.uid(); v_day date;
+begin
+  if v is null then raise exception 'not signed in'; end if;
+  v_day := (timezone(luma.user_tz(v), now()))::date;
+  return jsonb_build_object(
+    'storage_bytes', coalesce((select sum(d.size_bytes) from luma.documents d where d.user_id = v), 0),
+    'reminders', (select count(*) from luma.reminders r where r.user_id = v),
+    'habits', (select count(*) from luma.habits h where h.user_id = v and not h.archived),
+    'goals', (select count(*) from luma.goals g where g.user_id = v and g.completed_at is null),
+    'bills', (select count(*) from luma.bills b where b.user_id = v),
+    'contacts', (select count(*) from luma.contacts c where not c.admin_chat
+                   and ((c.status = 'accepted' and (c.requester_id = v or c.addressee_id = v)) or (c.status = 'pending' and c.requester_id = v))),
+    'chat_today', luma.messages_sent_today(v),
+    'lumi_used', coalesce((select u.used from luma.assistant_usage u where u.user_id = v and u.day = v_day and u.kind = 'chat'), 0),
+    'insights_used', coalesce((select u.used from luma.assistant_usage u where u.user_id = v and u.day = v_day and u.kind = 'insights'), 0));
+end;
+$$;
+revoke execute on function luma.my_usage() from public, anon;
+grant execute on function luma.my_usage() to authenticated;
+
+
+-- ################################################################
+-- 097_usage_storage_breakdown.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 097: luma.my_usage() also says where the file storage is used.
+--   All files (Documents, Study files, Work task files) share ONE storage allowance, so the total can be bigger than what the
+--   Documents page lists. The usage meter now shows the split: Documents · Study · Work.
+-- Replaces luma.my_usage() from 096. Depends on 058, 075. Safe to re-run.
+-- ============================================================
+create or replace function luma.my_usage()
+returns jsonb
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v uuid := auth.uid(); v_day date; v_total bigint; v_work bigint; v_study bigint;
+begin
+  if v is null then raise exception 'not signed in'; end if;
+  v_day := (timezone(luma.user_tz(v), now()))::date;
+  select coalesce(sum(d.size_bytes), 0) into v_total from luma.documents d where d.user_id = v;
+  select coalesce(sum(d.size_bytes), 0) into v_work from luma.documents d
+    where d.user_id = v and exists (select 1 from luma.work_task_files f where f.document_id = d.id);
+  select coalesce(sum(d.size_bytes), 0) into v_study from luma.documents d
+    where d.user_id = v and not exists (select 1 from luma.work_task_files f where f.document_id = d.id)
+      and (exists (select 1 from luma.study_project_files f where f.document_id = d.id) or exists (select 1 from luma.study_note_files f where f.document_id = d.id));
+  return jsonb_build_object(
+    'storage_bytes', v_total, 'storage_work', v_work, 'storage_study', v_study, 'storage_docs', v_total - v_work - v_study,
+    'reminders', (select count(*) from luma.reminders r where r.user_id = v),
+    'habits', (select count(*) from luma.habits h where h.user_id = v and not h.archived),
+    'goals', (select count(*) from luma.goals g where g.user_id = v and g.completed_at is null),
+    'bills', (select count(*) from luma.bills b where b.user_id = v),
+    'contacts', (select count(*) from luma.contacts c where not c.admin_chat
+                   and ((c.status = 'accepted' and (c.requester_id = v or c.addressee_id = v)) or (c.status = 'pending' and c.requester_id = v))),
+    'chat_today', luma.messages_sent_today(v),
+    'lumi_used', coalesce((select u.used from luma.assistant_usage u where u.user_id = v and u.day = v_day and u.kind = 'chat'), 0),
+    'insights_used', coalesce((select u.used from luma.assistant_usage u where u.user_id = v and u.day = v_day and u.kind = 'insights'), 0));
+end;
+$$;
+revoke execute on function luma.my_usage() from public, anon;
+grant execute on function luma.my_usage() to authenticated;
+
+
+-- ################################################################
+-- 098_usage_storage_by_space.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 098: the storage split follows the space a file was added in (Personal / Study / Work).
+--   Files added while in Study mode (or Work mode) are kept apart from the personal Documents page, but they all share ONE storage
+--   allowance. 097 only recognised files attached to Study notes / group projects / Work tasks; this version also counts every file whose
+--   space is 'study' or 'work' (the Personal / Study / Work separator from migration 050).
+-- Replaces luma.my_usage() from 096 / 097. Depends on 050, 058, 075. Safe to re-run.
+-- ============================================================
+create or replace function luma.my_usage()
+returns jsonb
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+declare v uuid := auth.uid(); v_day date; v_total bigint; v_work bigint; v_study bigint;
+begin
+  if v is null then raise exception 'not signed in'; end if;
+  v_day := (timezone(luma.user_tz(v), now()))::date;
+  select coalesce(sum(d.size_bytes), 0) into v_total from luma.documents d where d.user_id = v;
+  select coalesce(sum(d.size_bytes), 0) into v_work from luma.documents d
+    where d.user_id = v and (d.space = 'work' or exists (select 1 from luma.work_task_files f where f.document_id = d.id));
+  select coalesce(sum(d.size_bytes), 0) into v_study from luma.documents d
+    where d.user_id = v and d.space <> 'work' and not exists (select 1 from luma.work_task_files f where f.document_id = d.id)
+      and (d.space = 'study' or exists (select 1 from luma.study_project_files f where f.document_id = d.id) or exists (select 1 from luma.study_note_files f where f.document_id = d.id));
+  return jsonb_build_object(
+    'storage_bytes', v_total, 'storage_work', v_work, 'storage_study', v_study, 'storage_docs', v_total - v_work - v_study,
+    'reminders', (select count(*) from luma.reminders r where r.user_id = v),
+    'habits', (select count(*) from luma.habits h where h.user_id = v and not h.archived),
+    'goals', (select count(*) from luma.goals g where g.user_id = v and g.completed_at is null),
+    'bills', (select count(*) from luma.bills b where b.user_id = v),
+    'contacts', (select count(*) from luma.contacts c where not c.admin_chat
+                   and ((c.status = 'accepted' and (c.requester_id = v or c.addressee_id = v)) or (c.status = 'pending' and c.requester_id = v))),
+    'chat_today', luma.messages_sent_today(v),
+    'lumi_used', coalesce((select u.used from luma.assistant_usage u where u.user_id = v and u.day = v_day and u.kind = 'chat'), 0),
+    'insights_used', coalesce((select u.used from luma.assistant_usage u where u.user_id = v and u.day = v_day and u.kind = 'insights'), 0));
+end;
+$$;
+revoke execute on function luma.my_usage() from public, anon;
+grant execute on function luma.my_usage() to authenticated;
+
+
+-- ################################################################
+-- 099_document_deletion_log.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 099: a trace of every deleted document, and a notice to the people it was shared with.
+--   • luma.document_deletions keeps one row per deleted document: what it was, who owned it, who deleted it (the owner, an administrator,
+--     or the system, e.g. when an account or a semester is removed), when, and who it had been shared with.
+--     The owner can read their own rows and administrators can read all of them. The rows stay when the account is deleted.
+--   • Everyone the document was shared with gets a notification (and so a push): "<name> deleted a shared document".
+-- Depends on 003, 004, 008. Safe to re-run.
+-- ============================================================
+
+create table if not exists luma.document_deletions (
+  id          uuid primary key default gen_random_uuid(),
+  document_id uuid not null,
+  owner_id    uuid,                                   -- no foreign key on purpose: the trace outlives the account
+  name        text not null,
+  mime_type   text,
+  size_bytes  bigint,
+  space       text,
+  storage_path text,
+  deleted_by  uuid,
+  via         text not null default 'owner' check (via in ('owner', 'admin', 'system')),
+  shared_with uuid[] not null default '{}',
+  deleted_at  timestamptz not null default now()
+);
+create index if not exists document_deletions_owner_idx on luma.document_deletions (owner_id, deleted_at desc);
+create index if not exists document_deletions_time_idx on luma.document_deletions (deleted_at desc);
+
+alter table luma.document_deletions enable row level security;
+drop policy if exists document_deletions_read on luma.document_deletions;
+create policy document_deletions_read on luma.document_deletions for select to authenticated using (owner_id = auth.uid() or luma.is_admin());
+revoke all on luma.document_deletions from anon, authenticated;
+grant select on luma.document_deletions to authenticated;
+
+create or replace function luma.log_document_delete()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_recips uuid[]; v_via text; v_who text; v_r uuid;
+begin
+  select coalesce(array_agg(s.shared_with), '{}') into v_recips from luma.document_shares s where s.document_id = old.id;
+  v_via := case when auth.uid() is null then 'system' when auth.uid() = old.user_id then 'owner' when luma.is_admin() then 'admin' else 'owner' end;
+  insert into luma.document_deletions (document_id, owner_id, name, mime_type, size_bytes, space, storage_path, deleted_by, via, shared_with)
+    values (old.id, old.user_id, old.name, old.mime_type, old.size_bytes, to_jsonb(old) ->> 'space', old.storage_path, auth.uid(), v_via, v_recips);
+  if v_via <> 'owner' then v_who := 'A document'; else v_who := coalesce(luma.display_name(old.user_id), 'Someone'); end if;
+  foreach v_r in array v_recips loop
+    if v_r is distinct from auth.uid() then
+      perform luma.notify(v_r, 'document_deleted',
+        case when v_via = 'owner' then v_who || ' deleted a shared document' else 'A shared document was removed' end,
+        '“' || old.name || '” is no longer in Documents → Shared with me.', 'documents');
+    end if;
+  end loop;
+  return old;
+end;
+$$;
+drop trigger if exists log_document_delete on luma.documents;
+create trigger log_document_delete before delete on luma.documents for each row execute function luma.log_document_delete();
+
+
+-- ################################################################
+-- 100_user_devices.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 100: luma.user_devices lists the phones and computers signed in to one account (Settings → Your devices).
+--   Each device registers itself on open (id kept on the device, a readable name, last seen). People only ever see their own rows.
+-- Safe to re-run.
+-- ============================================================
+create table if not exists luma.user_devices (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  device_id text not null,
+  label text not null default 'Unknown device',
+  kind text not null default 'computer',
+  created_at timestamptz not null default now(),
+  last_seen timestamptz not null default now(),
+  primary key (user_id, device_id)
+);
+alter table luma.user_devices enable row level security;
+drop policy if exists user_devices_own on luma.user_devices;
+create policy user_devices_own on luma.user_devices for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+revoke all on luma.user_devices from anon, authenticated;
+grant select, insert, update, delete on luma.user_devices to authenticated;
+
+-- registers this device, or refreshes its "last seen"
+create or replace function luma.touch_device(p_device text, p_label text, p_kind text)
+returns void
+language plpgsql
+security definer set search_path = ''
+as $$
+begin
+  if auth.uid() is null then raise exception 'not signed in'; end if;
+  insert into luma.user_devices (user_id, device_id, label, kind)
+    values (auth.uid(), left(p_device, 64), left(coalesce(nullif(p_label, ''), 'Unknown device'), 80), case when p_kind in ('phone', 'tablet', 'computer') then p_kind else 'computer' end)
+  on conflict (user_id, device_id) do update set last_seen = now(), label = excluded.label, kind = excluded.kind;
+end;
+$$;
+revoke execute on function luma.touch_device(text, text, text) from public, anon;
+grant execute on function luma.touch_device(text, text, text) to authenticated;
+
+
+-- ################################################################
+-- 101_feedback_crew.sql
+-- ################################################################
+
+-- ============================================================
+-- LUMA — migration 101: an AI crew takes the first look at every new feedback and support message.
+--   • luma.crew_runs: one row per look at a feedback. The lead agent sorts it (bug / idea / question / praise / complaint),
+--     says how urgent it is, spots a duplicate, and at the end leaves a summary, the likely cause and a fix (for bugs),
+--     a suggested status and a draft reply for the person. Nothing is sent to the person and the feedback's own status
+--     is never changed: an administrator reads it in the Feedback inbox and decides.
+--   • luma.crew_steps: one row per teammate's piece of work in a run (Engineer, Support, Product), with what it wrote.
+--   • Only administrators can read either table. Only the feedback-crew Edge Function writes them (service role).
+--   • When a run finishes, every administrator gets a notification that opens the Feedback inbox.
+--   • Both tables are in Supabase Realtime so the inbox updates while the crew works.
+-- The trigger that starts the crew for each new feedback lives in supabase/setup/crew_webhook.sql (it holds a secret).
+-- Depends on 081 (feedback), 036 (admin), 064 (notify with a ref). Safe to re-run.
+-- ============================================================
+
+create table if not exists luma.crew_runs (
+  id               uuid primary key default gen_random_uuid(),
+  feedback_id      uuid not null references luma.feedback (id) on delete cascade,
+  status           text not null default 'queued' check (status in ('queued', 'triaging', 'working', 'merging', 'done', 'failed')),
+  started_by       text not null default 'webhook' check (started_by in ('webhook', 'admin')),
+  category         text check (category is null or category in ('bug', 'idea', 'question', 'praise', 'complaint')),
+  severity         text check (severity is null or severity in ('low', 'medium', 'high', 'urgent')),
+  summary          text not null default '' check (length(summary) <= 2000),
+  likely_cause     text not null default '' check (length(likely_cause) <= 4000),
+  suggested_fix    text not null default '' check (length(suggested_fix) <= 6000),
+  draft_reply      text not null default '' check (length(draft_reply) <= 1000),
+  suggested_status text check (suggested_status is null or suggested_status in ('new', 'seen', 'planned', 'done', 'wontfix')),
+  duplicate_of     uuid references luma.feedback (id) on delete set null,
+  model            text not null default '',
+  error            text not null default '' check (length(error) <= 1000),
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now(),
+  finished_at      timestamptz
+);
+create index if not exists crew_runs_feedback_idx on luma.crew_runs (feedback_id, created_at desc);
+
+create table if not exists luma.crew_steps (
+  id          uuid primary key default gen_random_uuid(),
+  run_id      uuid not null references luma.crew_runs (id) on delete cascade,
+  agent       text not null check (agent in ('engineer', 'support', 'product')),
+  task        text not null default '' check (length(task) <= 2000),
+  status      text not null default 'working' check (status in ('working', 'done', 'failed')),
+  output      text not null default '' check (length(output) <= 12000),
+  started_at  timestamptz not null default now(),
+  finished_at timestamptz
+);
+create index if not exists crew_steps_run_idx on luma.crew_steps (run_id, started_at);
+
+alter table luma.crew_runs enable row level security;
+alter table luma.crew_steps enable row level security;
+drop policy if exists crew_runs_read on luma.crew_runs;
+drop policy if exists crew_steps_read on luma.crew_steps;
+create policy crew_runs_read on luma.crew_runs for select to authenticated using (luma.is_admin());
+create policy crew_steps_read on luma.crew_steps for select to authenticated using (luma.is_admin());
+revoke all on luma.crew_runs, luma.crew_steps from anon, authenticated;
+grant select on luma.crew_runs, luma.crew_steps to authenticated;
+-- the Edge Function works as the service role
+grant usage on schema luma to service_role;
+grant select, insert, update on luma.crew_runs, luma.crew_steps to service_role;
+grant select on luma.feedback, luma.feedback_replies to service_role;
+
+-- keep updated_at honest, and stamp finished_at once
+create or replace function luma.crew_runs_touch()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at := now();
+  if new.status in ('done', 'failed') and new.finished_at is null then new.finished_at := now(); end if;
+  return new;
+end;
+$$;
+drop trigger if exists crew_runs_touch on luma.crew_runs;
+create trigger crew_runs_touch before update on luma.crew_runs for each row execute function luma.crew_runs_touch();
+
+-- every administrator is told when the crew finishes (up to 20), and it opens the Feedback inbox at that feedback
+create or replace function luma.crew_runs_notify()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare v_a uuid; v_f record; v_title text;
+begin
+  if new.status <> 'done' or old.status = 'done' then return null; end if;
+  select module, part into v_f from luma.feedback where id = new.feedback_id;
+  if not found then return null; end if;
+  v_title := '🤖 Crew looked at: ' || v_f.module || case when v_f.part <> '' then ' › ' || v_f.part else '' end
+          || case when new.severity in ('high', 'urgent') then ' (' || new.severity || ')' else '' end;
+  for v_a in select a.user_id from luma.admin_users a limit 20 loop
+    perform luma.notify(v_a, 'feedback', v_title, left(coalesce(nullif(new.summary, ''), 'Open the inbox to see what the crew found.'), 160), 'adminfeedback', new.feedback_id);
+  end loop;
+  return null;
+end;
+$$;
+drop trigger if exists crew_runs_notify on luma.crew_runs;
+create trigger crew_runs_notify after update on luma.crew_runs for each row execute function luma.crew_runs_notify();
+
+-- live updates in the inbox (row-level security still limits them to administrators)
+do $$
+declare t text;
+begin
+  foreach t in array array['crew_runs', 'crew_steps'] loop
+    if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'luma' and tablename = t) then
+      execute format('alter publication supabase_realtime add table luma.%I', t);
+    end if;
+  end loop;
+end $$;
+
+notify pgrst, 'reload schema';

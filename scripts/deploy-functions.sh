@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploys the Supabase Edge Functions (Lumi and push) to ONE environment.
+# Deploys the Supabase Edge Functions (Lumi, push and the feedback crew) to ONE environment.
 #   ./scripts/deploy-functions.sh staging
 #   ./scripts/deploy-functions.sh prod
 # Fill in the two project references first. A project's reference is the code in its URL:
@@ -19,4 +19,5 @@ if [ -z "$REF" ]; then echo "That environment's project reference is not filled 
 echo "Deploying functions to project $REF …"
 npx supabase functions deploy lumi --project-ref "$REF"
 npx supabase functions deploy send-push --no-verify-jwt --project-ref "$REF"
+npx supabase functions deploy feedback-crew --no-verify-jwt --project-ref "$REF"
 echo "Done. Secrets are set per project:  npx supabase secrets set KEY=value --project-ref $REF"

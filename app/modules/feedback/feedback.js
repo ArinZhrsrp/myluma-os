@@ -146,6 +146,7 @@
             ${f.image_path ? `<button type="button" class="fb-thumb" data-fbimg="${f.id}" title="Open the picture">${FBA.urls[f.image_path] ? `<img src="${FBA.urls[f.image_path]}" alt="Picture sent with the message">` : '<i class="fa-regular fa-image"></i> Open picture'}</button>` : ''}
             <div class="fb-ctx">${[c.page && 'from ' + c.page, c.mode && c.mode + ' mode', c.version && 'v' + c.version, c.screen].filter(Boolean).map(escapeHtml).join(' · ')}</div>
             ${(FBA.replies[f.id] || []).length || f.user_id ? `<div class="fb-rthread">${(FBA.replies[f.id] || []).length ? `<div class="fb-adm-h"><i class="fa-regular fa-comments"></i> Replies with ${escapeHtml((f.user_label || 'the person').split(' <')[0])}</div>${FBA.replies[f.id].map(x => fbBubble(x, x.from_admin)).join('')}` : ''}${f.user_id ? (FBA.replying === f.id ? `<div class="fb-rform"><textarea data-fbrtext maxlength="1000" rows="3" placeholder="Reply to ${escapeHtml((f.user_label || 'the person').split(' <')[0])}…"></textarea><div class="fb-radm"><button type="button" class="np-btn" data-fbrsend><i class="fa-solid fa-paper-plane"></i> Send reply</button><button type="button" class="np-btn" data-fbrcancel>Cancel</button></div></div>` : `<button type="button" class="np-btn fb-rbtn" data-fbreply="${f.id}"><i class="fa-solid fa-reply"></i> Reply</button>`) : ''}</div>` : ''}
+            <div class="fb-crew" data-crew="${f.id}">${fbaCrewHTML(f)}</div>
             <div class="fb-adm"><div class="fb-adm-h"><i class="fa-solid fa-sliders"></i> Handle this feedback <small class="fb-dim">(this does not send a chat message)</small></div>
               <div class="fb-adm-row"><select data-fbst aria-label="Status">${FB_STATUS.map(s => `<option value="${s[0]}" ${s[0] === f.status ? 'selected' : ''}>${s[1]}</option>`).join('')}</select><input type="text" data-fbnote maxlength="1000" placeholder="Note to the person (sent when you mark it Planned or Done)" value="${escapeHtml(f.admin_note || '')}" aria-label="Note to the person"></div>
               <div class="fb-adm-row fb-adm-act"><button type="button" class="np-btn" data-fbsave><i class="fa-solid fa-floppy-disk"></i> Save status &amp; note</button><button type="button" class="np-btn danger" data-fbdel title="Delete this feedback" aria-label="Delete this feedback"><i class="fa-regular fa-trash-can"></i></button></div></div></div>`; }).join('')
@@ -157,7 +158,7 @@
       if (!LumaPlan.admin) { sub.textContent = 'Not allowed'; root.innerHTML = card('<div class="ls">This page is only for administrators.</div>'); return; }
       const r = await LumaAuth.client.schema('luma').from('feedback').select('id, user_id, user_label, kind, module, part, message, image_path, context, status, admin_note, created_at').order('created_at', { ascending: false }).limit(500);
       if (r.error) { sub.textContent = 'Could not load'; root.innerHTML = card(`<div class="ls">${/feedback|schema cache|does not exist/i.test(r.error.message) ? 'Run <b>supabase/migrations/081_feedback.sql</b> first.' : escapeHtml(r.error.message)}</div>`); return; }
-      FBA.rows = r.data || []; await fbLoadReplies(FBA.rows, FBA.replies);
+      FBA.rows = r.data || []; await fbLoadReplies(FBA.rows, FBA.replies); await fbaLoadCrew();
       const paths = FBA.rows.filter(f => f.image_path).map(f => f.image_path).slice(0, 60);
       if (paths.length) { try { const s = await LumaAuth.client.storage.from('luma-feedback').createSignedUrls(paths, 3600); (s.data || []).forEach(x => { if (x.signedUrl) FBA.urls[x.path] = x.signedUrl; }); } catch (e) { /* the pictures just show as links */ } }
       fbaPaint();
@@ -170,6 +171,11 @@
       pg.addEventListener('click', async e => {
         const s = e.target.closest('[data-fbs]'); if (s) { FBA.status = s.dataset.fbs; return fbaPaint(); }
         const card0 = e.target.closest('.fb-item'); if (!card0) return; const id = card0.dataset.id, f = FBA.rows.find(x => x.id === id); if (!f) return;
+        if (e.target.closest('[data-crewrun]')) return void fbaCrewStart(f, e.target.closest('[data-crewrun]'));
+        if (e.target.closest('[data-crewnote]')) { const run = FBA.crew[id]; if (!run) return; const note = card0.querySelector('[data-fbnote]'), sel = card0.querySelector('[data-fbst]');
+          if (note) note.value = run.draft_reply.slice(0, 1000); if (sel && run.suggested_status) { sel.value = run.suggested_status; skinSelect(sel); }
+          if (note) note.focus(); return void flashToast('Filled in', 'Check it, then press Save status & note.', 'fa-pen', '#a78bfa'); }
+        if (e.target.closest('[data-crewreply]')) { const run = FBA.crew[id]; if (!run) return; FBA.replying = id; fbaPaint(); const t = pg.querySelector('.fb-item[data-id="' + id + '"] [data-fbrtext]'); if (t) { t.value = run.draft_reply; t.focus(); } return; }
         const im = e.target.closest('[data-fbimg]'); if (im) { const u = FBA.urls[f.image_path] || (await LumaAuth.client.storage.from('luma-feedback').createSignedUrl(f.image_path, 3600)).data?.signedUrl; if (u) window.open(u, '_blank', 'noopener'); return; }
         const ar = e.target.closest('[data-fbreply]'); if (ar) { FBA.replying = ar.dataset.fbreply; fbaPaint(); const t = pg.querySelector('[data-fbrtext]'); if (t) t.focus(); return; }
         if (e.target.closest('[data-fbrcancel]')) { FBA.replying = ''; return fbaPaint(); }
@@ -180,6 +186,65 @@
         if (e.target.closest('[data-fbdel]')) { if (!await luConfirm({ title: 'Delete this feedback?', message: 'It is removed for good, with its picture.', ok: 'Delete' })) return; const r = await LumaAuth.client.schema('luma').rpc('admin_feedback_delete', { p_id: id }); if (r.error) return luAlert(r.error.message); if (f.image_path) LumaAuth.client.storage.from('luma-feedback').remove([f.image_path]); FBA.rows = FBA.rows.filter(x => x !== f); fbaPaint(); }
       });
       pg.addEventListener('change', e => { if (e.target.id === 'fbaMod') { FBA.module = e.target.value; fbaPaint(); } });
+      fbaCrewLive();
       pg.addEventListener('input', e => { if (e.target.id === 'fbaQ') { FBA.q = e.target.value; const pos = e.target.selectionStart; fbaPaint(); const q = docEl('fbaQ'); if (q) { q.focus(); q.setSelectionRange(pos, pos); } } });
       await fbaLoad();
     };
+
+    // ---------- the AI crew's first look (migration 101 + supabase/functions/feedback-crew) ----------
+    // For each new feedback the crew sorts it, rates how urgent it is, reads the code for bugs and drafts a reply. It never
+    // sends anything to the person or changes the status: "Use as note" / "Use as reply" only fill in the boxes for you to check.
+    const CREW_AGENTS = { engineer: ['Engineer', 'fa-screwdriver-wrench', '#60a5fa'], support: ['Support', 'fa-headset', '#34d399'], product: ['Product', 'fa-lightbulb', '#fbbf24'] };
+    const CREW_SEV = { low: '#94a3b8', medium: '#fbbf24', high: '#fb923c', urgent: '#f87171' };
+    const CREW_BUSY = { queued: 'Waiting to start', triaging: 'The lead is reading it', working: 'The crew is working on it', merging: 'The lead is putting it together' };
+    FBA.crew = {}; FBA.crewOn = true; // crewOn: false until migration 101 has run, so the inbox looks as before
+    const crewAgent = s => CREW_AGENTS[s.agent] || [s.agent, 'fa-user', '#94a3b8'];
+    function fbaCrewHTML(f) {
+      if (!FBA.crewOn) return '';
+      const run = FBA.crew[f.id], h = '<i class="fa-solid fa-robot"></i> AI crew';
+      if (!run) return `<div class="fb-crew-h">${h} <span class="fb-dim">has not looked at this yet</span><button type="button" class="np-btn" data-crewrun><i class="fa-solid fa-play"></i> Ask the crew</button></div>`;
+      const steps = run.steps || [];
+      const who = steps.map(s => { const a = crewAgent(s); return `<span class="fb-crew-ag" style="--c:${a[2]}" title="${escapeHtml(s.task || '')}"><i class="fa-solid ${a[1]}"></i> ${a[0]} ${s.status === 'working' ? '<i class="fa-solid fa-spinner fa-spin"></i>' : s.status === 'failed' ? '<i class="fa-solid fa-triangle-exclamation"></i>' : '<i class="fa-solid fa-check"></i>'}</span>`; }).join('');
+      if (CREW_BUSY[run.status]) return `<div class="fb-crew-h">${h} <span class="fb-dim"><i class="fa-solid fa-spinner fa-spin"></i> ${CREW_BUSY[run.status]}…</span></div>${who ? `<div class="fb-crew-who">${who}</div>` : ''}`;
+      if (run.status === 'failed') return `<div class="fb-crew-h">${h} <span class="fb-crew-err">Could not finish</span><button type="button" class="np-btn" data-crewrun><i class="fa-solid fa-rotate-right"></i> Try again</button></div>${run.error ? `<div class="fb-dim">${escapeHtml(run.error)}</div>` : ''}`;
+      const st = FB_STATUS.find(s => s[0] === run.suggested_status), dup = run.duplicate_of && FBA.rows.find(x => x.id === run.duplicate_of), dst = dup && FB_STATUS.find(s => s[0] === dup.status);
+      return `<div class="fb-crew-h">${h} ${run.category ? `<span class="fb-k" style="--c:#a78bfa">${escapeHtml(run.category)}</span>` : ''}${run.severity ? `<span class="fb-k" style="--c:${CREW_SEV[run.severity] || '#94a3b8'}">${escapeHtml(run.severity)}</span>` : ''}<button type="button" class="np-btn" data-crewrun title="Run the crew again" aria-label="Run the crew again"><i class="fa-solid fa-rotate-right"></i></button></div>
+        ${run.summary ? `<p class="fb-crew-sum">${escapeHtml(run.summary)}</p>` : ''}
+        ${dup ? `<div class="fb-crew-dup"><i class="fa-regular fa-copy"></i> Looks like the same thing as “${escapeHtml(dup.message.length > 120 ? dup.message.slice(0, 120) + '…' : dup.message)}”${dst ? ` (${dst[1]})` : ''}</div>` : ''}
+        ${run.likely_cause || run.suggested_fix ? `<details class="fb-crew-d"><summary>Likely cause and fix</summary>${run.likely_cause ? `<div class="fb-crew-lbl">Likely cause</div><pre>${escapeHtml(run.likely_cause)}</pre>` : ''}${run.suggested_fix ? `<div class="fb-crew-lbl">Suggested fix</div><pre>${escapeHtml(run.suggested_fix)}</pre>` : ''}</details>` : ''}
+        ${run.draft_reply ? `<div class="fb-crew-lbl">Draft reply${st ? ` <span class="fb-dim">· suggested status: ${st[1]}</span>` : ''}</div><div class="fb-crew-reply">${escapeHtml(run.draft_reply)}</div>
+          <div class="fb-crew-act"><button type="button" class="np-btn" data-crewnote><i class="fa-solid fa-pen"></i> Use as note${st ? ' + ' + st[1] : ''}</button>${f.user_id ? '<button type="button" class="np-btn" data-crewreply><i class="fa-solid fa-reply"></i> Use as reply</button>' : ''}</div>` : ''}
+        ${steps.length ? `<details class="fb-crew-d"><summary>What each teammate wrote</summary>${steps.map(s => { const a = crewAgent(s); return `<div class="fb-crew-lbl" style="color:${a[2]}"><i class="fa-solid ${a[1]}"></i> ${a[0]}</div><pre>${escapeHtml(s.output || '')}</pre>`; }).join('')}</details>` : ''}
+        <div class="fb-dim fb-crew-foot">${escapeHtml(run.model || 'AI')} · nothing was sent to the person</div>`;
+    }
+    // the newest run for each feedback in the inbox, with its steps
+    async function fbaLoadCrew() {
+      const ids = FBA.rows.slice(0, 150).map(f => f.id); if (!ids.length) { FBA.crew = {}; return; }
+      const sb = LumaAuth.client.schema('luma');
+      const r = await sb.from('crew_runs').select('id, feedback_id, status, category, severity, summary, likely_cause, suggested_fix, draft_reply, suggested_status, duplicate_of, model, error, created_at').in('feedback_id', ids).order('created_at', { ascending: false }).limit(400);
+      if (r.error) { FBA.crewOn = false; return; } // migration 101 not run yet
+      FBA.crewOn = true; const latest = {};
+      (r.data || []).forEach(x => { if (!latest[x.feedback_id]) latest[x.feedback_id] = { ...x, steps: [] }; });
+      const byRun = {}; Object.values(latest).forEach(x => { byRun[x.id] = x; });
+      const runIds = Object.keys(byRun);
+      if (runIds.length) { const s = await sb.from('crew_steps').select('run_id, agent, task, status, output, started_at').in('run_id', runIds).order('started_at'); (s.data || []).forEach(x => { if (byRun[x.run_id]) byRun[x.run_id].steps.push(x); }); }
+      FBA.crew = latest;
+    }
+    // redraw only the crew boxes, so a note or reply being typed is not lost
+    function fbaCrewRepaint() {
+      document.querySelectorAll('#fbaRoot .fb-crew[data-crew]').forEach(el => { const f = FBA.rows.find(x => x.id === el.dataset.crew); if (!f) return; const open = [...el.querySelectorAll('details')].map(d => d.open); el.innerHTML = fbaCrewHTML(f); el.querySelectorAll('details').forEach((d, i) => { if (open[i]) d.open = true; }); });
+    }
+    const fbaOpen = () => { const pg = document.getElementById('page-adminfeedback'); return !!(pg && pg.classList.contains('active') && !document.hidden); };
+    let fbaCrewT = null;
+    const fbaCrewSoon = () => { clearTimeout(fbaCrewT); fbaCrewT = setTimeout(async () => { if (!fbaOpen()) return; try { await fbaLoadCrew(); fbaCrewRepaint(); } catch (e) { /* the next change or tick tries again */ } }, 700); };
+    function fbaCrewLive() {
+      try { LumaAuth.client.channel('luma-crew').on('postgres_changes', { event: '*', schema: 'luma', table: 'crew_runs' }, fbaCrewSoon).on('postgres_changes', { event: '*', schema: 'luma', table: 'crew_steps' }, fbaCrewSoon).subscribe(); } catch (e) { /* the timer below still catches up */ }
+      setInterval(() => { if (fbaOpen() && Object.values(FBA.crew).some(r => CREW_BUSY[r.status])) fbaCrewSoon(); }, 6000); // in case Realtime misses a change while the crew works
+    }
+    async function fbaCrewStart(f, btn) {
+      if (btn) btn.disabled = true;
+      const { data, error } = await LumaAuth.client.functions.invoke('feedback-crew', { body: { feedback_id: f.id } });
+      if (error || (data && data.error)) { if (btn) btn.disabled = false; let msg = (data && data.error) || ''; try { if (!msg && error.context) msg = (await error.context.json()).error; } catch (e) { }
+        return luAlert(msg || 'The crew is not set up yet: deploy supabase/functions/feedback-crew and set its secrets (see the top of its index.ts).'); }
+      FBA.crew[f.id] = { id: data.run_id, feedback_id: f.id, status: 'queued', steps: [] }; fbaCrewRepaint(); fbaCrewSoon();
+    }
