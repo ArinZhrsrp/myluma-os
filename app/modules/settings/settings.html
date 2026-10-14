@@ -36,6 +36,18 @@
     </div>
   </div>
 
+  <div class="modal-overlay confirm-overlay" id="acctDevOverlay">
+    <div class="profile-edit-modal" style="width:480px;max-width:100%">
+      <div class="pem-head">
+        <div class="pem-title">Your devices</div>
+        <button class="x" id="acctDevClose"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="ls" style="line-height:1.6;margin-bottom:10px">Phones and computers signed in to your account. Don't recognise one? Sign out the others and change your password.</div>
+      <div id="acctDevList" style="max-height:50vh;overflow:auto;margin-bottom:14px"></div>
+      <button type="button" class="confirm-btn danger" id="acctDevOthers" style="width:100%">Sign out other devices</button>
+    </div>
+  </div>
+
   <div class="modal-overlay confirm-overlay" id="acctDelOverlay">
     <div class="profile-edit-modal" style="width:480px;max-width:100%">
       <div class="pem-head">

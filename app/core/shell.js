@@ -48,6 +48,7 @@
     logoutConfirmBtn.addEventListener('click', async () => {
       logoutConfirmBtn.disabled = true;
       logoutConfirmBtn.textContent = 'Logging out…';
+      await LumaDevices.forgetThis();
       await LumaAuth.signOut();
       window.location.href = '/login/';
     });

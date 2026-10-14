@@ -27,6 +27,7 @@
       initReminders();
       loadDashboard().catch(e => console.error('LUMA: dashboard failed to load', e)).then(() => LumaLoader.release('app'));
       resyncPush();
+      LumaDevices.touch(); // this device shows up in Settings → Your devices
       maybePromptPlan().then(() => maybePromptPush()); // the plan offer first, then the push offer
     })();
 
