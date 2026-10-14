@@ -4,6 +4,14 @@ The newest version is on top. The version number lives in `shared/supabase-confi
 Rules: **patch** (0.9.1) = fixes and small tweaks · **minor** (0.10.0) = a new feature or module · **1.0.0** = the first production release.
 Versions before 0.9.0 were written down afterwards from the commit history, so their grouping is approximate.
 
+## 0.41.1 — 2026-10-14
+### Changed
+- Settings → Account and data has one **Your devices** row. **Sign out other devices** now sits inside its popup instead of being a second row.
+
+## 0.41.0 — 2026-10-14
+### Added
+- **Your devices** (Settings → Account and data): lists every phone and computer signed in to the account, with when each was last active and first signed in, and tags the current one. Each device registers itself when LUMA opens. Run migration 100 (`100_user_devices.sql`) to switch it on.
+
 ## 0.30.3 — 2026-10-11
 ### Fixed
 - Added a 5px gap between task status dropdown options and increased the menu padding so the selection and hover highlights no longer touch.

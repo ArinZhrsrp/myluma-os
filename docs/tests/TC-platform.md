@@ -225,7 +225,7 @@ Automation names refer to `docs/test-automation/`: `pg_boot` (all migrations app
 - **Type / Priority:** Functional · P2
 - **Preconditions:** Same account signed in on phone and laptop.
 - **Test data:** None.
-- **Steps:** 1. On the laptop open Settings → Sign out other devices → confirm. 2. On the phone reload after a few minutes (or wait for token refresh).
+- **Steps:** 1. On the laptop open Settings → Your devices → Sign out other devices → confirm. 2. On the phone reload after a few minutes (or wait for token refresh).
 - **Expected result:** Laptop: "Signed out of your other devices." and stays signed in; phone is signed out when its token is refreshed (access tokens may live up to their expiry, TBC).
 - **Automation:** Device only.
 
@@ -934,7 +934,7 @@ Automation names refer to `docs/test-automation/`: `pg_boot` (all migrations app
 - **Preconditions:** Settings.
 - **Test data:** None.
 - **Steps:** 1. Read the card.
-- **Expected result:** Install LUMA, Change password, Export my data, Sign out other devices, Delete my account (red).
+- **Expected result:** Install LUMA, Change password, Export my data, Your devices, Delete my account (red).
 - **Automation:** Manual.
 
 #### TC-SET-023 — Settings on phone widths
@@ -2064,6 +2064,19 @@ Automation names refer to `docs/test-automation/`: `pg_boot` (all migrations app
   3. Clear the date and save.
 - **Expected result:** The date is saved and shown again. The picker does not allow the future; a date before 1900 is refused. Clearing and saving removes the birthday (it no longer appears in Admin → Birthdays). The note about who sees it is shown. If migration 087 has not been run the name still saves and a notice names the migration.
 - **Automation:** `pg_birthday_test` (own update, 1900 limit) · the form: manual.
+
+#### TC-SET-026 — Your devices
+- **Requirement:** FR-SET-024
+- **Type / Priority:** Functional · P2
+- **Preconditions:** Migration 100 is run. The same account is signed in on a phone and a laptop, both on a version with the list.
+- **Test data:** None.
+- **Steps:**
+  1. On the laptop open Settings → Account and data → Your devices.
+  2. Read the list; check it on a 320 px wide screen.
+  3. Press Sign out other devices and confirm.
+  4. Reopen Your devices. Then log out on the laptop, sign in again and reopen it.
+- **Expected result:** Both devices are listed with an icon, a name, "Active now" or a time, and the first-sign-in date; the laptop is tagged "This device". The popup fits a 320 px screen and the list scrolls. After step 3 the phone is signed out and only the laptop remains in the list; after step 4 the laptop appears once, not twice. Another account's devices are never shown.
+- **Automation:** Manual.
 
 #### TC-AUTH-049 — Birthday on the Register form
 - **Requirement:** FR-AUTH-045

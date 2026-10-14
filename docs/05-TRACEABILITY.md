@@ -922,7 +922,7 @@ None.
 | FR-AUTH-023 | Should | A password-recovery link that lands on another page (the address contains `type=recovery`) shall be sent on to `/reset-password/` with its t | TC-AUTH-017 |
 | FR-AUTH-024 | Must | The app (`/app/`) shall send a visitor with no session to `/login/` before showing anything. | TC-AUTH-023 |
 | FR-AUTH-025 | Must | Log out (top-bar icon or Settings → Log out) shall ask "Log out" / "Cancel"; confirming shall disable the button ("Logging out..."), end the | TC-AUTH-022 |
-| FR-AUTH-026 | Should | "Sign out other devices" (Settings → Account and data) shall ask for confirmation, then end every other session (Supabase scope "others") an | TC-AUTH-024 |
+| FR-AUTH-026 | Should | "Sign out other devices" (Settings → Account and data → Your devices) shall ask for confirmation, then end every other session (Supabase scope "others") an | TC-AUTH-024 |
 | FR-AUTH-027 | Must | At start-up, if the person's profile says the account was deactivated, the app shall sign out and open `/login/?disabled=1`. | TC-AUTH-016 |
 | FR-AUTH-028 | Should | The user's display name shall be the profile first name, else the sign-up first name, else the part of the e-mail before "@", else "there". | TC-AUTH-026 |
 | FR-AUTH-029 | Should | A person shall be able to change their password from Settings by "Send link" (a reset e-mail to their own address, confirmed with "Check you | TC-AUTH-025 |
@@ -996,8 +996,9 @@ None.
 | FR-SET-019 | Must | Defaults when no row exists: events on, 15 min, all-day 8:00; tasks 9:00; bills 3 days, 9:00; subscriptions 3 days, 9:00; goals 3 days, 9:00 | TC-SET-018 |
 | FR-SET-020 | Must | Without limit `timing` (Dawn) the reminder time selects shall be disabled and show the standard values with the note "These are the standard | TC-SET-019 |
 | FR-SET-021 | Must | Each change in the Reminders card shall be saved at once to `luma.reminder_prefs` (one row per person), show the toast "Reminder saved", dim | TC-SET-020, TC-SET-021, TC-NTF-021 |
-| FR-SET-022 | Must | The Account and data card shall list Install LUMA, Change password, Export my data, Sign out other devices and Delete my account. | TC-SET-022 |
+| FR-SET-022 | Must | The Account and data card shall list Install LUMA, Change password, Export my data, Your devices and Delete my account. | TC-SET-022 |
 | FR-SET-023 | Should | Settings → Profile → Edit shall have an optional **Birthday** date (not in the future, not before 1900) with the note "Only the LUMA team se | TC-SET-025 |
+| FR-SET-024 | Should | Settings → Account and data → **Your devices** shall open a popup listing every phone and computer signed in to the account: an icon, a name such as "iPhone · LUMA app" or "Mac · Chrome", when it was last active and when it first signed in, with the current one tagged "This device". Each device shall register itself when LUMA opens and again every 6 hours while open; logging out removes that device, and "Sign out other devices" (inside the popup) removes the rest. A person shall only see their own devices. Single devices can not be signed out one by one. | TC-SET-026 |
 | FR-PLN-001 | Must | New accounts shall start on Dawn; the plan values are dawn, glow, zenith; at migration 033 every account that already existed was moved to Z | TC-PLN-001 |
 | FR-PLN-002 | Must | A signed-in person shall not be able to set or change their own plan, plan end date or deactivation; only an administrator function or the s | TC-PLN-002 |
 | FR-PLN-003 | Must | The limits shall live in `luma.plan_limits` (empty value = unlimited), readable by every signed-in person and changeable only by an administ | TC-SET-007, TC-SET-009, TC-PLN-003, TC-PLN-006, TC-PLN-008, TC-PLN-030, TC-SUP-005, TC-ADM-017 |

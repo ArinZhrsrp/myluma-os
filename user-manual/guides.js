@@ -677,7 +677,7 @@ window.LUMA_GUIDES = [
       "Open Reminders to review built-in reminder categories and times.",
       "Choose Background and Theme to personalise the app within your plan’s options.",
       "Select your plan name to compare plans and add-ons or start a renewal request.",
-      "Open Account & data to export records, request a password reset or sign out other devices."
+      "Open Account & data to export records, request a password reset or see every device signed in to your account and sign out the others."
     ],
     "tips": [
       "Plan and add-on requests open WhatsApp. Send the message to arrange the change; selecting a plan does not complete an online payment.",
