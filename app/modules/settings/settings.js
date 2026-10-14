@@ -29,8 +29,7 @@
             <div class="setting-row" id="installRow"><div class="sr-main"><div class="sr-t">Install LUMA</div><div class="sr-s" id="installSub"></div></div><button type="button" class="np-btn" id="installBtn"><i class="fa-solid fa-mobile-screen-button"></i> Install</button></div>
             <div class="setting-row"><div class="sr-main"><div class="sr-t">Change password</div><div class="sr-s">We'll email you a link to set a new one</div></div><button type="button" class="np-btn" id="acctPw">Send link</button></div>
             <div class="setting-row"><div class="sr-main"><div class="sr-t">Export my data</div><div class="sr-s">Download your tasks, events, notes, habits, goals, bills, money, reminders and study data as a file</div></div><button type="button" class="np-btn" id="acctExport">Export</button></div>
-            <div class="setting-row"><div class="sr-main"><div class="sr-t">Your devices</div><div class="sr-s">See every phone and computer signed in to this account</div></div><button type="button" class="np-btn" id="acctDevices">View</button></div>
-            <div class="setting-row"><div class="sr-main"><div class="sr-t">Sign out other devices</div><div class="sr-s">Log out everywhere except this device</div></div><button type="button" class="np-btn" id="acctOthers">Sign out</button></div>
+            <div class="setting-row"><div class="sr-main"><div class="sr-t">Your devices</div><div class="sr-s">See where you're signed in, and sign out everywhere else</div></div><button type="button" class="np-btn" id="acctDevices">View</button></div>
             <div class="setting-row"><div class="sr-main"><div class="sr-t" style="color:#fca5a5">Delete my account</div><div class="sr-s">Permanently remove your account and everything in it</div></div><button type="button" class="np-btn acct-del" id="acctDelete"><i class="fa-regular fa-trash-can"></i> Delete…</button></div>`)}
         </div>
         <div class="card full-width" style="margin-top:0.9rem" id="planCard">
@@ -296,9 +295,9 @@
           const { error } = await LumaAuth.sendPasswordReset(lumaEmail()); b.disabled = false;
           error ? acctMsg(false, error.message) : acctMsg(true, 'Check your email, ' + lumaEmail() + ', for the link to set a new password.');
         };
-        pg.querySelector('#acctOthers').onclick = async e => {
+        const signOutOthers = async b => {
           if (!await luConfirm({ title: 'Sign out other devices?', message: 'Every other phone or computer signed in to LUMA will be logged out. You stay signed in here.', ok: 'Sign out others', icon: 'fa-arrow-right-from-bracket', tone: 'info' })) return;
-          const b = e.currentTarget; b.disabled = true; acctMsg(true, '');
+          b.disabled = true; acctMsg(true, '');
           const { error } = await LumaAuth.client.auth.signOut({ scope: 'others' }); b.disabled = false;
           if (error) acctMsg(false, error.message); else { await LumaDevices.forgetOthers(); acctMsg(true, 'Signed out of your other devices.'); }
         };
@@ -306,7 +305,7 @@
         pg.querySelector('#acctDevices').onclick = () => { devOv.classList.add('open'); LumaDevices.paint(document.getElementById('acctDevList')); };
         document.getElementById('acctDevClose').onclick = () => devOv.classList.remove('open');
         devOv.onclick = e => { if (e.target === devOv) devOv.classList.remove('open'); };
-        document.getElementById('acctDevOthers').onclick = () => { devOv.classList.remove('open'); pg.querySelector('#acctOthers').click(); };
+        document.getElementById('acctDevOthers').onclick = () => { devOv.classList.remove('open'); signOutOthers(pg.querySelector('#acctDevices')); };
         // delete my account: the person types their email; the `account` function removes the data, files and sign-in
         const delOv = document.getElementById('acctDelOverlay'), delIn = document.getElementById('acctDelEmail'), delGo = document.getElementById('acctDelGo'), delErr = document.getElementById('acctDelError');
         const delCheck = () => { delGo.disabled = delIn.value.trim().toLowerCase() !== String(lumaEmail()).toLowerCase(); };
